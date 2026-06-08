@@ -142,6 +142,50 @@ async function ensureActiveGenre(projectId: string): Promise<Genre> {
   return genre
 }
 
+// --- focus text + genre management (the context switcher) -----------------
+
+export async function setActiveFocusText(projectId: string, id: string): Promise<void> {
+  await setMeta(activeFocusTextKey(projectId), id)
+}
+
+export async function setActiveGenre(projectId: string, id: string): Promise<void> {
+  await setMeta(activeGenreKey(projectId), id)
+}
+
+export async function createFocusText(projectId: string, reference: string): Promise<FocusText> {
+  const focusText: FocusText = {
+    id: uid(),
+    project_id: projectId,
+    reference: reference.trim() || 'Untitled focus text',
+    created_at: now(),
+  }
+  await db.focusTexts.put(focusText)
+  await setActiveFocusText(projectId, focusText.id)
+  return focusText
+}
+
+export async function createGenre(projectId: string, name: string): Promise<Genre> {
+  const genre: Genre = {
+    id: uid(),
+    project_id: projectId,
+    name: name.trim() || 'Untitled genre',
+    is_sensitive: false,
+    created_at: now(),
+    updated_at: now(),
+  }
+  await db.genres.put(genre)
+  await setActiveGenre(projectId, genre.id)
+  return genre
+}
+
+export async function renameFocusText(id: string, reference: string): Promise<void> {
+  await db.focusTexts.update(id, { reference: reference.trim() || 'Untitled focus text' })
+}
+
+export async function renameGenre(id: string, name: string): Promise<void> {
+  await db.genres.update(id, { name: name.trim() || 'Untitled genre', updated_at: now() })
+}
+
 async function ensureActiveWorksheet(
   projectId: string,
   focusTextId: string,

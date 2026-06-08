@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { NavShell } from './NavShell'
+import { ContextBar } from './ContextBar'
 
 /**
  * App shell: a persistent sidebar on wide screens, a slide-over drawer on mobile.
@@ -25,6 +26,9 @@ export function Layout() {
         <Link to="/" className="font-semibold">
           Local Genres Research
         </Link>
+        <div className="ml-auto min-w-0">
+          <ContextBar />
+        </div>
       </header>
 
       <div className="flex flex-1">
