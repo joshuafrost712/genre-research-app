@@ -6,10 +6,9 @@ culturally relevant genre, studying it with enough depth to translate well, and
 carrying that study into a faithful translation of a focus text. The AI layer
 (added later) proposes and prompts but never decides, so the team keeps ownership.
 
-This is the **build-order step 1 scaffold**: Vite + React + TypeScript + Tailwind
-+ PWA + Dexie, the worksheet-config loader, and a navigation shell with three-tap
-access and reliable resume. The block renderer, capture, export, and the AI broker
-come in later steps. `genre-research-app` is a working name, renamable.
+Build-order steps 1–6 are done (the offline core). The AI broker (step 7) and
+Google Sheets export are deferred because they need external secrets / OAuth
+config. `genre-research-app` is a working name, renamable.
 
 The canonical plan lives in the Obsidian vault at
 `Projects/AI Projects/Local Genres Research App - MVP Plan.md`.
@@ -18,16 +17,32 @@ The canonical plan lives in the Obsidian vault at
 
 - **Worksheet as data.** The whole worksheet (sections, subsections, prompts,
   tables, depth tags) is bundled JSON at `src/content/guide-content.json`; the app
-  renders over it. A small representative slice is seeded.
-- **Three-tap navigation.** A persistent sidebar (a slide-over drawer on mobile)
-  reaches any subsection in at most three taps. Section 2 and Section 3 are
-  reachable in either order.
-- **Depth modes.** Quick / Standard / Comprehensive filter the visible
-  subsections, columns, and prompts. This is the anti-overwhelm mechanism.
-- **Resume.** The last subsection opened is stored per project and offered on the
-  home screen.
+  renders over it. A representative slice (Sections 0, 1A, 1B, 2A, 3A) is seeded.
+- **Full block renderer.** Real inputs for short/long text (debounced autosave),
+  single/multi-select, three-point scale, repeatable list, repeatable-row table,
+  fixed grid, group, and prose — all autosaving to IndexedDB.
+- **Three-tap navigation + two ways through.** A persistent sidebar (slide-over
+  drawer on mobile) reaches any subsection in three taps; a guided wizard walks
+  one question at a time. Sections 2 and 3 are reachable in either order.
+- **Depth modes.** Quick / Standard / Comprehensive filter visible subsections,
+  columns, and prompts. The anti-overwhelm mechanism.
+- **Progress, not-applicable, priorities.** Answered-vs-visible progress overall
+  and per subsection; a per-block N/A toggle (a recorded decision, not a blank);
+  priority stars on feature rows feeding a "Your priorities" page.
+- **Capture + routing.** Dictate an observation (Wispr / native dictation into
+  the field), save it as an immutable note, then route it to one or more
+  worksheet nodes; provenance is kept.
+- **Genres & focus texts.** Create / rename / switch focus texts and genres; the
+  worksheet re-points to the active pairing. Genre analysis is reusable.
+- **Export.** Long-format CSV and an AI-synthesis prompt, fully offline.
 - **Local-first.** Dexie/IndexedDB is the source of truth. The app runs fully
   offline; no account or backend is required.
+
+## Testing
+
+```bash
+npm test           # vitest: core CRUD, routing, progress, and export logic
+```
 
 ## Tech
 
@@ -62,13 +77,13 @@ src/
   pages/                       Dashboard, WorksheetView (placeholder renderer)
 ```
 
-## Next build steps
+## Remaining build steps
 
-2. Worksheet renderer: real inputs for every block type, CRUD on Entries.
-3. Depth/review UX: progress vs visible set, not-applicable, priority stars,
-   wizard vs section/review views.
-4. Capture and manual routing of a dictated note to one or more nodes.
-5. Genre bank (1B comparison) and Section 0 synthesis screens.
-6. Export: CSV + AI-synthesis prompt, then Google Sheets matching Katie's layout.
-7. AI broker (Supabase Edge Function): routing, synthesis, concern prompts.
-8. Field-readiness pass and Bali rehearsal.
+- Google Sheets export (tab per section, matching Katie's layout) via client-side
+  GIS `drive.file`. Needs a Google OAuth client id.
+- AI broker (Supabase Edge Function): AI-proposed routing with a needs-review
+  flow, AI-proposed distinctive features for synthesis, and question-form concern
+  prompts. Needs the Supabase project + Claude key.
+- 1B genre-comparison grid (each 1B row as a first-class genre across genres) and
+  the Section 0 synthesis screens, building on the genre/focus-text model.
+- Field-readiness pass and Bali rehearsal.
