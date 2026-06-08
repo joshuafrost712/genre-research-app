@@ -90,6 +90,39 @@ export function navOrder(): string[] {
   return order
 }
 
+/** Text-routable target nodes for capture (a dictated note can land on these). */
+const ROUTABLE_TYPES = new Set([
+  'short_text',
+  'long_text',
+  'repeatable_list',
+  'repeatable_row_table',
+])
+
+export interface RoutableNode {
+  node: GuideNode
+  sectionLabel: string
+  subId: string
+  subLabel: string
+}
+
+export function routableNodes(): RoutableNode[] {
+  const out: RoutableNode[] = []
+  for (const { section, subsections } of navTree()) {
+    for (const sub of subsections) {
+      const recurse = (n: GuideNode) => {
+        for (const child of n.children ?? []) {
+          if (child.type === 'group') recurse(child)
+          else if (ROUTABLE_TYPES.has(child.type)) {
+            out.push({ node: child, sectionLabel: section.label, subId: sub.id, subLabel: sub.label })
+          }
+        }
+      }
+      recurse(sub)
+    }
+  }
+  return out
+}
+
 export function nextNavId(currentId: string | null): string | null {
   const order = navOrder()
   if (!order.length) return null
