@@ -1,0 +1,215 @@
+{
+  "version": "0.1.0-slice",
+  "title": "Local Genres Research for Psalms Translation",
+  "sections": [
+    {
+      "id": "s0",
+      "type": "group",
+      "label": "Section 0: The Psalm",
+      "guidance": "Complete only Psalm Purpose before moving to Section 1. Return here throughout to summarize what you learn.",
+      "children": [
+        {
+          "id": "s0.purpose",
+          "type": "group",
+          "label": "Psalm Purpose",
+          "layer": "focusText",
+          "minDepth": "quick",
+          "children": [
+            {
+              "id": "s0.purpose.specific",
+              "type": "long_text",
+              "label": "Specific purpose of the psalm (some idea of specific content)",
+              "layer": "focusText",
+              "minDepth": "quick"
+            },
+            {
+              "id": "s0.purpose.general",
+              "type": "short_text",
+              "label": "General purpose (the primary speech act: to teach, to encourage, to mourn, etc.)",
+              "layer": "focusText",
+              "minDepth": "quick"
+            },
+            {
+              "id": "s0.purpose.broad_genre",
+              "type": "single_select",
+              "label": "Broad biblical genre",
+              "layer": "focusText",
+              "minDepth": "quick",
+              "options": [
+                { "id": "wisdom", "label": "Wisdom" },
+                { "id": "lament", "label": "Lament" },
+                { "id": "praise", "label": "Praise" },
+                { "id": "thanksgiving", "label": "Thanksgiving" },
+                { "id": "royal", "label": "Royal" },
+                { "id": "other", "label": "Other" }
+              ]
+            },
+            {
+              "id": "s0.purpose.intended_use",
+              "type": "long_text",
+              "label": "How is the translation intended to be used? Singing, listening, reading, passive participation, active participation, etc.?",
+              "layer": "focusText",
+              "minDepth": "quick"
+            }
+          ]
+        },
+        {
+          "id": "s0.genre_choice",
+          "type": "group",
+          "label": "Psalm Genre Choice",
+          "layer": "synthesis",
+          "minDepth": "quick",
+          "guidance": "Use your 1B chart to identify up to 3 workable genres. Note any potential concerns.",
+          "children": [
+            {
+              "id": "s0.genre_choice.candidates",
+              "type": "repeatable_list",
+              "label": "Candidate genres for this psalm (note why each works and any concerns)",
+              "layer": "synthesis",
+              "minDepth": "quick",
+              "xref": [{ "to": "s1b.inventory", "relation": "derivedFrom", "label": "from 1B chart" }]
+            },
+            {
+              "id": "s0.genre_choice.chosen",
+              "type": "short_text",
+              "label": "Which genre will the team pursue analyzing for this psalm?",
+              "layer": "synthesis",
+              "minDepth": "quick"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s1",
+      "type": "group",
+      "label": "Section 1: Ethnographic Analysis of Genres",
+      "children": [
+        {
+          "id": "s1a",
+          "type": "group",
+          "label": "1A: Finding Genres",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s1a.intro",
+              "type": "prose",
+              "label": "List communication forms (genres) in the culture. They must be understood, appreciated, creatable, and feasible for members of the culture to use in the intended manner."
+            },
+            {
+              "id": "s1a.inventory",
+              "type": "repeatable_list",
+              "label": "Genres identified so far (add each as you find it)",
+              "layer": "genre",
+              "minDepth": "quick"
+            }
+          ]
+        },
+        {
+          "id": "s1b",
+          "type": "group",
+          "label": "1B: Genre Social Features",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s1b.inventory",
+              "type": "repeatable_row_table",
+              "label": "Genre social-feature inventory",
+              "layer": "genre",
+              "minDepth": "quick",
+              "guidance": "Each row is a genre reused across psalms. Quick mode shows Genre + Who + Vitality; more columns appear at greater depth.",
+              "columns": [
+                { "id": "genreName", "label": "Genre", "cellType": "short_text", "minDepth": "quick" },
+                { "id": "who", "label": "Who is involved", "cellType": "long_text", "minDepth": "quick" },
+                { "id": "when", "label": "When performed", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "where", "label": "Where performed", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "materials", "label": "Materials", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "content", "label": "Content", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "associations", "label": "Associations", "cellType": "long_text", "minDepth": "comprehensive" },
+                {
+                  "id": "vitality",
+                  "label": "Vitality",
+                  "cellType": "single_select",
+                  "minDepth": "quick",
+                  "options": [
+                    { "id": "weak", "label": "Weak" },
+                    { "id": "neutral", "label": "Neutral" },
+                    { "id": "strong", "label": "Strong" }
+                  ]
+                },
+                { "id": "other", "label": "Other notes", "cellType": "long_text", "minDepth": "comprehensive" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "type": "group",
+      "label": "Section 2: Macro-Level Analysis",
+      "children": [
+        {
+          "id": "s2a",
+          "type": "group",
+          "label": "2A: Prominence in this Genre",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s2a.how",
+              "type": "long_text",
+              "label": "How does this genre generally highlight the most prominent material? (position, repetition, contrast, the unexpected, clustering of features, intensity of emotion, density of theme, other)",
+              "layer": "genre",
+              "minDepth": "quick"
+            },
+            {
+              "id": "s2a.climax",
+              "type": "long_text",
+              "label": "Which features tend to mark the climax of the genre?",
+              "layer": "genre",
+              "minDepth": "standard"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "type": "group",
+      "label": "Section 3: Stylistic Elements Analysis",
+      "children": [
+        {
+          "id": "s3a",
+          "type": "group",
+          "label": "3A: Word Use in this Genre",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s3a.features",
+              "type": "repeatable_row_table",
+              "label": "Distinctive word-use features (mark your top 1 to 2 to carry into translation)",
+              "layer": "genre",
+              "minDepth": "quick",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                { "id": "feature", "label": "Feature observation", "cellType": "long_text", "minDepth": "quick" },
+                {
+                  "id": "modality",
+                  "label": "Possible / Expected / Required",
+                  "cellType": "single_select",
+                  "minDepth": "standard",
+                  "options": [
+                    { "id": "possible", "label": "Possible" },
+                    { "id": "expected", "label": "Expected" },
+                    { "id": "required", "label": "Required" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

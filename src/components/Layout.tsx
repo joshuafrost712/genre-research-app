@@ -1,0 +1,56 @@
+import { useState } from 'react'
+import { Link, Outlet } from 'react-router-dom'
+import { NavShell } from './NavShell'
+
+/**
+ * App shell: a persistent sidebar on wide screens, a slide-over drawer on mobile.
+ * The drawer keeps "open menu -> section -> subsection" to three taps on a phone.
+ */
+export function Layout() {
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  return (
+    <div className="flex min-h-dvh flex-col bg-gray-50 text-gray-900">
+      <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
+        <button
+          type="button"
+          className="rounded p-2 hover:bg-gray-100 lg:hidden"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open menu"
+        >
+          <span className="block h-0.5 w-5 bg-gray-700" />
+          <span className="mt-1 block h-0.5 w-5 bg-gray-700" />
+          <span className="mt-1 block h-0.5 w-5 bg-gray-700" />
+        </button>
+        <Link to="/" className="font-semibold">
+          Local Genres Research
+        </Link>
+      </header>
+
+      <div className="flex flex-1">
+        <aside className="hidden w-72 shrink-0 border-r border-gray-200 bg-white lg:block">
+          <NavShell />
+        </aside>
+
+        {drawerOpen && (
+          <div className="fixed inset-0 z-20 lg:hidden">
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setDrawerOpen(false)}
+              aria-hidden
+            />
+            <div className="absolute inset-y-0 left-0 w-72 overflow-y-auto bg-white shadow-xl">
+              <NavShell onNavigate={() => setDrawerOpen(false)} />
+            </div>
+          </div>
+        )}
+
+        <main className="flex-1 px-4 py-6 lg:px-8">
+          <div className="mx-auto max-w-3xl">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Local Genres Research">
+  <rect width="512" height="512" rx="96" fill="#1f2937"/>
+  <g fill="none" stroke="#f9fafb" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M150 132 h150 a40 40 0 0 1 40 40 v208 a40 40 0 0 0 -40 -40 h-150 z"/>
+    <path d="M362 132 h-12 a40 40 0 0 0 -40 40 v168"/>
+    <path d="M188 196 h96 M188 244 h96 M188 292 h60"/>
+  </g>
+  <circle cx="372" cy="372" r="46" fill="#f9fafb"/>
+  <path d="M404 404 l40 40" stroke="#1f2937" stroke-width="26" stroke-linecap="round"/>
+</svg>
