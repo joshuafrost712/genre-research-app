@@ -185,3 +185,49 @@ export function useRowIds(ctx: ActiveContext | null, nodeId: string, layer: Laye
     [ctx?.projectId, containerKeyDep(ctx, layer), nodeId],
   )
 }
+
+// --- flags (priority, not-applicable) -------------------------------------
+
+/**
+ * Toggle a block-level flag (not-applicable on a scalar block). Stored on the
+ * block's own entry (cell_key undefined). Marking not-applicable makes "ignore
+ * what is irrelevant" a recorded decision rather than a silent blank.
+ */
+export async function setBlockNotApplicable(
+  ctx: ActiveContext,
+  nodeId: string,
+  layer: Layer,
+  value: boolean,
+): Promise<void> {
+  await upsertEntry(ctx, nodeId, layer, { is_not_applicable: value })
+}
+
+/**
+ * Toggle a row-level priority flag for a repeatable table/list row, stored on the
+ * row-level entry (cell_key = rowId). Table cells live at rowId__colId, so the
+ * rowId entry is free to carry row flags.
+ */
+export async function setRowPriority(
+  ctx: ActiveContext,
+  nodeId: string,
+  layer: Layer,
+  rowId: string,
+  value: boolean,
+): Promise<void> {
+  await upsertEntry(ctx, nodeId, layer, { is_priority: value }, rowId)
+}
+
+/** All entries for the active project (for progress and export). */
+export function useAllEntries(ctx: ActiveContext | null): Entry[] | undefined {
+  return useLiveQuery(
+    async () => (ctx ? await db.entries.where('project_id').equals(ctx.projectId).toArray() : []),
+    [ctx?.projectId],
+  )
+}
+
+/** Container id an entry belongs to for a given layer (for filtering in JS). */
+export function entryContainerId(layer: Layer, ctx: ActiveContext): string {
+  return containerId(layer, ctx)
+}
+
+export { ROWS_KEY }

@@ -1,27 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { findNode, nextNavId } from '../lib/content/loader'
-import { ensureActiveContext, setLastNode, type ActiveContext } from '../lib/storage/appState'
+import { setLastNode } from '../lib/storage/appState'
 import { visibleAtDepth } from '../schema/types'
 import { useDepthMode } from '../components/DepthModeContext'
+import { useActiveContext } from '../components/ActiveContextProvider'
+import { useProgress } from '../components/useProgress'
 import { BlockRenderer } from '../components/blocks/BlockRenderer'
 
 /**
- * Renders one subsection: its visible child blocks wired to autosaving Entries.
- * Also owns navigation concerns: depth filtering, the resume cursor, and the
- * recommended next step.
+ * Renders one subsection: its visible child blocks wired to autosaving Entries,
+ * plus navigation concerns (depth filtering, resume cursor, recommended next).
  */
 export function WorksheetView() {
   const { nodeId } = useParams()
   const { mode } = useDepthMode()
-  const [ctx, setCtx] = useState<ActiveContext | null>(null)
+  const { ctx } = useActiveContext()
+  const progress = useProgress()
   const ref = nodeId ? findNode(nodeId) : undefined
 
-  useEffect(() => {
-    ensureActiveContext().then(setCtx)
-  }, [])
-
-  // Persist the resume cursor whenever a subsection is opened.
   useEffect(() => {
     if (ctx && nodeId) setLastNode(ctx.projectId, nodeId)
   }, [ctx, nodeId])
@@ -42,6 +39,7 @@ export function WorksheetView() {
   const children = (node.children ?? []).filter((c) => visibleAtDepth(c, mode))
   const nextId = nextNavId(node.id)
   const next = nextId ? findNode(nextId) : undefined
+  const subProgress = progress?.bySubsection[node.id]
 
   return (
     <div className="flex flex-col gap-6">
@@ -51,7 +49,14 @@ export function WorksheetView() {
             {sectionLabel}
           </p>
         )}
-        <h1 className="mt-1 text-2xl font-semibold">{node.label}</h1>
+        <div className="mt-1 flex items-baseline justify-between gap-3">
+          <h1 className="text-2xl font-semibold">{node.label}</h1>
+          {subProgress && subProgress.total > 0 && (
+            <span className="shrink-0 text-xs text-gray-500">
+              {subProgress.done}/{subProgress.total} answered
+            </span>
+          )}
+        </div>
         {node.guidance && (
           <p className="mt-2 rounded-md bg-sky-50 p-3 text-sm text-sky-900">{node.guidance}</p>
         )}

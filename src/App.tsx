@@ -1,8 +1,14 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { DepthModeProvider } from './components/DepthModeContext'
+import { ActiveContextProvider } from './components/ActiveContextProvider'
 import { Dashboard } from './pages/Dashboard'
 import { WorksheetView } from './pages/WorksheetView'
+import { Wizard } from './pages/Wizard'
+import { Priorities } from './pages/Priorities'
+import { Capture } from './pages/Capture'
+import { GenreBank } from './pages/GenreBank'
+import { ExportView } from './pages/ExportView'
 
 const router = createBrowserRouter([
   {
@@ -11,6 +17,11 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'worksheet/:nodeId', element: <WorksheetView /> },
+      { path: 'wizard', element: <Wizard /> },
+      { path: 'priorities', element: <Priorities /> },
+      { path: 'capture', element: <Capture /> },
+      { path: 'genres', element: <GenreBank /> },
+      { path: 'export', element: <ExportView /> },
     ],
   },
 ])
@@ -18,7 +29,9 @@ const router = createBrowserRouter([
 export default function App() {
   return (
     <DepthModeProvider>
-      <RouterProvider router={router} />
+      <ActiveContextProvider>
+        <RouterProvider router={router} />
+      </ActiveContextProvider>
     </DepthModeProvider>
   )
 }

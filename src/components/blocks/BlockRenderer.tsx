@@ -4,6 +4,8 @@ import type { ActiveContext } from '../../lib/storage/appState'
 import {
   addRow,
   removeRow,
+  setBlockNotApplicable,
+  setRowPriority,
   upsertEntry,
   useEntry,
   useRowIds,
@@ -23,6 +25,14 @@ const SCALE_FALLBACK = [
   { id: 'neutral', label: 'Neutral' },
   { id: 'strong', label: 'Strong' },
 ]
+
+const SCALAR_TYPES = new Set([
+  'short_text',
+  'long_text',
+  'single_select',
+  'multi_select',
+  'three_point_scale',
+])
 
 /** Dispatches a worksheet node to the right input, recursing through groups. */
 export function BlockRenderer({
@@ -61,10 +71,14 @@ export function BlockRenderer({
     )
   }
 
+  if (SCALAR_TYPES.has(node.type)) {
+    return <ScalarField ctx={ctx} node={node} layer={layer} />
+  }
+
   return (
     <div className="flex flex-col gap-1.5">
       <FieldLabel node={node} />
-      <FieldInput ctx={ctx} node={node} layer={layer} mode={mode} />
+      <CollectionInput ctx={ctx} node={node} layer={layer} mode={mode} />
     </div>
   )
 }
@@ -78,17 +92,34 @@ function FieldLabel({ node }: { node: GuideNode }) {
   )
 }
 
-function FieldInput({
-  ctx,
-  node,
-  layer,
-  mode,
-}: {
-  ctx: ActiveContext
-  node: GuideNode
-  layer: Layer
-  mode: DepthMode
-}) {
+/** A scalar field with a not-applicable toggle. */
+function ScalarField({ ctx, node, layer }: BlockProps) {
+  const entry = useEntry(ctx, node.id, layer)
+  const na = !!entry?.is_not_applicable
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-start justify-between gap-2">
+        <FieldLabel node={node} />
+        <button
+          type="button"
+          onClick={() => setBlockNotApplicable(ctx, node.id, layer, !na)}
+          className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-medium ${
+            na ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          N/A
+        </button>
+      </div>
+      {na ? (
+        <p className="text-xs italic text-gray-400">Marked not applicable.</p>
+      ) : (
+        <ScalarInput ctx={ctx} node={node} layer={layer} />
+      )}
+    </div>
+  )
+}
+
+function ScalarInput({ ctx, node, layer }: BlockProps) {
   switch (node.type) {
     case 'short_text':
     case 'long_text':
@@ -99,6 +130,18 @@ function FieldInput({
       return <MultiSelect ctx={ctx} node={node} layer={layer} />
     case 'three_point_scale':
       return <Scale ctx={ctx} node={node} layer={layer} />
+    default:
+      return null
+  }
+}
+
+function CollectionInput({
+  ctx,
+  node,
+  layer,
+  mode,
+}: BlockProps & { mode: DepthMode }) {
+  switch (node.type) {
     case 'repeatable_list':
       return <RepeatableList ctx={ctx} node={node} layer={layer} />
     case 'repeatable_row_table':
@@ -147,9 +190,7 @@ function MultiSelect({ ctx, node, layer }: BlockProps) {
   const entry = useEntry(ctx, node.id, layer)
   const selected = parseArray(entry?.value)
   const toggle = (id: string) => {
-    const next = selected.includes(id)
-      ? selected.filter((x) => x !== id)
-      : [...selected, id]
+    const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]
     upsertEntry(ctx, node.id, layer, { value: JSON.stringify(next) })
   }
   return (
@@ -201,6 +242,9 @@ function RepeatableList({ ctx, node, layer }: BlockProps) {
     <div className="flex flex-col gap-2">
       {rowIds.map((rowId) => (
         <div key={rowId} className="flex items-start gap-2">
+          {node.priorityEligible && (
+            <PriorityStar ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
+          )}
           <div className="flex-1">
             <CellInput
               ctx={ctx}
@@ -223,13 +267,16 @@ function RepeatableTable({ ctx, node, layer, mode }: BlockProps & { mode: DepthM
   const cols = (node.columns ?? []).filter((c) => depthVisible(c.minDepth, mode))
   return (
     <div className="flex flex-col gap-3">
-      {rowIds.length === 0 && (
-        <p className="text-xs text-gray-400">No rows yet.</p>
-      )}
+      {rowIds.length === 0 && <p className="text-xs text-gray-400">No rows yet.</p>}
       {rowIds.map((rowId, i) => (
         <div key={rowId} className="rounded-lg border border-gray-200 bg-white p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-400">Row {i + 1}</span>
+            <div className="flex items-center gap-2">
+              {node.priorityEligible && (
+                <PriorityStar ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
+              )}
+              <span className="text-xs font-medium text-gray-400">Row {i + 1}</span>
+            </div>
             <RemoveButton onClick={() => removeRow(ctx, node.id, layer, rowId)} />
           </div>
           <div className="flex flex-col gap-2">
@@ -249,6 +296,9 @@ function RepeatableTable({ ctx, node, layer, mode }: BlockProps & { mode: DepthM
           </div>
         </div>
       ))}
+      {node.priorityEligible && node.priorityMax != null && (
+        <p className="text-[11px] text-gray-400">Mark your top {node.priorityMax} with the star.</p>
+      )}
       <AddButton label="Add row" onClick={() => addRow(ctx, node.id, layer)} />
     </div>
   )
@@ -280,6 +330,31 @@ function FixedGrid({ ctx, node, layer, mode }: BlockProps & { mode: DepthMode })
         </div>
       ))}
     </div>
+  )
+}
+
+function PriorityStar({
+  ctx,
+  nodeId,
+  layer,
+  rowId,
+}: {
+  ctx: ActiveContext
+  nodeId: string
+  layer: Layer
+  rowId: string
+}) {
+  const entry = useEntry(ctx, nodeId, layer, rowId)
+  const on = !!entry?.is_priority
+  return (
+    <button
+      type="button"
+      aria-label={on ? 'Unmark priority' : 'Mark priority'}
+      onClick={() => setRowPriority(ctx, nodeId, layer, rowId, !on)}
+      className={`text-lg leading-none ${on ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
+    >
+      {on ? '★' : '☆'}
+    </button>
   )
 }
 
