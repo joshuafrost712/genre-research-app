@@ -49,6 +49,22 @@ export function findNode(id: string): NodeRef | undefined {
 }
 
 /**
+ * The container layer for a node: its own `layer`, or the nearest ancestor's.
+ * Answerable leaf blocks usually declare their own layer, but inheritance keeps
+ * the model robust if Katie tags only the subsection.
+ */
+export function effectiveLayer(id: string): import('../../schema/types').Layer | undefined {
+  const ref = nodeIndex().get(id)
+  if (!ref) return undefined
+  if (ref.node.layer) return ref.node.layer
+  for (let i = ref.parents.length - 1; i >= 0; i--) {
+    const l = ref.parents[i].layer
+    if (l) return l
+  }
+  return undefined
+}
+
+/**
  * Navigable nodes: the subsection-level groups a user taps to (top-level section
  * -> its direct group children). These are the routing targets that keep any
  * subsection within three taps (menu -> section -> subsection).

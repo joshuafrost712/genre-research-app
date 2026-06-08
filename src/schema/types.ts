@@ -105,8 +105,12 @@ export interface GuideContent {
   sections: GuideNode[]
 }
 
+/** True if something tagged at `minDepth` is visible at the current mode. */
+export function depthVisible(minDepth: DepthMode | undefined, mode: DepthMode): boolean {
+  return DEPTH_RANK[minDepth ?? 'quick'] <= DEPTH_RANK[mode]
+}
+
 /** True if a node is visible at the given depth mode. */
 export function visibleAtDepth(node: GuideNode, mode: DepthMode): boolean {
-  const need = DEPTH_RANK[node.minDepth ?? 'quick']
-  return need <= DEPTH_RANK[mode]
+  return depthVisible(node.minDepth, mode)
 }
