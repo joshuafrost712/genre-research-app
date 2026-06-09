@@ -19,6 +19,16 @@ import type { ActiveContext } from './appState'
 import type { Entry, RoutingStatus } from '../types'
 import type { Layer } from '../../schema/types'
 
+function parseIdArray(value?: string): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? (parsed as string[]) : []
+  } catch {
+    return []
+  }
+}
+
 const ROWS_KEY = '__rows'
 
 type ContainerPatch = Pick<Entry, 'genre_id' | 'focus_text_id' | 'worksheet_id'>
@@ -228,6 +238,52 @@ export function useAllEntries(ctx: ActiveContext | null): Entry[] | undefined {
 /** Container id an entry belongs to for a given layer (for filtering in JS). */
 export function entryContainerId(layer: Layer, ctx: ActiveContext): string {
   return containerId(layer, ctx)
+}
+
+// --- AI-proposed (needs_review) entries -----------------------------------
+
+/** Live list of AI-proposed entries awaiting human confirmation. */
+export function useNeedsReview(ctx: ActiveContext | null): Entry[] | undefined {
+  return useLiveQuery(async () => {
+    if (!ctx) return []
+    const rows = await db.entries.where('project_id').equals(ctx.projectId).toArray()
+    return rows
+      .filter((e) => e.routing_status === 'needs_review')
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }, [ctx?.projectId])
+}
+
+/** Accept a proposal: optionally edit the text, then mark it confirmed. */
+export async function confirmEntry(id: string, text?: string): Promise<void> {
+  const patch: Partial<Entry> = { routing_status: 'confirmed', updated_at: now() }
+  if (text !== undefined) patch.text = text
+  await db.entries.update(id, patch)
+}
+
+/**
+ * Discard a proposal. For a table/list row this removes the whole row (its cells
+ * plus the row id in the sidecar); for a scalar it deletes the entry. Operates on
+ * the entry's own container, so it is correct regardless of the active context.
+ */
+export async function discardProposal(entry: Entry): Promise<void> {
+  if (!entry.cell_key || entry.cell_key === ROWS_KEY) {
+    await db.entries.delete(entry.id)
+    return
+  }
+  const rowId = entry.cell_key.split('__')[0]
+  const cid = entry.genre_id ?? entry.focus_text_id ?? entry.worksheet_id ?? ''
+  const siblings = await db.entries.where('node_id').equals(entry.node_id).toArray()
+  const inContainer = (e: Entry) =>
+    (e.genre_id ?? e.focus_text_id ?? e.worksheet_id ?? '') === cid
+  const rowCells = siblings.filter(
+    (e) => inContainer(e) && e.cell_key && (e.cell_key === rowId || e.cell_key.startsWith(`${rowId}__`)),
+  )
+  await db.entries.bulkDelete(rowCells.map((e) => e.id))
+  const sidecar = siblings.find((e) => inContainer(e) && e.cell_key === ROWS_KEY)
+  if (sidecar) {
+    const remaining = parseIdArray(sidecar.value).filter((id) => id !== rowId)
+    await db.entries.update(sidecar.id, { value: JSON.stringify(remaining) })
+  }
 }
 
 export { ROWS_KEY }

@@ -9,6 +9,8 @@ import { Priorities } from './pages/Priorities'
 import { Capture } from './pages/Capture'
 import { GenreBank } from './pages/GenreBank'
 import { ExportView } from './pages/ExportView'
+import { Routing } from './pages/Routing'
+import { Review } from './pages/Review'
 
 const router = createBrowserRouter([
   {
@@ -21,6 +23,8 @@ const router = createBrowserRouter([
       { path: 'priorities', element: <Priorities /> },
       { path: 'capture', element: <Capture /> },
       { path: 'genres', element: <GenreBank /> },
+      { path: 'routing', element: <Routing /> },
+      { path: 'review', element: <Review /> },
       { path: 'export', element: <ExportView /> },
     ],
   },

@@ -26,6 +26,8 @@ const LAYER_BADGE: Record<string, string> = {
 const QUICK_LINKS = [
   { to: '/wizard', label: 'Guided wizard' },
   { to: '/capture', label: 'Capture a note' },
+  { to: '/routing', label: 'AI routing' },
+  { to: '/review', label: 'Review proposals' },
   { to: '/genres', label: 'Genres & focus texts' },
   { to: '/priorities', label: 'Your priorities' },
   { to: '/export', label: 'Export' },

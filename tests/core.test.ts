@@ -11,6 +11,9 @@ import {
   upsertEntry,
 } from '../src/lib/storage/entries'
 import { createCapturedNote, routeNoteToNode } from '../src/lib/storage/notes'
+import { confirmEntry, discardProposal } from '../src/lib/storage/entries'
+import { validatePlacement } from '../src/ai/contract'
+import { importPlacementsText } from '../src/routing/operations'
 import { computeProgress } from '../src/lib/progress'
 import { buildAiPrompt, buildRows, buildSheetTabs, toCsv } from '../src/lib/export'
 import { findNode } from '../src/lib/content/loader'
@@ -126,5 +129,58 @@ describe('Progress + export', () => {
     expect(s0.values[2]).toContain('Answer') // header is the third row
     // sheet titles stay within Google's 31-char limit
     expect(tabs.every((t) => t.title.length <= 31)).toBe(true)
+  })
+})
+
+describe('AI routing (GitHub / copy-paste, no API)', () => {
+  beforeEach(clearDb)
+
+  it('validates placements against known node ids', () => {
+    const ids = new Set(['s2a.how'])
+    expect(
+      validatePlacement(
+        { node_id: 's2a.how', text: 'x', confidence: 'high', needs_review: false, reason: 'r' },
+        ids,
+      ).ok,
+    ).toBe(true)
+    expect(
+      validatePlacement({ node_id: 'nope', text: 'x', confidence: 'high', needs_review: false, reason: '' }, ids).ok,
+    ).toBe(false)
+    expect(
+      validatePlacement({ node_id: 's2a.how', text: '', confidence: 'high', needs_review: true, reason: '' }, ids).ok,
+    ).toBe(false)
+  })
+
+  it('imports Claude placements as needs_review, then confirms and discards', async () => {
+    const ctx = await ensureActiveContext()
+    const reply = JSON.stringify({
+      results: [
+        {
+          schema: 'genre.placements/v1',
+          note_id: 'n1',
+          routed_at: 't',
+          placements: [
+            { node_id: 's2a.how', text: 'Highlights via refrain', confidence: 'high', needs_review: false, reason: 'prominence' },
+            { node_id: 's1a.inventory', text: 'Sung lament', confidence: 'medium', needs_review: true, reason: 'a genre' },
+            { node_id: 'not_a_node', text: 'x', confidence: 'low', needs_review: true, reason: 'bad' },
+          ],
+        },
+      ],
+    })
+    const r = await importPlacementsText(reply, ctx)
+    expect(r.stored).toBe(2)
+    expect(r.rejected).toBe(1) // unknown node id
+
+    const all = await db.entries.where('project_id').equals(ctx.projectId).toArray()
+    const needs = all.filter((e) => e.routing_status === 'needs_review')
+    expect(needs.length).toBe(2)
+
+    const scalar = needs.find((e) => e.node_id === 's2a.how')!
+    await confirmEntry(scalar.id)
+    expect((await db.entries.get(scalar.id))!.routing_status).toBe('confirmed')
+
+    const listItem = needs.find((e) => e.node_id === 's1a.inventory')!
+    await discardProposal(listItem)
+    expect(await db.entries.get(listItem.id)).toBeUndefined()
   })
 })
