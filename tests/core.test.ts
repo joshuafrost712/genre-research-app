@@ -12,7 +12,7 @@ import {
 } from '../src/lib/storage/entries'
 import { createCapturedNote, routeNoteToNode } from '../src/lib/storage/notes'
 import { computeProgress } from '../src/lib/progress'
-import { buildAiPrompt, buildRows, toCsv } from '../src/lib/export'
+import { buildAiPrompt, buildRows, buildSheetTabs, toCsv } from '../src/lib/export'
 import { findNode } from '../src/lib/content/loader'
 
 async function clearDb() {
@@ -118,5 +118,13 @@ describe('Progress + export', () => {
     const prompt = buildAiPrompt(rows, names)
     expect(prompt).toContain('Focus text: Psalm 13')
     expect(prompt).toContain('NOT APPLICABLE')
+
+    const tabs = buildSheetTabs(rows, names)
+    // a tab per section present in the rows, with a header row
+    expect(tabs.some((t) => t.title.startsWith('Section 0'))).toBe(true)
+    const s0 = tabs.find((t) => t.title.startsWith('Section 0'))!
+    expect(s0.values[2]).toContain('Answer') // header is the third row
+    // sheet titles stay within Google's 31-char limit
+    expect(tabs.every((t) => t.title.length <= 31)).toBe(true)
   })
 })

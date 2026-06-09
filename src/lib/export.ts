@@ -165,6 +165,49 @@ export function toCsv(rows: ExportRow[]): string {
   return [header, ...body].join('\n')
 }
 
+export interface SheetTab {
+  title: string
+  values: string[][]
+}
+
+/** Sheet name constraints: <=31 chars, no []*?/\ and no leading/trailing quote. */
+function sheetTitle(label: string): string {
+  return label.replace(/[[\]*?/\\]/g, ' ').replace(/^'|'$/g, '').trim().slice(0, 31) || 'Sheet'
+}
+
+/**
+ * Workbook tabs reproducing Katie's worksheet layout: one tab per section plus a
+ * Priorities tab. Pure, so it is testable and shared by the Google Sheets export.
+ */
+export function buildSheetTabs(rows: ExportRow[], names: ExportNames): SheetTab[] {
+  const header = ['Subsection', 'Question', 'Row', 'Column', 'Answer', 'Priority', 'Not applicable']
+  const sections = dedupe(rows.map((r) => r.section)).sort()
+
+  const tabs: SheetTab[] = sections.map((section) => ({
+    title: sheetTitle(section),
+    values: [
+      [section],
+      [`${names.focusText} × ${names.genre}`],
+      header,
+      ...rows
+        .filter((r) => r.section === section)
+        .map((r) => [r.subsection, r.question, r.row, r.column, r.answer, r.priority, r.notApplicable]),
+    ],
+  }))
+
+  const starred = rows.filter((r) => r.priority === 'yes')
+  if (starred.length) {
+    tabs.push({
+      title: 'Priorities',
+      values: [
+        ['Section', 'Subsection', 'Question', 'Answer'],
+        ...starred.map((r) => [r.section, r.subsection, r.question, r.answer]),
+      ],
+    })
+  }
+  return tabs
+}
+
 /** A prompt the team pastes into Claude alongside the CSV. */
 export function buildAiPrompt(rows: ExportRow[], names: ExportNames): string {
   const na = rows.filter((r) => r.notApplicable === 'yes').map((r) => r.question)
