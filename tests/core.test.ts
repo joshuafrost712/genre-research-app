@@ -82,9 +82,9 @@ describe('Capture + routing', () => {
     const note = await createCapturedNote(ctx, 'Sung lament')
     const node = findNode('s1a.inventory')!.node
     await routeNoteToNode(ctx, note, node)
-    const rows = await getRowIds(ctx, 's1a.inventory', 'genre')
+    const rows = await getRowIds(ctx, 's1a.inventory', 'focusText')
     expect(rows).toHaveLength(1)
-    const item = await findEntry(ctx, 's1a.inventory', 'genre', rows[0])
+    const item = await findEntry(ctx, 's1a.inventory', 'focusText', rows[0])
     expect(item?.text).toBe('Sung lament')
   })
 })

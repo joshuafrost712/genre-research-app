@@ -1,12 +1,11 @@
 {
-  "version": "0.1.0-slice",
+  "version": "1.0.0",
   "title": "Local Genres Research for Psalms Translation",
   "sections": [
     {
       "id": "s0",
       "type": "group",
       "label": "Section 0: The Psalm",
-      "guidance": "Complete only Psalm Purpose before moving to Section 1. Return here throughout to summarize what you learn.",
       "children": [
         {
           "id": "s0.purpose",
@@ -14,18 +13,19 @@
           "label": "Psalm Purpose",
           "layer": "focusText",
           "minDepth": "quick",
+          "guidance": "Complete only these purpose questions before moving to Section 1. Return here throughout the process to summarize what you learn.",
           "children": [
             {
               "id": "s0.purpose.specific",
               "type": "long_text",
-              "label": "Specific purpose of the psalm (some idea of specific content)",
+              "label": "Specific purpose of the psalm (gives some idea of specific content)",
               "layer": "focusText",
               "minDepth": "quick"
             },
             {
               "id": "s0.purpose.general",
               "type": "short_text",
-              "label": "General purpose (the primary speech act: to teach, to encourage, to mourn, etc.)",
+              "label": "General purpose: the primary speech act (e.g. to teach, to encourage, to mourn)",
               "layer": "focusText",
               "minDepth": "quick"
             },
@@ -41,13 +41,14 @@
                 { "id": "praise", "label": "Praise" },
                 { "id": "thanksgiving", "label": "Thanksgiving" },
                 { "id": "royal", "label": "Royal" },
+                { "id": "trust", "label": "Trust" },
                 { "id": "other", "label": "Other" }
               ]
             },
             {
               "id": "s0.purpose.intended_use",
               "type": "long_text",
-              "label": "How is the translation intended to be used? Singing, listening, reading, passive participation, active participation, etc.?",
+              "label": "How is the translation intended to be used? For what social context? (singing, listening, reading, passive participation, active participation, etc.)",
               "layer": "focusText",
               "minDepth": "quick"
             }
@@ -59,20 +60,204 @@
           "label": "Psalm Genre Choice",
           "layer": "synthesis",
           "minDepth": "quick",
-          "guidance": "Use your 1B chart to identify up to 3 workable genres. Note any potential concerns.",
+          "guidance": "Use your 1B chart to identify up to 3 workable genres. Note any potentially problematic social features or associations, and a strategy to address them.",
           "children": [
             {
               "id": "s0.genre_choice.candidates",
-              "type": "repeatable_list",
-              "label": "Candidate genres for this psalm (note why each works and any concerns)",
+              "type": "repeatable_row_table",
+              "label": "Candidate genres for this psalm",
               "layer": "synthesis",
               "minDepth": "quick",
-              "xref": [{ "to": "s1b.inventory", "relation": "derivedFrom", "label": "from 1B chart" }]
+              "xref": [{ "to": "s1b.inventory", "relation": "derivedFrom", "label": "from your 1B chart" }],
+              "columns": [
+                { "id": "name", "label": "Genre", "cellType": "short_text", "minDepth": "quick" },
+                { "id": "why", "label": "Why does it work well?", "cellType": "long_text", "minDepth": "quick" },
+                { "id": "concerns", "label": "Problematic social features or associations?", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "strategy", "label": "Strategy to alleviate concerns", "cellType": "long_text", "minDepth": "standard" }
+              ]
             },
             {
               "id": "s0.genre_choice.chosen",
               "type": "short_text",
               "label": "Which genre will the team pursue analyzing for this psalm?",
+              "layer": "synthesis",
+              "minDepth": "quick"
+            }
+          ]
+        },
+        {
+          "id": "s0.macro_notes",
+          "type": "group",
+          "label": "Psalm Macro-Level Translation Notes",
+          "layer": "synthesis",
+          "minDepth": "standard",
+          "guidance": "Summarize Section 2 and connect it to your psalm.",
+          "children": [
+            {
+              "id": "s0.macro_notes.prominence",
+              "type": "fixed_grid",
+              "label": "Prominence",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "xref": [{ "to": "s2a", "relation": "derivedFrom", "label": "from 2A" }],
+              "rows": [
+                { "id": "primary", "label": "Primary" },
+                { "id": "secondary", "label": "Secondary" },
+                { "id": "additional", "label": "Additional" }
+              ],
+              "columns": [
+                { "id": "psalm", "label": "What the psalm communicates", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "genre_strategy", "label": "Genre strategy for prominence", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "translation_idea", "label": "Idea for the translation", "cellType": "long_text", "minDepth": "standard" }
+              ]
+            },
+            {
+              "id": "s0.macro_notes.sections",
+              "type": "repeatable_row_table",
+              "label": "Sections",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "xref": [{ "to": "s2b", "relation": "derivedFrom", "label": "from 2B" }],
+              "columns": [
+                { "id": "psalm_section", "label": "Psalm section", "cellType": "short_text", "minDepth": "standard" },
+                { "id": "genre_section", "label": "Genre section", "cellType": "short_text", "minDepth": "standard" },
+                { "id": "shift_notes", "label": "Notes on section shifts (for this psalm)", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "genre_features", "label": "Specific genre feature notes", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "psalm_features", "label": "Specific psalm feature notes + rendering ideas", "cellType": "long_text", "minDepth": "comprehensive" }
+              ]
+            },
+            {
+              "id": "s0.macro_notes.emotions",
+              "type": "repeatable_row_table",
+              "label": "Emotions",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "guidance": "Aim for 3-5, listed in approximate order. Group separate occurrences of the same emotion in one row.",
+              "xref": [{ "to": "s2c", "relation": "derivedFrom", "label": "from 2C" }],
+              "columns": [
+                { "id": "emotion", "label": "Emotion + where (verse/section)", "cellType": "short_text", "minDepth": "standard" },
+                { "id": "genre_elements", "label": "How to communicate it with genre-appropriate elements", "cellType": "long_text", "minDepth": "standard" }
+              ]
+            },
+            {
+              "id": "s0.macro_notes.connections",
+              "type": "repeatable_row_table",
+              "label": "Connections",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "guidance": "Try to identify at least 3 connections between words, phrases, sections, or other elements.",
+              "xref": [{ "to": "s2d", "relation": "derivedFrom", "label": "from 2D" }],
+              "columns": [
+                { "id": "connection", "label": "Connection made in the psalm", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "genre_elements", "label": "Idea for showing it with genre-appropriate elements", "cellType": "long_text", "minDepth": "standard" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "s0.stylistic_notes",
+          "type": "group",
+          "label": "Psalm Stylistic Analysis Translation Notes",
+          "layer": "synthesis",
+          "minDepth": "standard",
+          "guidance": "For each category note 3-5 distinctive features and mark the 1-2 highest priority to carry into the translation, with ideas for how to incorporate them.",
+          "children": [
+            {
+              "id": "s0.sn.words",
+              "type": "repeatable_row_table",
+              "label": "Words (3A)",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                { "id": "feature", "label": "Feature observation", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "idea", "label": "Idea for translation in focus psalm", "cellType": "long_text", "minDepth": "standard" }
+              ]
+            },
+            {
+              "id": "s0.sn.discourse",
+              "type": "repeatable_row_table",
+              "label": "Discourse (3B)",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                { "id": "feature", "label": "Feature observation", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "idea", "label": "Idea for translation in focus psalm", "cellType": "long_text", "minDepth": "standard" }
+              ]
+            },
+            {
+              "id": "s0.sn.sounds",
+              "type": "repeatable_row_table",
+              "label": "Sounds (3C)",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                { "id": "feature", "label": "Feature observation", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "idea", "label": "Idea for translation in focus psalm", "cellType": "long_text", "minDepth": "standard" }
+              ]
+            },
+            {
+              "id": "s0.sn.figurative",
+              "type": "repeatable_row_table",
+              "label": "Figurative language (3D)",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                { "id": "feature", "label": "Feature observation", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "idea", "label": "Idea for translation in focus psalm", "cellType": "long_text", "minDepth": "standard" }
+              ]
+            },
+            {
+              "id": "s0.sn.performance",
+              "type": "repeatable_row_table",
+              "label": "Performance (3E)",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                { "id": "feature", "label": "Feature observation", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "idea", "label": "Idea for translation in focus psalm", "cellType": "long_text", "minDepth": "standard" }
+              ]
+            },
+            {
+              "id": "s0.sn.additional",
+              "type": "repeatable_row_table",
+              "label": "Additional (3F)",
+              "layer": "synthesis",
+              "minDepth": "comprehensive",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                { "id": "feature", "label": "Feature observation", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "idea", "label": "Idea for translation in focus psalm", "cellType": "long_text", "minDepth": "comprehensive" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "s0.translation",
+          "type": "group",
+          "label": "Psalm Translation",
+          "layer": "synthesis",
+          "minDepth": "quick",
+          "children": [
+            {
+              "id": "s0.translation.intro",
+              "type": "prose",
+              "label": "You're ready to create the translation. Keep prayer part of the process, and include people who enjoy creating in this genre. Let your notes above guide you."
+            },
+            {
+              "id": "s0.translation.draft",
+              "type": "long_text",
+              "label": "Translation draft and notes",
               "layer": "synthesis",
               "minDepth": "quick"
             }
@@ -89,19 +274,52 @@
           "id": "s1a",
           "type": "group",
           "label": "1A: Finding Genres",
-          "layer": "genre",
+          "layer": "focusText",
           "children": [
             {
               "id": "s1a.intro",
               "type": "prose",
-              "label": "List communication forms (genres) in the culture. They must be understood, appreciated, creatable, and feasible for members of the culture to use in the intended manner."
+              "label": "List communication forms (genres) in the culture. They must be understood, appreciated, creatable, and feasible for members of the culture to use in the intended manner (listening, singing, reading, performing)."
+            },
+            {
+              "id": "s1a.scope",
+              "type": "single_select",
+              "label": "Scope of this search",
+              "layer": "focusText",
+              "minDepth": "standard",
+              "options": [
+                { "id": "narrow", "label": "Narrow (genres matching this psalm's purpose)" },
+                { "id": "narrower", "label": "Narrower (a specific end product, e.g. a song or poem)" },
+                { "id": "broad", "label": "Broad (build a foundation for future psalms)" }
+              ]
             },
             {
               "id": "s1a.inventory",
               "type": "repeatable_list",
-              "label": "Genres identified so far (add each as you find it)",
-              "layer": "genre",
+              "label": "Genres identified so far",
+              "layer": "focusText",
               "minDepth": "quick"
+            },
+            {
+              "id": "s1a.whom",
+              "type": "repeatable_list",
+              "label": "Whom to ask (leaders, teachers, creators, mothers, etc.)",
+              "layer": "focusText",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s1a.where",
+              "type": "repeatable_list",
+              "label": "When and where to ask (celebrations, festivals/holidays, social gatherings, social media, etc.)",
+              "layer": "focusText",
+              "minDepth": "comprehensive"
+            },
+            {
+              "id": "s1a.questions",
+              "type": "repeatable_list",
+              "label": "Questions to ask (life-cycle events, celebrations, uses of voice/instruments/body/colors)",
+              "layer": "focusText",
+              "minDepth": "comprehensive"
             }
           ]
         },
@@ -110,6 +328,7 @@
           "type": "group",
           "label": "1B: Genre Social Features",
           "layer": "genre",
+          "guidance": "Each row is a genre, reused across psalms. Quick mode shows Genre, Who, and Vitality; more columns appear at greater depth.",
           "children": [
             {
               "id": "s1b.inventory",
@@ -117,18 +336,17 @@
               "label": "Genre social-feature inventory",
               "layer": "genre",
               "minDepth": "quick",
-              "guidance": "Each row is a genre reused across psalms. Quick mode shows Genre + Who + Vitality; more columns appear at greater depth.",
               "columns": [
-                { "id": "genreName", "label": "Genre", "cellType": "short_text", "minDepth": "quick" },
-                { "id": "who", "label": "Who is involved", "cellType": "long_text", "minDepth": "quick" },
-                { "id": "when", "label": "When performed", "cellType": "long_text", "minDepth": "standard" },
-                { "id": "where", "label": "Where performed", "cellType": "long_text", "minDepth": "standard" },
-                { "id": "materials", "label": "Materials", "cellType": "long_text", "minDepth": "standard" },
-                { "id": "content", "label": "Content", "cellType": "long_text", "minDepth": "comprehensive" },
-                { "id": "associations", "label": "Associations", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "genreName", "label": "Genre (name + meaning, any wordplay)", "cellType": "short_text", "minDepth": "quick" },
+                { "id": "who", "label": "Who is involved (hierarchy, gender, age, status/roles)", "cellType": "long_text", "minDepth": "quick" },
+                { "id": "when", "label": "When performed (year, day, life/community events, cycles)", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "where", "label": "Where performed (specific/prepared/improvised space)", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "materials", "label": "Materials (instruments, props, visuals, equipment)", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "content", "label": "Content (purpose, leisure/ceremony, spontaneous/planned, topics)", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "associations", "label": "Associations (other art forms, religious/political/cultural)", "cellType": "long_text", "minDepth": "comprehensive" },
                 {
                   "id": "vitality",
-                  "label": "Vitality",
+                  "label": "Vitality (community attachment, future use, new works)",
                   "cellType": "single_select",
                   "minDepth": "quick",
                   "options": [
@@ -139,6 +357,22 @@
                 },
                 { "id": "other", "label": "Other notes", "cellType": "long_text", "minDepth": "comprehensive" }
               ]
+            }
+          ]
+        },
+        {
+          "id": "s1c",
+          "type": "group",
+          "label": "1C: Matching Psalm and Genres",
+          "layer": "focusText",
+          "children": [
+            {
+              "id": "s1c.notes",
+              "type": "long_text",
+              "label": "Which genre(s) suit this psalm's purpose and content? What works well, what social features or associations might be problematic, and what strategies could address concerns? (Record final choices in Psalm Genre Choice.)",
+              "layer": "focusText",
+              "minDepth": "quick",
+              "xref": [{ "to": "s0.genre_choice", "relation": "feeds", "label": "record in Genre Choice" }]
             }
           ]
         }
@@ -158,9 +392,16 @@
             {
               "id": "s2a.how",
               "type": "long_text",
-              "label": "How does this genre generally highlight the most prominent material? (position, repetition, contrast, the unexpected, clustering of features, intensity of emotion, density of theme, other)",
+              "label": "How does this genre generally highlight the most prominent material? (position/refrain/punch line, repetition, contrast or breaking a pattern, something unexpected, clustering of intense features, intensity of emotion, density of thematic content, other)",
               "layer": "genre",
               "minDepth": "quick"
+            },
+            {
+              "id": "s2a.secondary",
+              "type": "long_text",
+              "label": "How does this genre feature secondary prominence?",
+              "layer": "genre",
+              "minDepth": "standard"
             },
             {
               "id": "s2a.climax",
@@ -168,6 +409,152 @@
               "label": "Which features tend to mark the climax of the genre?",
               "layer": "genre",
               "minDepth": "standard"
+            },
+            {
+              "id": "s2a.peak",
+              "type": "long_text",
+              "label": "How might the genre present an aesthetic peak that sets people up for the 'take-home' moment (the point of the experience)?",
+              "layer": "genre",
+              "minDepth": "comprehensive",
+              "footnote": "E.g. the aesthetic marking in the middle verse of Psalm 67 (sole tricolon, center of a chiasm, center of 7 people-group words) sets up the punch line about the ends of the earth fearing God."
+            }
+          ]
+        },
+        {
+          "id": "s2b",
+          "type": "group",
+          "label": "2B: Sections in this Genre",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s2b.organization",
+              "type": "long_text",
+              "label": "How is information organized in the genre? What's the expected progression of content?",
+              "layer": "genre",
+              "minDepth": "quick"
+            },
+            {
+              "id": "s2b.major_sections",
+              "type": "long_text",
+              "label": "What are the major internal sections? (how many; predictable elements, length, content, function, order; any other predictable features)",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s2b.relationships",
+              "type": "long_text",
+              "label": "How are the sections related to one another? (repeated, contrastive, derivative/varied units)",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s2b.music",
+              "type": "long_text",
+              "label": "If music is involved, how do the sections correspond with musical function (same/different melody per line, predictable musical climax, etc.)?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            },
+            {
+              "id": "s2b.roles",
+              "type": "long_text",
+              "label": "If different performers or characters are involved, which roles connect with which lines/sections?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            },
+            {
+              "id": "s2b.shifts",
+              "type": "long_text",
+              "label": "What signals a shift between sections? (content, mood, rhythm/sound, visuals, speaker/addressee/character changes, materials, language/poetic devices, vocal features/gestures)",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s2b.bme",
+              "type": "long_text",
+              "label": "What predictable elements characterize beginnings, middles, and ends of an instance of the genre and of specific sections?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            }
+          ]
+        },
+        {
+          "id": "s2c",
+          "type": "group",
+          "label": "2C: Emotions in this Genre",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s2c.which",
+              "type": "long_text",
+              "label": "What emotions generally appear in this genre?",
+              "layer": "genre",
+              "minDepth": "quick"
+            },
+            {
+              "id": "s2c.chart",
+              "type": "repeatable_row_table",
+              "label": "How are specific emotions represented? (one row per emotion)",
+              "layer": "genre",
+              "minDepth": "standard",
+              "columns": [
+                { "id": "emotion", "label": "Emotion", "cellType": "short_text", "minDepth": "standard" },
+                { "id": "materials", "label": "Instruments, props, or other materials", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "concepts", "label": "Concepts, figurative language, imagery", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "visuals", "label": "Visuals (patterns, colors)", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "physical", "label": "Physical (gestures, expressions)", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "rhythms", "label": "Meters, rhythms, sound patterns", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "vocal", "label": "Vocal features (tone, tempo, volume)", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "other", "label": "Other strategies", "cellType": "long_text", "minDepth": "comprehensive" }
+              ]
+            },
+            {
+              "id": "s2c.dependence",
+              "type": "long_text",
+              "label": "How much does understanding the emotions depend on the words themselves vs. other features (tone of voice, etc.)?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            }
+          ]
+        },
+        {
+          "id": "s2d",
+          "type": "group",
+          "label": "2D: Connections in this Genre",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s2d.chart",
+              "type": "fixed_grid",
+              "label": "How can this genre help the audience connect related information?",
+              "layer": "genre",
+              "minDepth": "standard",
+              "rows": [
+                { "id": "words", "label": "Related words" },
+                { "id": "phrases", "label": "Related phrases" },
+                { "id": "sections", "label": "Related sections" },
+                { "id": "concepts", "label": "Related concepts" },
+                { "id": "other", "label": "Other related material" }
+              ],
+              "columns": [
+                { "id": "sounds", "label": "Sounds (instruments, vocal features, sound play)", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "structural", "label": "Structural position (parallel verses/lines)", "cellType": "long_text", "minDepth": "standard" },
+                { "id": "visual", "label": "Visual elements (colors, flags, props)", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "physical", "label": "Physical elements (gestures, expressions)", "cellType": "long_text", "minDepth": "comprehensive" },
+                { "id": "linguistic", "label": "Linguistic strategies (related roots, grammatical forms)", "cellType": "long_text", "minDepth": "comprehensive" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "s2e",
+          "type": "group",
+          "label": "2E: Macro-Level Translation Choices",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s2e.intro",
+              "type": "prose",
+              "label": "Summarize what you learned about the macro considerations in the Psalm Macro-Level Translation Notes (Section 0)."
             }
           ]
         }
@@ -185,15 +572,43 @@
           "layer": "genre",
           "children": [
             {
+              "id": "s3a.expected",
+              "type": "long_text",
+              "label": "Which words, formulas, or motifs (e.g. 'better X than Y') are expected, and in which positions? Which words or word-positions (e.g. anaphora) are repeated? Any special use of negatives, pronouns, or names?",
+              "layer": "genre",
+              "minDepth": "quick"
+            },
+            {
+              "id": "s3a.wordplay",
+              "type": "long_text",
+              "label": "What word play consistently appears? (homonyms, homophones, homographs, puns, oxymoron, irony, juxtaposition)",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s3a.language",
+              "type": "long_text",
+              "label": "Expected language choices? (dialects/accents, register high/standard/low, specialized vs regular vocabulary, borrowed words, archaic words, frequency of less common words)",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s3a.constructions",
+              "type": "long_text",
+              "label": "Special constructions? (parallelism/synonyms, enjambment, rhetorical questions, caesura, ellipsis)",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            },
+            {
               "id": "s3a.features",
               "type": "repeatable_row_table",
-              "label": "Distinctive word-use features (mark your top 1 to 2 to carry into translation)",
+              "label": "Distinctive word-use features to carry forward",
               "layer": "genre",
-              "minDepth": "quick",
+              "minDepth": "standard",
               "priorityEligible": true,
               "priorityMax": 2,
               "columns": [
-                { "id": "feature", "label": "Feature observation", "cellType": "long_text", "minDepth": "quick" },
+                { "id": "feature", "label": "Feature observation", "cellType": "long_text", "minDepth": "standard" },
                 {
                   "id": "modality",
                   "label": "Possible / Expected / Required",
@@ -206,6 +621,228 @@
                   ]
                 }
               ]
+            }
+          ]
+        },
+        {
+          "id": "s3b",
+          "type": "group",
+          "label": "3B: Discourse in this Genre",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s3b.perspective",
+              "type": "long_text",
+              "label": "How does perspective change throughout the genre? (use of narrator; expected shifts of speaker; expected shifts of addressee)",
+              "layer": "genre",
+              "minDepth": "quick"
+            },
+            {
+              "id": "s3b.characters",
+              "type": "long_text",
+              "label": "Character references: first-mention conventions; shortened names/pronouns/null reference; conventions for shifting reference; referencing important vs secondary persons and props; how person-reference changes are handled",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s3b.verbs",
+              "type": "long_text",
+              "label": "Verbs: which types provide mainline information vs background; are certain tenses/aspects/modalities used only in specific sections?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            },
+            {
+              "id": "s3b.speech",
+              "type": "long_text",
+              "label": "Distribution of direct vs indirect speech; any special particle(s) used throughout and their function?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            }
+          ]
+        },
+        {
+          "id": "s3c",
+          "type": "group",
+          "label": "3C: Sounds in this Genre",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s3c.rhythm",
+              "type": "long_text",
+              "label": "How are sounds organized rhythmically? (syllables per line/unit, predictable rhythmic cycles, meter, accents, underlying pulse, chant/rhythmic speech)",
+              "layer": "genre",
+              "minDepth": "quick"
+            },
+            {
+              "id": "s3c.rhyme",
+              "type": "long_text",
+              "label": "Expected end-rhyme patterns? (among words, among lines, between verses)",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s3c.other_rhyme",
+              "type": "long_text",
+              "label": "Other rhyming relationships: assonance, consonance, alliteration (where positioned, how accomplished)?",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s3c.vocables",
+              "type": "long_text",
+              "label": "Use of vocables (syllables without lexical meaning): where do they appear and what function do they serve?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            },
+            {
+              "id": "s3c.senses",
+              "type": "long_text",
+              "label": "Words connected with senses: onomatopoeia, ideophones?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            },
+            {
+              "id": "s3c.tonal",
+              "type": "long_text",
+              "label": "If a tonal language: how do the tones interact with the above features?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            }
+          ]
+        },
+        {
+          "id": "s3d",
+          "type": "group",
+          "label": "3D: Figurative Language in this Genre",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s3d.types",
+              "type": "repeatable_row_table",
+              "label": "Figurative language used (note whether it occurs and HOW: where in the discourse, about what topics, in groups, etc.)",
+              "layer": "genre",
+              "minDepth": "quick",
+              "columns": [
+                {
+                  "id": "figure",
+                  "label": "Figure",
+                  "cellType": "single_select",
+                  "minDepth": "quick",
+                  "options": [
+                    { "id": "simile", "label": "Simile" },
+                    { "id": "metaphor", "label": "Metaphor" },
+                    { "id": "hyperbole", "label": "Hyperbole" },
+                    { "id": "metonymy", "label": "Metonymy" },
+                    { "id": "personification", "label": "Personification" },
+                    { "id": "symbolism", "label": "Symbolism" },
+                    { "id": "rhetorical_question", "label": "Rhetorical question" },
+                    { "id": "euphemism", "label": "Euphemism" },
+                    { "id": "stereotype", "label": "Stereotype" },
+                    { "id": "idiom", "label": "Idiom" },
+                    { "id": "other", "label": "Other" }
+                  ]
+                },
+                { "id": "usage", "label": "If and how it is used", "cellType": "long_text", "minDepth": "quick" }
+              ]
+            },
+            {
+              "id": "s3d.imagery",
+              "type": "long_text",
+              "label": "In what other ways does this genre communicate imagery?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            }
+          ]
+        },
+        {
+          "id": "s3e",
+          "type": "group",
+          "label": "3E: Performance in this Genre",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s3e.voice",
+              "type": "long_text",
+              "label": "How is the voice used? (intonation/prosody, tempo/pace, articulation, accents/weight, dynamics/volume, voice quality/timbre, overall intensity) Note its significance, how it functions, how it changes over the piece, and key places.",
+              "layer": "genre",
+              "minDepth": "quick"
+            },
+            {
+              "id": "s3e.movement",
+              "type": "long_text",
+              "label": "How does movement contribute? (body postures, gestures, facial expressions)",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s3e.tonal",
+              "type": "long_text",
+              "label": "If a tonal language: how do the tones interact with the vocal performance features above?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            }
+          ]
+        },
+        {
+          "id": "s3f",
+          "type": "group",
+          "label": "3F: Additional Stylistic Observations",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s3f.word_order",
+              "type": "long_text",
+              "label": "Word order: how predictable is subject/verb (and object) order; when does it shift; where does new information generally appear?",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s3f.linkage",
+              "type": "long_text",
+              "label": "Linkage at sentence and paragraph borders (e.g. repeating information from the end of one unit at the start of the next) to help follow the flow",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            },
+            {
+              "id": "s3f.embedded",
+              "type": "long_text",
+              "label": "Embedded genres (riddle, proverb, or other poetic material): what type, and where embedded?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            },
+            {
+              "id": "s3f.repetition",
+              "type": "long_text",
+              "label": "Repetition of words, phrases, text structures, themes, character appearances, or figures of speech?",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s3f.density",
+              "type": "long_text",
+              "label": "Expected text density: general use of repetition, quantity of new information per line/thought unit, how much text the form holds, rate of new text over time",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            },
+            {
+              "id": "s3f.other",
+              "type": "long_text",
+              "label": "Anything else about this genre that doesn't fit the categories above?",
+              "layer": "genre",
+              "minDepth": "comprehensive"
+            }
+          ]
+        },
+        {
+          "id": "s3g",
+          "type": "group",
+          "label": "3G: Stylistic Translation Choices",
+          "layer": "genre",
+          "children": [
+            {
+              "id": "s3g.intro",
+              "type": "prose",
+              "label": "Summarize what you learned about the stylistic considerations in the Psalm Stylistic Analysis Translation Notes (Section 0)."
             }
           ]
         }
