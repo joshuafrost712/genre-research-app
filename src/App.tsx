@@ -12,23 +12,27 @@ import { ExportView } from './pages/ExportView'
 import { Routing } from './pages/Routing'
 import { Review } from './pages/Review'
 
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <Layout />,
-    children: [
-      { index: true, element: <Dashboard /> },
-      { path: 'worksheet/:nodeId', element: <WorksheetView /> },
-      { path: 'wizard', element: <Wizard /> },
-      { path: 'priorities', element: <Priorities /> },
-      { path: 'capture', element: <Capture /> },
-      { path: 'genres', element: <GenreBank /> },
-      { path: 'routing', element: <Routing /> },
-      { path: 'review', element: <Review /> },
-      { path: 'export', element: <ExportView /> },
-    ],
-  },
-])
+const router = createBrowserRouter(
+  [
+    {
+      path: '/',
+      element: <Layout />,
+      children: [
+        { index: true, element: <Dashboard /> },
+        { path: 'worksheet/:nodeId', element: <WorksheetView /> },
+        { path: 'wizard', element: <Wizard /> },
+        { path: 'priorities', element: <Priorities /> },
+        { path: 'capture', element: <Capture /> },
+        { path: 'genres', element: <GenreBank /> },
+        { path: 'routing', element: <Routing /> },
+        { path: 'review', element: <Review /> },
+        { path: 'export', element: <ExportView /> },
+      ],
+    },
+  ],
+  // Honors the Vite base so routing works at the domain root or a project-pages subpath.
+  { basename: import.meta.env.BASE_URL },
+)
 
 export default function App() {
   return (
