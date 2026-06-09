@@ -87,6 +87,38 @@ export function Dashboard() {
         </Link>
       </div>
 
+      <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
+        <div className="mb-1 font-semibold text-gray-700">New here?</div>
+        <ol className="ml-4 list-decimal space-y-1">
+          <li>
+            Open{' '}
+            <Link to="/genres" className="text-sky-700 underline">
+              Genres &amp; focus texts
+            </Link>{' '}
+            and name the focus text (e.g. “Psalm 13”) and the genre you're studying.
+          </li>
+          <li>
+            Work the worksheet (menu, or the{' '}
+            <Link to="/wizard" className="text-sky-700 underline">
+              guided wizard
+            </Link>
+            ), or{' '}
+            <Link to="/capture" className="text-sky-700 underline">
+              capture
+            </Link>{' '}
+            spoken observations and route them in.
+          </li>
+          <li>
+            Start in <span className="font-medium">Quick</span> depth to keep it
+            short; raise it for more detail. When ready,{' '}
+            <Link to="/export" className="text-sky-700 underline">
+              export
+            </Link>
+            .
+          </li>
+        </ol>
+      </div>
+
       <p className="text-sm text-gray-500">
         Use the menu to jump to any section or subsection at any time. The worksheet
         is non-linear by design.

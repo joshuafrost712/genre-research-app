@@ -14,6 +14,19 @@ GitHub repo or via a token-free copy/paste path — no metered API, no Supabase.
 The canonical plan lives in the Obsidian vault at
 `Projects/AI Projects/Local Genres Research App - MVP Plan.md`.
 
+## Try it on a phone
+
+Live (auto-deployed from `main` via GitHub Pages):
+**https://joshuafrost712.github.io/genre-research-app/**
+
+Install on Android (Chrome): open the link → ⋮ menu → **Install app** (or **Add to
+Home Screen**). It installs with an icon, opens full-screen, and works offline
+after the first load. On iOS (Safari): Share → **Add to Home Screen**.
+
+First run: open **Genres & focus texts**, name the focus text and genre, then work
+the worksheet (or the guided wizard) and capture observations. Start in **Quick**
+depth. Data is stored only on that device.
+
 ## What works now
 
 - **Worksheet as data.** The whole worksheet (sections, subsections, prompts,
