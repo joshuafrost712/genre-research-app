@@ -6,9 +6,10 @@ culturally relevant genre, studying it with enough depth to translate well, and
 carrying that study into a faithful translation of a focus text. The AI layer
 (added later) proposes and prompts but never decides, so the team keeps ownership.
 
-Build-order steps 1–6 are done (the offline core). The AI broker (step 7) and
-Google Sheets export are deferred because they need external secrets / OAuth
-config. `genre-research-app` is a working name, renamable.
+The offline core, the full worksheet content, both export paths, and AI routing
+are built. AI routing follows the cairn pattern: Claude (Max) routes notes on a
+GitHub repo or via a token-free copy/paste path — no metered API, no Supabase.
+`genre-research-app` is a working name, renamable.
 
 The canonical plan lives in the Obsidian vault at
 `Projects/AI Projects/Local Genres Research App - MVP Plan.md`.
@@ -34,7 +35,12 @@ The canonical plan lives in the Obsidian vault at
   worksheet nodes; provenance is kept.
 - **Genres & focus texts.** Create / rename / switch focus texts and genres; the
   worksheet re-points to the active pairing. Genre analysis is reusable.
-- **Export.** Long-format CSV and an AI-synthesis prompt, fully offline.
+- **Export.** Long-format CSV and an AI-synthesis prompt offline; Google Sheets
+  (tab per section) when a `VITE_GOOGLE_CLIENT_ID` is set.
+- **AI routing (no metered API).** Claude (Max) proposes where each captured note
+  belongs — via a private GitHub repo (`VITE_ROUTING_REPO` + an in-app token) or a
+  token-free copy/paste path. Proposals arrive as needs-review entries; the Review
+  screen confirms/edits/discards each. Nothing files silently.
 - **Local-first.** Dexie/IndexedDB is the source of truth. The app runs fully
   offline; no account or backend is required.
 
@@ -77,13 +83,17 @@ src/
   pages/                       Dashboard, WorksheetView (placeholder renderer)
 ```
 
-## Remaining build steps
+## Remaining
 
-- Google Sheets export (tab per section, matching Katie's layout) via client-side
-  GIS `drive.file`. Needs a Google OAuth client id.
-- AI broker (Supabase Edge Function): AI-proposed routing with a needs-review
-  flow, AI-proposed distinctive features for synthesis, and question-form concern
-  prompts. Needs the Supabase project + Claude key.
-- 1B genre-comparison grid (each 1B row as a first-class genre across genres) and
-  the Section 0 synthesis screens, building on the genre/focus-text model.
+- **Guidance text per node** — the "how to think / how much is enough" helper for
+  each worksheet node. The schema reserves a `guidance` slot; Katie writes the
+  content. This is the main gate to field-readiness.
+- AI **synthesis** (propose distinctive features to carry forward) and **concern
+  prompts** (question-form mismatch flags), reusing the same GitHub / copy-paste
+  routing mechanism with different task content.
+- 1B genre-comparison grid (each 1B row as a first-class genre across genres).
 - Field-readiness pass and Bali rehearsal.
+
+To enable the optional integrations, set the env vars in `.env` (see
+`.env.example`): `VITE_GOOGLE_CLIENT_ID` for Sheets export, `VITE_ROUTING_REPO`
+for automated GitHub routing. Everything else works with neither.
