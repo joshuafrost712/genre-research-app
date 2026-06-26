@@ -30,6 +30,11 @@ jobs:
       - run: npm run build
         env:
           VITE_BASE: /genre-research-app/
+          # Google OAuth Web client id (public client identifier, not a secret —
+          # it ships in the browser bundle). Set as a repo Actions variable so the
+          # deployed app gains sign-in + cloud sync + teams. Leave the variable
+          # unset to deploy the app fully local-only with no sign-in UI.
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
       # SPA fallback: GitHub Pages serves 404.html for unknown paths; point it at
       # the app shell so deep links / refreshes resolve client-side.
       - run: cp dist/index.html dist/404.html

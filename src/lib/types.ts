@@ -31,6 +31,8 @@ export interface FocusText {
   broad_genre?: string
   intended_use?: string
   created_at: string
+  // Optional on legacy rows; used by sync as the LWW timestamp when present.
+  updated_at?: string
 }
 
 export interface Genre {

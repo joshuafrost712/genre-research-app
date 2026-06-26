@@ -9,6 +9,7 @@ import type {
   Project,
   TranslationWorksheet,
 } from '../types'
+import type { OutboxRow } from '../sync/types'
 
 /**
  * On-device store (IndexedDB via Dexie). Source of truth for the MVP: project
@@ -25,6 +26,8 @@ class GenreResearchDB extends Dexie {
   entries!: EntityTable<Entry, 'id'>
   persons!: EntityTable<Person, 'id'>
   meta!: EntityTable<MetaRecord, 'key'>
+  /** Pending local changes awaiting a cloud flush (added in v2; see lib/sync). */
+  outbox!: EntityTable<OutboxRow, 'seq'>
 
   constructor() {
     super('genre-research')
@@ -39,6 +42,10 @@ class GenreResearchDB extends Dexie {
         'id, project_id, node_id, captured_note_id, genre_id, focus_text_id, worksheet_id, routing_status, sync_status, updated_at',
       persons: 'id, project_id',
       meta: 'key',
+    })
+    // v2 is additive: the cloud-sync outbox. Existing stores are unchanged.
+    this.version(2).stores({
+      outbox: '++seq, table, recordId, project_id, updated_at',
     })
   }
 }

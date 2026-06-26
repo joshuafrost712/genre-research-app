@@ -8,6 +8,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
 import { addRow, findEntry, upsertEntry } from './entries'
 import { effectiveLayer } from '../content/loader'
+import { trackUpsert } from '../sync/outbox'
 import { now, uid } from '../util'
 import type { ActiveContext } from './appState'
 import type { CapturedNote } from '../types'
@@ -26,6 +27,7 @@ export async function createCapturedNote(
     created_at: now(),
   }
   await db.capturedNotes.put(note)
+  await trackUpsert('capturedNotes', note) // insert-once; merge treats notes as immutable
   return note
 }
 

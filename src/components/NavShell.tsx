@@ -4,6 +4,7 @@ import { navTree } from '../lib/content/loader'
 import { visibleAtDepth, type DepthMode } from '../schema/types'
 import { useDepthMode } from './DepthModeContext'
 import { useProgress } from './useProgress'
+import { isGoogleConfigured } from '../lib/google/auth'
 
 const DEPTH_LABELS: Record<DepthMode, string> = {
   quick: 'Quick',
@@ -31,6 +32,8 @@ const QUICK_LINKS = [
   { to: '/genres', label: 'Genres & focus texts' },
   { to: '/priorities', label: 'Your priorities' },
   { to: '/export', label: 'Export' },
+  // Teams (cloud sharing) only appears when Google sign-in is configured.
+  ...(isGoogleConfigured() ? [{ to: '/teams', label: 'Teams' }] : []),
 ]
 
 export function NavShell({ onNavigate }: { onNavigate?: () => void }) {

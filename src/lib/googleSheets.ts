@@ -1,75 +1,18 @@
 /**
- * Google Sheets export via client-side Google Identity Services (token model)
- * with the non-sensitive `drive.file` scope, so it avoids heavy app verification
- * and needs no backend. The app creates a spreadsheet it owns and writes the
- * worksheet tabs into it. Gated on VITE_GOOGLE_CLIENT_ID: with no client id the
- * feature reports as not configured and the rest of the app is unaffected.
+ * Google Sheets export via client-side Google Identity Services. Auth is shared
+ * with cloud sync through ./google/auth (the non-sensitive `drive.file` scope),
+ * so it avoids heavy app verification and needs no backend. The app creates a
+ * spreadsheet it owns and writes the worksheet tabs into it. Gated on
+ * VITE_GOOGLE_CLIENT_ID: with no client id the feature reports as not configured
+ * and the rest of the app is unaffected.
  */
 import type { SheetTab } from './export'
+import { getAccessToken, googleClientId, isGoogleConfigured } from './google/auth'
 
-const SCOPE = 'https://www.googleapis.com/auth/drive.file'
-const GIS_SRC = 'https://accounts.google.com/gsi/client'
-
-interface TokenResponse {
-  access_token?: string
-  error?: string
-}
-interface TokenClient {
-  requestAccessToken: (opts?: { prompt?: string }) => void
-}
-interface GsiOAuth2 {
-  initTokenClient: (cfg: {
-    client_id: string
-    scope: string
-    callback: (resp: TokenResponse) => void
-  }) => TokenClient
-}
-
-declare global {
-  interface Window {
-    google?: { accounts: { oauth2: GsiOAuth2 } }
-  }
-}
-
-export function googleClientId(): string | undefined {
-  return import.meta.env.VITE_GOOGLE_CLIENT_ID || undefined
-}
+export { googleClientId }
 
 export function isSheetsConfigured(): boolean {
-  return !!googleClientId()
-}
-
-let gisLoaded: Promise<void> | null = null
-
-function loadGis(): Promise<void> {
-  if (gisLoaded) return gisLoaded
-  gisLoaded = new Promise((resolve, reject) => {
-    if (window.google?.accounts?.oauth2) return resolve()
-    const script = document.createElement('script')
-    script.src = GIS_SRC
-    script.async = true
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error('Could not load Google Identity Services.'))
-    document.head.appendChild(script)
-  })
-  return gisLoaded
-}
-
-async function getAccessToken(): Promise<string> {
-  const clientId = googleClientId()
-  if (!clientId) throw new Error('No Google client id configured (VITE_GOOGLE_CLIENT_ID).')
-  await loadGis()
-  return new Promise((resolve, reject) => {
-    const client = window.google!.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: SCOPE,
-      callback: (resp) => {
-        if (resp.access_token) resolve(resp.access_token)
-        else reject(new Error(resp.error ?? 'Authorization failed.'))
-      },
-    })
-    client.requestAccessToken({ prompt: '' })
-  })
+  return isGoogleConfigured()
 }
 
 async function api<T>(token: string, url: string, body: unknown): Promise<T> {

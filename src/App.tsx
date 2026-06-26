@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { DepthModeProvider } from './components/DepthModeContext'
 import { ActiveContextProvider } from './components/ActiveContextProvider'
+import { SyncEngineProvider } from './components/SyncEngineProvider'
 import { Dashboard } from './pages/Dashboard'
 import { WorksheetView } from './pages/WorksheetView'
 import { Wizard } from './pages/Wizard'
@@ -11,6 +12,8 @@ import { GenreBank } from './pages/GenreBank'
 import { ExportView } from './pages/ExportView'
 import { Routing } from './pages/Routing'
 import { Review } from './pages/Review'
+import { Teams } from './pages/Teams'
+import { JoinTeam } from './pages/JoinTeam'
 
 const router = createBrowserRouter(
   [
@@ -27,6 +30,8 @@ const router = createBrowserRouter(
         { path: 'routing', element: <Routing /> },
         { path: 'review', element: <Review /> },
         { path: 'export', element: <ExportView /> },
+        { path: 'teams', element: <Teams /> },
+        { path: 'teams/join', element: <JoinTeam /> },
       ],
     },
   ],
@@ -38,7 +43,9 @@ export default function App() {
   return (
     <DepthModeProvider>
       <ActiveContextProvider>
-        <RouterProvider router={router} />
+        <SyncEngineProvider>
+          <RouterProvider router={router} />
+        </SyncEngineProvider>
       </ActiveContextProvider>
     </DepthModeProvider>
   )

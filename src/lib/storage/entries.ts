@@ -15,6 +15,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
 import { getContentVersion } from '../content/loader'
 import { now, uid } from '../util'
+import { trackDelete, trackUpsert } from '../sync/outbox'
 import type { ActiveContext } from './appState'
 import type { Entry, RoutingStatus } from '../types'
 import type { Layer } from '../../schema/types'
@@ -102,6 +103,7 @@ export async function upsertEntry(
   if (existing) {
     const updated: Entry = { ...existing, ...patch, updated_at: now(), sync_status: 'local' }
     await db.entries.put(updated)
+    await trackUpsert('entries', updated)
     return updated
   }
   const created: Entry = {
@@ -124,11 +126,14 @@ export async function upsertEntry(
     updated_at: now(),
   }
   await db.entries.put(created)
+  await trackUpsert('entries', created)
   return created
 }
 
 export async function deleteEntry(id: string): Promise<void> {
+  const existing = await db.entries.get(id)
   await db.entries.delete(id)
+  if (existing) await trackDelete('entries', id, existing.project_id)
 }
 
 /** Reactive read of a single entry. */
@@ -186,6 +191,7 @@ export async function removeRow(
       (e.cell_key === rowId || e.cell_key.startsWith(`${rowId}__`)),
   )
   await db.entries.bulkDelete(orphans.map((e) => e.id))
+  for (const e of orphans) await trackDelete('entries', e.id, e.project_id)
 }
 
 /** Reactive read of a node's row ids. */
@@ -258,6 +264,8 @@ export async function confirmEntry(id: string, text?: string): Promise<void> {
   const patch: Partial<Entry> = { routing_status: 'confirmed', updated_at: now() }
   if (text !== undefined) patch.text = text
   await db.entries.update(id, patch)
+  const updated = await db.entries.get(id)
+  if (updated) await trackUpsert('entries', updated)
 }
 
 /**
@@ -268,6 +276,7 @@ export async function confirmEntry(id: string, text?: string): Promise<void> {
 export async function discardProposal(entry: Entry): Promise<void> {
   if (!entry.cell_key || entry.cell_key === ROWS_KEY) {
     await db.entries.delete(entry.id)
+    await trackDelete('entries', entry.id, entry.project_id)
     return
   }
   const rowId = entry.cell_key.split('__')[0]
@@ -279,10 +288,13 @@ export async function discardProposal(entry: Entry): Promise<void> {
     (e) => inContainer(e) && e.cell_key && (e.cell_key === rowId || e.cell_key.startsWith(`${rowId}__`)),
   )
   await db.entries.bulkDelete(rowCells.map((e) => e.id))
+  for (const e of rowCells) await trackDelete('entries', e.id, e.project_id)
   const sidecar = siblings.find((e) => inContainer(e) && e.cell_key === ROWS_KEY)
   if (sidecar) {
     const remaining = parseIdArray(sidecar.value).filter((id) => id !== rowId)
     await db.entries.update(sidecar.id, { value: JSON.stringify(remaining) })
+    const updated = await db.entries.get(sidecar.id)
+    if (updated) await trackUpsert('entries', updated)
   }
 }
 

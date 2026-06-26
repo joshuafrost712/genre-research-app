@@ -6,6 +6,7 @@
 import { db } from './db'
 import { getContentVersion } from '../content/loader'
 import { now, uid } from '../util'
+import { trackUpsert } from '../sync/outbox'
 import type { FocusText, Genre, Project, TranslationWorksheet } from '../types'
 
 const ACTIVE_PROJECT = 'activeProjectId'
@@ -59,6 +60,7 @@ export async function ensureActiveProject(): Promise<Project> {
     updated_at: now(),
   }
   await db.projects.put(project)
+  await trackUpsert('projects', project)
   await setActiveProject(project.id)
   return project
 }
@@ -112,8 +114,10 @@ async function ensureActiveFocusText(projectId: string): Promise<FocusText> {
     project_id: projectId,
     reference: 'Untitled focus text',
     created_at: now(),
+    updated_at: now(),
   }
   await db.focusTexts.put(focusText)
+  await trackUpsert('focusTexts', focusText)
   await setMeta(activeFocusTextKey(projectId), focusText.id)
   return focusText
 }
@@ -138,6 +142,7 @@ async function ensureActiveGenre(projectId: string): Promise<Genre> {
     updated_at: now(),
   }
   await db.genres.put(genre)
+  await trackUpsert('genres', genre)
   await setMeta(activeGenreKey(projectId), genre.id)
   return genre
 }
@@ -158,8 +163,10 @@ export async function createFocusText(projectId: string, reference: string): Pro
     project_id: projectId,
     reference: reference.trim() || 'Untitled focus text',
     created_at: now(),
+    updated_at: now(),
   }
   await db.focusTexts.put(focusText)
+  await trackUpsert('focusTexts', focusText)
   await setActiveFocusText(projectId, focusText.id)
   return focusText
 }
@@ -174,16 +181,24 @@ export async function createGenre(projectId: string, name: string): Promise<Genr
     updated_at: now(),
   }
   await db.genres.put(genre)
+  await trackUpsert('genres', genre)
   await setActiveGenre(projectId, genre.id)
   return genre
 }
 
 export async function renameFocusText(id: string, reference: string): Promise<void> {
-  await db.focusTexts.update(id, { reference: reference.trim() || 'Untitled focus text' })
+  await db.focusTexts.update(id, {
+    reference: reference.trim() || 'Untitled focus text',
+    updated_at: now(),
+  })
+  const updated = await db.focusTexts.get(id)
+  if (updated) await trackUpsert('focusTexts', updated)
 }
 
 export async function renameGenre(id: string, name: string): Promise<void> {
   await db.genres.update(id, { name: name.trim() || 'Untitled genre', updated_at: now() })
+  const updated = await db.genres.get(id)
+  if (updated) await trackUpsert('genres', updated)
 }
 
 async function ensureActiveWorksheet(
@@ -217,6 +232,7 @@ async function ensureActiveWorksheet(
     updated_at: now(),
   }
   await db.worksheets.put(worksheet)
+  await trackUpsert('worksheets', worksheet)
   await setMeta(activeWorksheetKey(projectId), worksheet.id)
   return worksheet
 }
