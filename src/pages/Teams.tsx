@@ -13,6 +13,7 @@ import {
 import {
   buildJoinLink,
   createTeam,
+  discoverTeams,
   inviteByEmail,
   leaveTeam,
   listMembers,
@@ -33,6 +34,7 @@ export function Teams() {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [newLink, setNewLink] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
@@ -64,6 +66,7 @@ export function Teams() {
   async function run(fn: () => Promise<void>) {
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
       await fn()
     } catch (e) {
@@ -80,6 +83,22 @@ export function Teams() {
       setName('')
       setNewLink(team.joinLink)
       await refresh()
+    })
+  }
+
+  async function onDiscover() {
+    await run(async () => {
+      const found = await discoverTeams()
+      await refresh()
+      if (found.length === 0) {
+        setError(
+          'No new teams found. Make sure you accepted the Google Drive share sent to this account.',
+        )
+      } else {
+        setNotice(
+          `Added ${found.length === 1 ? `"${found[0].name}"` : `${found.length} teams`}. Open a team below to start syncing.`,
+        )
+      }
     })
   }
 
@@ -161,6 +180,27 @@ export function Teams() {
             <p className="font-medium text-emerald-800">Team created. Share this private link:</p>
             <CopyLink link={newLink} />
           </div>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold text-gray-700">Join a team</h2>
+        <p className="text-sm text-gray-600">
+          Invited by email? After accepting the Google Drive share, click below to add the team
+          here. (A join link someone sends you also works.)
+        </p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onDiscover}
+          className="self-start rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100 disabled:opacity-50"
+        >
+          Find teams shared with me
+        </button>
+        {notice && (
+          <p className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800">
+            {notice}
+          </p>
         )}
       </section>
 
@@ -280,6 +320,9 @@ function TeamCard({
           Invite
         </button>
       </div>
+      <p className="text-xs text-gray-400">
+        After they accept the Drive email, they click "Find teams shared with me" to join here.
+      </p>
 
       <div className="flex items-center gap-3 text-xs text-gray-500">
         <button

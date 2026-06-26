@@ -66,6 +66,11 @@ export async function listChildren(folderId: string): Promise<DriveFile[]> {
   return search(`'${q(folderId)}' in parents and trashed=false`)
 }
 
+/** Folders explicitly shared with the signed-in user (for team discovery). */
+export async function listSharedFolders(): Promise<DriveFile[]> {
+  return search(`sharedWithMe=true and mimeType='${FOLDER_MIME}' and trashed=false`)
+}
+
 /** Find a folder by name (optionally under a parent), creating it if absent. */
 export async function findOrCreateFolder(name: string, parentId?: string): Promise<string> {
   const parentClause = parentId ? ` and '${q(parentId)}' in parents` : ''

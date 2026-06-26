@@ -17,15 +17,17 @@ import {
   findFile,
   findOrCreateFolder,
   listPermissions,
+  listSharedFolders,
   putJsonByName,
   type DrivePermission,
 } from '../google/drive'
-import { addTeam, removeTeam, type TeamRef } from './scope'
+import { addTeam, listTeams, removeTeam, type TeamRef } from './scope'
 import { pull } from './pull'
 import { now, uid } from '../util'
 
 const TEAM_FILE = 'team.json'
 const TEAM_SCHEMA_VERSION = '1'
+const TEAM_FOLDER_PREFIX = 'Genre Research Team — '
 
 interface TeamMeta {
   schemaVersion: string
@@ -101,6 +103,34 @@ export async function joinByCode(folderId: string, secret: string): Promise<Team
   await addTeam(ref)
   await pull({ kind: 'team', teamId: meta.teamId, folderId, name: meta.name })
   return ref
+}
+
+/**
+ * Find teams shared with this account (e.g. via an email invite) and register any
+ * that are new. An email invite only grants a Drive permission — Google's own
+ * notification links to the folder, not to the app's join link — so the team never
+ * appears locally until the invitee runs this. The Drive share is itself the access
+ * grant, so no join secret is required here.
+ */
+export async function discoverTeams(): Promise<TeamRef[]> {
+  await ensureScope('full') // shared folders are invisible to drive.file
+  const known = new Set((await listTeams()).map((t) => t.folderId))
+  const folders = (await listSharedFolders()).filter(
+    (f) => f.name.startsWith(TEAM_FOLDER_PREFIX) && !known.has(f.id),
+  )
+  const added: TeamRef[] = []
+  for (const folder of folders) {
+    const file = await findFile(TEAM_FILE, folder.id)
+    if (!file) continue // a like-named folder that isn't actually a team
+    const meta = await downloadJson<TeamMeta>(file.id)
+    if (!meta?.teamId) continue
+    // No joinSecret: the secret only re-shows the invite link, which only the owner needs.
+    const ref: TeamRef = { teamId: meta.teamId, folderId: folder.id, name: meta.name }
+    await addTeam(ref)
+    await pull({ kind: 'team', teamId: meta.teamId, folderId: folder.id, name: meta.name })
+    added.push(ref)
+  }
+  return added
 }
 
 /** Invite a teammate by email (Google emails them the share). */
