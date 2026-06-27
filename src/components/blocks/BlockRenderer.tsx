@@ -1,10 +1,12 @@
-import { effectiveLayer } from '../../lib/content/loader'
+import { Link } from 'react-router-dom'
+import { effectiveLayer, navSubsectionOf } from '../../lib/content/loader'
 import { cellKey } from '../../lib/storage/db'
 import type { ActiveContext } from '../../lib/storage/appState'
 import {
   addRow,
   removeRow,
   setBlockNotApplicable,
+  setRowAsked,
   setRowPriority,
   upsertEntry,
   useEntry,
@@ -45,7 +47,12 @@ export function BlockRenderer({
   mode: DepthMode
 }) {
   if (node.type === 'prose') {
-    return <p className="text-sm text-gray-600">{node.label}</p>
+    return (
+      <div className="flex flex-col gap-1">
+        <p className="text-sm text-gray-600">{node.label}</p>
+        <XrefLinks node={node} />
+      </div>
+    )
   }
 
   if (node.type === 'group') {
@@ -88,7 +95,30 @@ function FieldLabel({ node }: { node: GuideNode }) {
     <div>
       <label className="text-sm font-medium text-gray-800">{node.label}</label>
       {node.guidance && <p className="mt-0.5 text-xs text-gray-500">{node.guidance}</p>}
+      {node.footnote && (
+        <p className="mt-0.5 text-xs italic text-gray-400">{node.footnote}</p>
+      )}
+      <XrefLinks node={node} />
     </div>
+  )
+}
+
+/** Renders a node's cross-references as links to the section that holds them. */
+function XrefLinks({ node }: { node: GuideNode }) {
+  if (!node.xref?.length) return null
+  return (
+    <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs">
+      {node.xref.map((x) => {
+        const target = navSubsectionOf(x.to)
+        const text = x.label ?? 'See related section'
+        if (!target) return <span key={x.to} className="text-gray-400">{text}</span>
+        return (
+          <Link key={x.to} to={`/worksheet/${target}`} className="text-sky-700 hover:underline">
+            {text} →
+          </Link>
+        )
+      })}
+    </p>
   )
 }
 
@@ -245,6 +275,9 @@ function RepeatableList({ ctx, node, layer }: BlockProps) {
           {node.priorityEligible && (
             <PriorityStar ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
           )}
+          {node.askTracking && (
+            <AskedToggle ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
+          )}
           <div className="flex-1">
             <CellInput
               ctx={ctx}
@@ -354,6 +387,34 @@ function PriorityStar({
       className={`text-lg leading-none ${on ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
     >
       {on ? '★' : '☆'}
+    </button>
+  )
+}
+
+function AskedToggle({
+  ctx,
+  nodeId,
+  layer,
+  rowId,
+}: {
+  ctx: ActiveContext
+  nodeId: string
+  layer: Layer
+  rowId: string
+}) {
+  const entry = useEntry(ctx, nodeId, layer, rowId)
+  const on = !!entry?.is_asked
+  return (
+    <button
+      type="button"
+      aria-label={on ? 'Mark as not yet asked' : 'Mark as asked'}
+      title={on ? 'Asked' : 'Not yet asked'}
+      onClick={() => setRowAsked(ctx, nodeId, layer, rowId, !on)}
+      className={`mt-1 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+        on ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+      }`}
+    >
+      {on ? '✓ Asked' : 'Asked?'}
     </button>
   )
 }

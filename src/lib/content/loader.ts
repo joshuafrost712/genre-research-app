@@ -123,6 +123,19 @@ export function routableNodes(): RoutableNode[] {
   return out
 }
 
+/**
+ * The navigable subsection a node lives in (itself if it is one), as a route
+ * target for cross-reference links. Walks the node and its ancestors and returns
+ * the first id that is a navigable subsection; null if none.
+ */
+export function navSubsectionOf(id: string): string | null {
+  const order = new Set(navOrder())
+  const ref = nodeIndex().get(id)
+  if (!ref) return order.has(id) ? id : null
+  const chain = [ref.node, ...ref.parents].map((n) => n.id)
+  return chain.find((nid) => order.has(nid)) ?? null
+}
+
 export function nextNavId(currentId: string | null): string | null {
   const order = navOrder()
   if (!order.length) return null

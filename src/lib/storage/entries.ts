@@ -85,6 +85,7 @@ export interface EntryPatch {
   value?: string
   is_priority?: boolean
   is_not_applicable?: boolean
+  is_asked?: boolean
   is_concern_flag?: boolean
   routing_status?: RoutingStatus
   captured_note_id?: string
@@ -116,6 +117,7 @@ export async function upsertEntry(
     value: patch.value,
     is_priority: patch.is_priority,
     is_not_applicable: patch.is_not_applicable,
+    is_asked: patch.is_asked,
     is_concern_flag: patch.is_concern_flag,
     captured_note_id: patch.captured_note_id,
     ai_confidence: patch.ai_confidence,
@@ -231,6 +233,20 @@ export async function setRowPriority(
   value: boolean,
 ): Promise<void> {
   await upsertEntry(ctx, nodeId, layer, { is_priority: value }, rowId)
+}
+
+/**
+ * Toggle a row-level "asked" flag for a repeatable_list item (cell_key = rowId).
+ * Lets a researcher mark an idea of whom/where/what to ask as already done.
+ */
+export async function setRowAsked(
+  ctx: ActiveContext,
+  nodeId: string,
+  layer: Layer,
+  rowId: string,
+  value: boolean,
+): Promise<void> {
+  await upsertEntry(ctx, nodeId, layer, { is_asked: value }, rowId)
 }
 
 /** All entries for the active project (for progress and export). */

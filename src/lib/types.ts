@@ -88,6 +88,7 @@ export interface Entry {
   is_concern_flag?: boolean
   is_priority?: boolean
   is_not_applicable?: boolean
+  is_asked?: boolean // ask-tracking: the researcher has asked this person/at this place/this question
   schema_version: string
   sync_status: SyncStatus
   created_at: string

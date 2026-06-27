@@ -12,8 +12,10 @@ const STORAGE_KEY = 'depthMode'
 
 export function DepthModeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<DepthMode>(() => {
+    // Two modes now: Quick (minimal) and Standard (everything). Default Standard;
+    // a saved legacy 'comprehensive' maps to Standard.
     const saved = localStorage.getItem(STORAGE_KEY)
-    return saved === 'standard' || saved === 'comprehensive' ? saved : 'quick'
+    return saved === 'quick' ? 'quick' : 'standard'
   })
 
   useEffect(() => {

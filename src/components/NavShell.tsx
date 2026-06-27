@@ -25,11 +25,11 @@ const LAYER_BADGE: Record<string, string> = {
  * not shown, which is the anti-overwhelm mechanism at the navigation level.
  */
 const QUICK_LINKS = [
-  { to: '/wizard', label: 'Guided wizard' },
-  { to: '/capture', label: 'Capture a note' },
-  { to: '/routing', label: 'AI routing' },
-  { to: '/review', label: 'Review proposals' },
-  { to: '/genres', label: 'Genres & focus texts' },
+  { to: '/wizard', label: 'Step-by-step guide' },
+  { to: '/capture', label: 'Quick note' },
+  { to: '/routing', label: 'Sort notes with AI' },
+  { to: '/review', label: 'Review AI suggestions' },
+  { to: '/genres', label: 'Genres & psalms' },
   { to: '/priorities', label: 'Your priorities' },
   { to: '/export', label: 'Export' },
   // Teams (cloud sharing) only appears when Google sign-in is configured.
@@ -88,7 +88,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
       <div>
         <div className="mb-1 font-semibold text-gray-700">Depth</div>
         <div className="flex gap-1" role="group" aria-label="Depth mode">
-          {(['quick', 'standard', 'comprehensive'] as DepthMode[]).map((m) => (
+          {(['quick', 'standard'] as DepthMode[]).map((m) => (
             <button
               key={m}
               type="button"

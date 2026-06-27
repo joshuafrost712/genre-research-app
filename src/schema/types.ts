@@ -87,6 +87,10 @@ export interface GuideNode {
   priorityEligible?: boolean
   priorityMax?: number
 
+  // ask-tracking: shows a per-item "asked" checkbox on a repeatable_list, so a
+  // researcher can separate "idea of whom/where/what to ask" from "already asked"
+  askTracking?: boolean
+
   // select inputs
   options?: SelectOption[]
 
