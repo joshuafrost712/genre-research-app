@@ -4,7 +4,7 @@
  * Pure functions over a loaded entries array; callers supply entries via a live
  * query so the numbers update as answers change.
  */
-import { effectiveLayer, navTree } from './content/loader'
+import { effectiveLayer, findNode, journeyOrder, navTree } from './content/loader'
 import { entryContainerId, ROWS_KEY } from './storage/entries'
 import type { ActiveContext } from './storage/appState'
 import type { Entry } from './types'
@@ -122,15 +122,21 @@ export interface WizardStep {
   subLabel: string
 }
 
-/** Ordered answerable blocks across the whole worksheet for the guided wizard. */
+/**
+ * Ordered answerable blocks for the guided wizard, in recommended-journey order
+ * (not raw document order), so a self-guiding user does each step after the steps
+ * it depends on. The Section 0 synthesis steps come last, where their inputs exist.
+ */
 export function wizardSequence(mode: DepthMode): WizardStep[] {
   const steps: WizardStep[] = []
-  for (const { section, subsections } of navTree()) {
-    for (const sub of subsections) {
-      if (!visibleAtDepth(sub, mode)) continue
-      for (const node of answerableLeaves(sub, mode)) {
-        steps.push({ node, sectionLabel: section.label, subId: sub.id, subLabel: sub.label })
-      }
+  for (const subId of journeyOrder()) {
+    const ref = findNode(subId)
+    if (!ref) continue
+    const sub = ref.node
+    if (!visibleAtDepth(sub, mode)) continue
+    const sectionLabel = ref.parents[0]?.label ?? ''
+    for (const node of answerableLeaves(sub, mode)) {
+      steps.push({ node, sectionLabel, subId: sub.id, subLabel: sub.label })
     }
   }
   return steps

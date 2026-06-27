@@ -33,11 +33,15 @@ export function GenreBank() {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-semibold">Genres &amp; focus texts</h1>
+      <h1 className="text-2xl font-semibold">Your psalms &amp; genres</h1>
+      <p className="text-sm text-gray-600">
+        Name the psalm you are translating and the genre you are studying. Tap one to
+        make it the one you are working on now. You can come back and switch any time.
+      </p>
 
       <EntityList
-        title="Focus texts (psalms)"
-        addLabel="Add focus text"
+        title="Psalms (the text you are translating)"
+        addLabel="Add a psalm (e.g. Psalm 13)"
         items={(focusTexts ?? []).map((f) => ({ id: f.id, label: f.reference }))}
         activeId={ctx.focusTextId}
         onSelect={async (id) => {

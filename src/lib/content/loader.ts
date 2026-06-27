@@ -136,8 +136,70 @@ export function navSubsectionOf(id: string): string | null {
   return chain.find((nid) => order.has(nid)) ?? null
 }
 
+/**
+ * The recommended journey: the worksheet's subsections grouped and ORDERED the
+ * way the work actually happens, so a translator guiding themselves is never sent
+ * to a synthesis step before its inputs exist. (Document order interleaves the
+ * Section 0 synthesis pieces at the front; this moves them to the end.) The
+ * section menu still lets anyone jump anywhere; this drives the home page, the
+ * wizard, and the worksheet "Next" button.
+ */
+export interface JourneyStage {
+  id: string
+  title: string
+  blurb: string
+  subIds: string[]
+}
+
+const JOURNEY: JourneyStage[] = [
+  {
+    id: 'start',
+    title: 'Step 1 — Your psalm',
+    blurb: 'Say what this psalm is about and what it is doing.',
+    subIds: ['s0.purpose'],
+  },
+  {
+    id: 'find',
+    title: 'Step 2 — Find local genres',
+    blurb: 'List the songs and poems your people use, describe them, and choose one for this psalm.',
+    subIds: ['s1a', 's1b', 's1c'],
+  },
+  {
+    id: 'bigpicture',
+    title: 'Step 3 — Study the genre: big picture',
+    blurb: 'Learn how this genre is shaped, how it shows feelings, and how it links ideas.',
+    subIds: ['s2a', 's2b', 's2c', 's2d', 's2e'],
+  },
+  {
+    id: 'details',
+    title: 'Step 4 — Study the genre: details',
+    blurb: 'Look closely at its words, sounds, picture-language, and performance.',
+    subIds: ['s3a', 's3b', 's3c', 's3d', 's3e', 's3f', 's3g'],
+  },
+  {
+    id: 'together',
+    title: 'Step 5 — Put it together and translate',
+    blurb: 'Bring your notes back together, choose the genre, and write the translation.',
+    subIds: ['s0.genre_choice', 's0.macro_notes', 's0.stylistic_notes', 's0.translation'],
+  },
+]
+
+/** The journey stages, filtered to subsections that actually exist in the content. */
+export function journey(): JourneyStage[] {
+  const known = new Set(navOrder())
+  return JOURNEY.map((stage) => ({
+    ...stage,
+    subIds: stage.subIds.filter((id) => known.has(id)),
+  })).filter((stage) => stage.subIds.length > 0)
+}
+
+/** Flat subsection ids in journey (recommended-path) order. */
+export function journeyOrder(): string[] {
+  return journey().flatMap((stage) => stage.subIds)
+}
+
 export function nextNavId(currentId: string | null): string | null {
-  const order = navOrder()
+  const order = journeyOrder()
   if (!order.length) return null
   if (!currentId) return order[0]
   const i = order.indexOf(currentId)
