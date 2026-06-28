@@ -115,6 +115,45 @@ export function computeProgress(
   return { overall: { done, total }, bySubsection }
 }
 
+/**
+ * Progress for ONE genre's reusable research (the genre-layer subsections: 1B
+ * plus Sections 2 and 3), scoped to a single genre_id rather than the active
+ * context. Drives the per-genre cards + stage checklist on the genres hub. Pure
+ * over a supplied entries array; genre-layer entries are keyed by genre_id, so a
+ * synthetic context with that genre_id resolves the right container.
+ */
+export function genreProgress(
+  entries: Entry[],
+  projectId: string,
+  genreId: string,
+  mode: DepthMode,
+): ProgressReport {
+  const idx = buildIndex(entries)
+  const ctx: ActiveContext = { projectId, focusTextId: '', genreId, worksheetId: '' }
+  const bySubsection: Record<string, Count> = {}
+  let done = 0
+  let total = 0
+
+  for (const { subsections } of navTree()) {
+    for (const sub of subsections) {
+      if (!visibleAtDepth(sub, mode)) continue
+      if (effectiveLayer(sub.id) !== 'genre') continue
+      const leaves = answerableLeaves(sub, mode)
+      let subDone = 0
+      for (const leaf of leaves) {
+        const layer = effectiveLayer(leaf.id)
+        if (layer !== 'genre') continue
+        if (isAnswered(leaf, layer, ctx, idx)) subDone++
+      }
+      bySubsection[sub.id] = { done: subDone, total: leaves.length }
+      done += subDone
+      total += leaves.length
+    }
+  }
+
+  return { overall: { done, total }, bySubsection }
+}
+
 export interface WizardStep {
   node: GuideNode
   sectionLabel: string
@@ -155,6 +194,24 @@ export function collectPriorities(
 ): PriorityItem[] {
   return entries
     .filter((e) => e.is_priority && e.project_id === ctx.projectId)
+    .map((e) => {
+      const node = nodeOf(e.node_id)
+      return node ? { entry: e, node } : null
+    })
+    .filter((x): x is PriorityItem => x !== null)
+}
+
+/**
+ * Blocks/rows flagged "follow up / want more info" across the worksheet, for the
+ * /follow-up hit-list. Same shape as priorities; keys on `is_concern_flag`.
+ */
+export function collectFollowUps(
+  entries: Entry[],
+  ctx: ActiveContext,
+  nodeOf: (id: string) => GuideNode | undefined,
+): PriorityItem[] {
+  return entries
+    .filter((e) => e.is_concern_flag && e.project_id === ctx.projectId)
     .map((e) => {
       const node = nodeOf(e.node_id)
       return node ? { entry: e, node } : null

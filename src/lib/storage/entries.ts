@@ -90,6 +90,8 @@ export interface EntryPatch {
   routing_status?: RoutingStatus
   captured_note_id?: string
   ai_confidence?: number
+  proposed_text?: string
+  proposed_note_id?: string
 }
 
 /** Create or update the entry for (node, container, cell). */
@@ -121,6 +123,8 @@ export async function upsertEntry(
     is_concern_flag: patch.is_concern_flag,
     captured_note_id: patch.captured_note_id,
     ai_confidence: patch.ai_confidence,
+    proposed_text: patch.proposed_text,
+    proposed_note_id: patch.proposed_note_id,
     routing_status: patch.routing_status ?? 'confirmed',
     schema_version: getContentVersion(),
     sync_status: 'local',
@@ -249,6 +253,32 @@ export async function setRowAsked(
   await upsertEntry(ctx, nodeId, layer, { is_asked: value }, rowId)
 }
 
+/**
+ * Toggle a block-level "follow up / want more info" flag on a scalar block
+ * (cell_key undefined), reusing the existing `is_concern_flag` field. Flagged
+ * blocks gather on the /follow-up page so a researcher can revisit them (e.g.
+ * when they finally meet a local expert) without hunting through the worksheet.
+ */
+export async function setBlockFollowUp(
+  ctx: ActiveContext,
+  nodeId: string,
+  layer: Layer,
+  value: boolean,
+): Promise<void> {
+  await upsertEntry(ctx, nodeId, layer, { is_concern_flag: value })
+}
+
+/** Row-level variant of the follow-up flag (cell_key = rowId). */
+export async function setRowFollowUp(
+  ctx: ActiveContext,
+  nodeId: string,
+  layer: Layer,
+  rowId: string,
+  value: boolean,
+): Promise<void> {
+  await upsertEntry(ctx, nodeId, layer, { is_concern_flag: value }, rowId)
+}
+
 /** All entries for the active project (for progress and export). */
 export function useAllEntries(ctx: ActiveContext | null): Entry[] | undefined {
   return useLiveQuery(
@@ -264,15 +294,57 @@ export function entryContainerId(layer: Layer, ctx: ActiveContext): string {
 
 // --- AI-proposed (needs_review) entries -----------------------------------
 
-/** Live list of AI-proposed entries awaiting human confirmation. */
+/**
+ * Live list of entries awaiting a human decision. Two kinds:
+ *  - fresh proposals: `routing_status === 'needs_review'` (AI placed into an
+ *    empty/unconfirmed cell)
+ *  - conflicts: a confirmed answer that AI wants to change, held in
+ *    `proposed_text` so it never silently overwrites the existing answer
+ */
 export function useNeedsReview(ctx: ActiveContext | null): Entry[] | undefined {
   return useLiveQuery(async () => {
     if (!ctx) return []
     const rows = await db.entries.where('project_id').equals(ctx.projectId).toArray()
     return rows
-      .filter((e) => e.routing_status === 'needs_review')
+      .filter((e) => e.routing_status === 'needs_review' || (e.proposed_text?.trim() ?? '') !== '')
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
   }, [ctx?.projectId])
+}
+
+/** True when an entry holds an AI suggestion that conflicts with a kept answer. */
+export function isConflict(entry: Entry): boolean {
+  return entry.routing_status === 'confirmed' && (entry.proposed_text?.trim() ?? '') !== ''
+}
+
+/**
+ * Resolve an AI conflict on an already-confirmed scalar answer. `keep` drops the
+ * AI suggestion and leaves the answer untouched; `replace` swaps in the AI text;
+ * `append` joins both. In every case the proposal fields are cleared so the item
+ * leaves the review queue.
+ */
+export async function resolveConflict(
+  entry: Entry,
+  action: 'keep' | 'replace' | 'append',
+): Promise<void> {
+  const proposed = entry.proposed_text ?? ''
+  const text =
+    action === 'replace'
+      ? proposed
+      : action === 'append'
+        ? `${entry.text.trim()}\n${proposed.trim()}`.trim()
+        : entry.text
+  const patch: Partial<Entry> = {
+    text,
+    proposed_text: undefined,
+    proposed_note_id: undefined,
+    updated_at: now(),
+  }
+  // Taking the AI text makes it AI-sourced; keeping mine drops the AI mark.
+  if (action === 'keep') patch.ai_confidence = undefined
+  else if (entry.proposed_note_id) patch.captured_note_id = entry.proposed_note_id
+  await db.entries.update(entry.id, patch)
+  const updated = await db.entries.get(entry.id)
+  if (updated) await trackUpsert('entries', updated)
 }
 
 /** Accept a proposal: optionally edit the text, then mark it confirmed. */

@@ -23,6 +23,22 @@ async function setMeta(key: string, value: string): Promise<void> {
   await db.meta.put({ key, value })
 }
 
+/**
+ * Per-tour "already seen" flag. Each guided tour is tracked independently (one
+ * meta key per tour id) so a new page tour can run for the first time without
+ * re-triggering tours the user already finished. Stored in `meta` so it can ride
+ * the same per-account sync path as the rest of app state when accounts land.
+ */
+const tourSeenKey = (tourId: string) => `tourSeen:${tourId}`
+
+export async function isTourSeen(tourId: string): Promise<boolean> {
+  return (await getMeta(tourSeenKey(tourId))) === '1'
+}
+
+export async function setTourSeen(tourId: string, seen: boolean): Promise<void> {
+  await setMeta(tourSeenKey(tourId), seen ? '1' : '0')
+}
+
 export async function getActiveProjectId(): Promise<string | undefined> {
   return getMeta(ACTIVE_PROJECT)
 }

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { effectiveLayer, navSubsectionOf } from '../../lib/content/loader'
 import { cellKey } from '../../lib/storage/db'
@@ -5,13 +6,16 @@ import type { ActiveContext } from '../../lib/storage/appState'
 import {
   addRow,
   removeRow,
+  setBlockFollowUp,
   setBlockNotApplicable,
   setRowAsked,
+  setRowFollowUp,
   setRowPriority,
   upsertEntry,
   useEntry,
   useRowIds,
 } from '../../lib/storage/entries'
+import { resolveGenreTokens, useGenreName } from '../GenreNameProvider'
 import {
   depthVisible,
   visibleAtDepth,
@@ -46,10 +50,13 @@ export function BlockRenderer({
   node: GuideNode
   mode: DepthMode
 }) {
+  const genre = useGenreName()
+
   if (node.type === 'prose') {
     return (
       <div className="flex flex-col gap-1">
-        <p className="text-sm text-gray-600">{node.label}</p>
+        <p className="text-sm text-gray-600">{resolveGenreTokens(node.label, genre)}</p>
+        <ExampleToggle node={node} genre={genre} />
         <XrefLinks node={node} />
       </div>
     )
@@ -59,8 +66,13 @@ export function BlockRenderer({
     const children = (node.children ?? []).filter((c) => visibleAtDepth(c, mode))
     return (
       <fieldset className="flex flex-col gap-3">
-        <legend className="text-sm font-semibold text-gray-700">{node.label}</legend>
-        {node.guidance && <p className="text-xs text-gray-500">{node.guidance}</p>}
+        <legend className="text-sm font-semibold text-gray-700">
+          {resolveGenreTokens(node.label, genre)}
+        </legend>
+        {node.guidance && (
+          <p className="text-xs text-gray-500">{resolveGenreTokens(node.guidance, genre)}</p>
+        )}
+        <ExampleToggle node={node} genre={genre} />
         {children.map((child) => (
           <BlockRenderer key={child.id} ctx={ctx} node={child} mode={mode} />
         ))}
@@ -91,14 +103,44 @@ export function BlockRenderer({
 }
 
 function FieldLabel({ node }: { node: GuideNode }) {
+  const genre = useGenreName()
   return (
     <div>
-      <label className="text-sm font-medium text-gray-800">{node.label}</label>
-      {node.guidance && <p className="mt-0.5 text-xs text-gray-500">{node.guidance}</p>}
-      {node.footnote && (
-        <p className="mt-0.5 text-xs italic text-gray-400">{node.footnote}</p>
+      <label className="text-sm font-medium text-gray-800">
+        {resolveGenreTokens(node.label, genre)}
+      </label>
+      {node.guidance && (
+        <p className="mt-0.5 text-xs text-gray-500">{resolveGenreTokens(node.guidance, genre)}</p>
       )}
+      {node.footnote && (
+        <p className="mt-0.5 text-xs italic text-gray-400">
+          {resolveGenreTokens(node.footnote, genre)}
+        </p>
+      )}
+      <ExampleToggle node={node} genre={genre} />
       <XrefLinks node={node} />
+    </div>
+  )
+}
+
+/** A collapsed "Show example" disclosure; renders nothing when the node has none. */
+function ExampleToggle({ node, genre }: { node: GuideNode; genre: string }) {
+  const [open, setOpen] = useState(false)
+  if (!node.example) return null
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs font-medium text-sky-700 hover:underline"
+      >
+        {open ? 'Hide example' : 'Show example'}
+      </button>
+      {open && (
+        <p className="mt-1 whitespace-pre-line rounded-md bg-sky-50 p-2 text-xs text-sky-900">
+          {resolveGenreTokens(node.example, genre)}
+        </p>
+      )}
     </div>
   )
 }
@@ -122,23 +164,47 @@ function XrefLinks({ node }: { node: GuideNode }) {
   )
 }
 
-/** A scalar field with a not-applicable toggle. */
+/** A scalar field with not-applicable and follow-up toggles. */
 function ScalarField({ ctx, node, layer }: BlockProps) {
   const entry = useEntry(ctx, node.id, layer)
   const na = !!entry?.is_not_applicable
+  const followUp = !!entry?.is_concern_flag
+  const fromAI = entry?.ai_confidence != null
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-start justify-between gap-2">
-        <FieldLabel node={node} />
-        <button
-          type="button"
-          onClick={() => setBlockNotApplicable(ctx, node.id, layer, !na)}
-          className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-medium ${
-            na ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-          }`}
-        >
-          N/A
-        </button>
+        <div className="min-w-0">
+          <FieldLabel node={node} />
+          {fromAI && (
+            <span
+              title="This answer came from AI sorting. Edit it to make it yours."
+              className="mt-1 inline-block rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+            >
+              from AI
+            </span>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            title="Flag to come back to this / get more info"
+            onClick={() => setBlockFollowUp(ctx, node.id, layer, !followUp)}
+            className={`rounded px-2 py-0.5 text-[11px] font-medium ${
+              followUp ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            {followUp ? '✦ Follow up' : 'Follow up'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBlockNotApplicable(ctx, node.id, layer, !na)}
+            className={`rounded px-2 py-0.5 text-[11px] font-medium ${
+              na ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            N/A
+          </button>
+        </div>
       </div>
       {na ? (
         <p className="text-xs italic text-gray-400">Marked not applicable.</p>
@@ -185,11 +251,13 @@ function CollectionInput({
 
 function ScalarText({ ctx, node, layer }: BlockProps) {
   const entry = useEntry(ctx, node.id, layer)
+  // Editing an AI-sourced answer makes it the human's own: drop the AI mark.
+  const clearAI = entry?.ai_confidence != null ? { ai_confidence: undefined } : {}
   return (
     <AutosaveText
       value={entry?.text ?? ''}
       multiline={node.type === 'long_text'}
-      onSave={(v) => upsertEntry(ctx, node.id, layer, { text: v })}
+      onSave={(v) => upsertEntry(ctx, node.id, layer, { text: v, ...clearAI })}
     />
   )
 }
@@ -278,6 +346,7 @@ function RepeatableList({ ctx, node, layer }: BlockProps) {
           {node.askTracking && (
             <AskedToggle ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
           )}
+          <RowFollowUp ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
           <div className="flex-1">
             <CellInput
               ctx={ctx}
@@ -308,6 +377,7 @@ function RepeatableTable({ ctx, node, layer, mode }: BlockProps & { mode: DepthM
               {node.priorityEligible && (
                 <PriorityStar ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
               )}
+              <RowFollowUp ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
               <span className="text-xs font-medium text-gray-400">Row {i + 1}</span>
             </div>
             <RemoveButton onClick={() => removeRow(ctx, node.id, layer, rowId)} />
@@ -415,6 +485,32 @@ function AskedToggle({
       }`}
     >
       {on ? '✓ Asked' : 'Asked?'}
+    </button>
+  )
+}
+
+function RowFollowUp({
+  ctx,
+  nodeId,
+  layer,
+  rowId,
+}: {
+  ctx: ActiveContext
+  nodeId: string
+  layer: Layer
+  rowId: string
+}) {
+  const entry = useEntry(ctx, nodeId, layer, rowId)
+  const on = !!entry?.is_concern_flag
+  return (
+    <button
+      type="button"
+      aria-label={on ? 'Remove follow-up flag' : 'Flag to follow up'}
+      title={on ? 'Flagged to follow up' : 'Flag to follow up'}
+      onClick={() => setRowFollowUp(ctx, nodeId, layer, rowId, !on)}
+      className={`text-sm leading-none ${on ? 'text-violet-600' : 'text-gray-300 hover:text-violet-400'}`}
+    >
+      ⚑
     </button>
   )
 }

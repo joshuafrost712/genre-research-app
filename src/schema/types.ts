@@ -80,6 +80,7 @@ export interface GuideNode {
   layer?: Layer
   guidance?: string // contextual helper; Katie still to author most of these
   footnote?: string
+  example?: string // concrete worked example, shown behind a "Show example" toggle
   minDepth?: DepthMode // node visible when mode rank >= this rank (default quick)
   optional?: boolean // defaults true
 

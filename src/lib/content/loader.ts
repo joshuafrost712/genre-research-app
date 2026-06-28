@@ -81,6 +81,27 @@ export function navTree(): NavSection[] {
   }))
 }
 
+/**
+ * Genre-scoped research grouped by the section it lives under, for the per-genre
+ * checklist on the genres hub (e.g. "Details" = 1B, "Big picture" = Section 2,
+ * "Style & detail" = Section 3). Derived from the content so it tracks any
+ * reordering or splitting of the genre sections.
+ */
+export interface GenreStage {
+  sectionId: string
+  sectionLabel: string
+  subIds: string[]
+}
+
+export function genreLayerStages(): GenreStage[] {
+  const out: GenreStage[] = []
+  for (const { section, subsections } of navTree()) {
+    const subIds = subsections.filter((s) => effectiveLayer(s.id) === 'genre').map((s) => s.id)
+    if (subIds.length) out.push({ sectionId: section.id, sectionLabel: section.label, subIds })
+  }
+  return out
+}
+
 /** Ordered flat list of navigable subsection ids, for prev/next and "recommended next". */
 export function navOrder(): string[] {
   const order: string[] = []
@@ -167,8 +188,8 @@ const JOURNEY: JourneyStage[] = [
   {
     id: 'bigpicture',
     title: 'Step 3 — Study the genre: big picture',
-    blurb: 'Learn how this genre is shaped, how it shows feelings, and how it links ideas.',
-    subIds: ['s2a', 's2b', 's2c', 's2d', 's2e'],
+    blurb: 'Learn who performs the genre, how it is shaped, how it shows feelings, and how it links ideas.',
+    subIds: ['s2eth', 's2b', 's2a', 's2c', 's2d', 's2e'],
   },
   {
     id: 'details',

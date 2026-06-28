@@ -3,10 +3,13 @@ import { Layout } from './components/Layout'
 import { DepthModeProvider } from './components/DepthModeContext'
 import { ActiveContextProvider } from './components/ActiveContextProvider'
 import { SyncEngineProvider } from './components/SyncEngineProvider'
+import { TourProvider } from './components/tour/TourProvider'
 import { Dashboard } from './pages/Dashboard'
 import { WorksheetView } from './pages/WorksheetView'
 import { Wizard } from './pages/Wizard'
 import { Priorities } from './pages/Priorities'
+import { FollowUp } from './pages/FollowUp'
+import { Help } from './pages/Help'
 import { Capture } from './pages/Capture'
 import { GenreBank } from './pages/GenreBank'
 import { ExportView } from './pages/ExportView'
@@ -25,6 +28,8 @@ const router = createBrowserRouter(
         { path: 'worksheet/:nodeId', element: <WorksheetView /> },
         { path: 'wizard', element: <Wizard /> },
         { path: 'priorities', element: <Priorities /> },
+        { path: 'follow-up', element: <FollowUp /> },
+        { path: 'help', element: <Help /> },
         { path: 'capture', element: <Capture /> },
         { path: 'genres', element: <GenreBank /> },
         { path: 'routing', element: <Routing /> },
@@ -44,7 +49,9 @@ export default function App() {
     <DepthModeProvider>
       <ActiveContextProvider>
         <SyncEngineProvider>
-          <RouterProvider router={router} />
+          <TourProvider>
+            <RouterProvider router={router} />
+          </TourProvider>
         </SyncEngineProvider>
       </ActiveContextProvider>
     </DepthModeProvider>

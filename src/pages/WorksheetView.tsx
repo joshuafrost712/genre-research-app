@@ -7,6 +7,9 @@ import { useDepthMode } from '../components/DepthModeContext'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import { useProgress } from '../components/useProgress'
 import { BlockRenderer } from '../components/blocks/BlockRenderer'
+import { resolveGenreTokens, useGenreName } from '../components/GenreNameProvider'
+import { Tour, ReplayTourButton } from '../components/tour/TourProvider'
+import { WORKSHEET_TOUR, WORKSHEET_TOUR_STEPS } from '../components/tour/tours'
 
 /**
  * Renders one subsection: its visible child blocks wired to autosaving Entries,
@@ -17,6 +20,7 @@ export function WorksheetView() {
   const { mode } = useDepthMode()
   const { ctx } = useActiveContext()
   const progress = useProgress()
+  const genre = useGenreName()
   const ref = nodeId ? findNode(nodeId) : undefined
 
   useEffect(() => {
@@ -43,14 +47,15 @@ export function WorksheetView() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Tour id={WORKSHEET_TOUR} steps={WORKSHEET_TOUR_STEPS} />
       <div>
         {sectionLabel && (
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-            {sectionLabel}
+            {resolveGenreTokens(sectionLabel, genre)}
           </p>
         )}
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <h1 className="text-2xl font-semibold">{node.label}</h1>
+          <h1 className="text-2xl font-semibold">{resolveGenreTokens(node.label, genre)}</h1>
           {subProgress && subProgress.total > 0 && (
             <span className="shrink-0 text-xs text-gray-500">
               {subProgress.done}/{subProgress.total} answered
@@ -58,7 +63,9 @@ export function WorksheetView() {
           )}
         </div>
         {node.guidance && (
-          <p className="mt-2 rounded-md bg-sky-50 p-3 text-sm text-sky-900">{node.guidance}</p>
+          <p className="mt-2 rounded-md bg-sky-50 p-3 text-sm text-sky-900">
+            {resolveGenreTokens(node.guidance, genre)}
+          </p>
         )}
       </div>
 
@@ -77,9 +84,12 @@ export function WorksheetView() {
       </div>
 
       <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-        <Link to="/" className="text-sm text-gray-500 hover:underline">
-          Home
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link to="/" className="text-sm text-gray-500 hover:underline">
+            Home
+          </Link>
+          <ReplayTourButton id={WORKSHEET_TOUR} />
+        </div>
         {next ? (
           <Link
             to={`/worksheet/${next.node.id}`}

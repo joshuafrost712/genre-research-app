@@ -4,6 +4,7 @@ import { navTree } from '../lib/content/loader'
 import { visibleAtDepth, type DepthMode } from '../schema/types'
 import { useDepthMode } from './DepthModeContext'
 import { useProgress } from './useProgress'
+import { resolveGenreTokens, useGenreName } from './GenreNameProvider'
 import { isGoogleConfigured } from '../lib/google/auth'
 
 const DEPTH_LABELS: Record<DepthMode, string> = {
@@ -31,7 +32,9 @@ const QUICK_LINKS = [
   { to: '/review', label: 'Review AI suggestions' },
   { to: '/genres', label: 'Genres & psalms' },
   { to: '/priorities', label: 'Your priorities' },
+  { to: '/follow-up', label: 'Follow up' },
   { to: '/export', label: 'Export' },
+  { to: '/help', label: 'Help' },
   // Teams (cloud sharing) only appears when Google sign-in is configured.
   ...(isGoogleConfigured() ? [{ to: '/teams', label: 'Teams' }] : []),
 ]
@@ -40,6 +43,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
   const { mode, setMode } = useDepthMode()
   const { nodeId } = useParams()
   const progress = useProgress()
+  const genre = useGenreName()
   const tree = navTree()
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
@@ -118,7 +122,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
                 className="flex w-full items-center justify-between rounded px-1 py-1 text-left font-semibold text-gray-800 hover:bg-gray-100"
                 aria-expanded={!isCollapsed}
               >
-                <span>{section.label}</span>
+                <span>{resolveGenreTokens(section.label, genre)}</span>
                 <span className="text-gray-400">{isCollapsed ? '+' : '−'}</span>
               </button>
               {!isCollapsed && (
@@ -138,7 +142,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
                             }`
                           }
                         >
-                          <span>{sub.label}</span>
+                          <span>{resolveGenreTokens(sub.label, genre)}</span>
                           {count && count.total > 0 ? (
                             <span className="ml-2 text-[10px] text-gray-400">
                               {count.done}/{count.total}

@@ -85,6 +85,11 @@ export interface Entry {
   value?: string // for select/scale answers
   routing_status: RoutingStatus
   ai_confidence?: number
+  // AI proposed a different answer for a cell that already holds a confirmed one.
+  // Held here (not in `text`) so the AI suggestion never silently overwrites the
+  // existing answer; surfaced in Review for the team to keep / replace / append.
+  proposed_text?: string
+  proposed_note_id?: string
   is_concern_flag?: boolean
   is_priority?: boolean
   is_not_applicable?: boolean

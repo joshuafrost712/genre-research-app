@@ -237,7 +237,18 @@ async function applyPlacement(
 
   if (node.type === 'short_text' || node.type === 'long_text') {
     const existing = await findEntry(ctx, node.id, layer)
-    if (existing?.text?.trim() && existing.routing_status === 'confirmed') return 'conflict'
+    const current = existing?.text?.trim() ?? ''
+    if (current && existing?.routing_status === 'confirmed') {
+      // Don't overwrite a kept answer. If the AI suggests the same thing, it's a
+      // no-op; otherwise hold the suggestion in proposed_text for human review.
+      if (current === p.text.trim()) return 'skipped'
+      await upsertEntry(ctx, node.id, layer, {
+        proposed_text: p.text,
+        proposed_note_id: noteId,
+        ai_confidence: CONFIDENCE_SCORE[p.confidence],
+      })
+      return 'conflict'
+    }
     await upsertEntry(ctx, node.id, layer, { text: p.text, ...patch })
     return 'stored'
   }

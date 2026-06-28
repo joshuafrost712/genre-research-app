@@ -17,6 +17,8 @@ import {
   setRoutingToken,
 } from '../routing/config'
 import { useActiveContext } from '../components/ActiveContextProvider'
+import { Tour, ReplayTourButton } from '../components/tour/TourProvider'
+import { SORT_AI_TOUR, SORT_AI_TOUR_STEPS } from '../components/tour/tours'
 
 /**
  * AI routing without a metered API: Claude (Max) routes captured notes into
@@ -39,9 +41,9 @@ export function Routing() {
   const summarize = (r: IngestResult) =>
     `Imported ${r.stored} placement${r.stored === 1 ? '' : 's'} from ${r.files} note${
       r.files === 1 ? '' : 's'
-    } as needs-review${r.conflicts ? `, ${r.conflicts} skipped (would overwrite a confirmed answer)` : ''}${
-      r.rejected ? `, ${r.rejected} rejected` : ''
-    }.`
+    } as needs-review${
+      r.conflicts ? `, ${r.conflicts} need your decision in Review (AI suggests a different answer)` : ''
+    }${r.rejected ? `, ${r.rejected} rejected` : ''}.`
 
   const makeBundle = async () => {
     const { text, count } = await buildExportBundle(ctx)
@@ -67,8 +69,12 @@ export function Routing() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Tour id={SORT_AI_TOUR} steps={SORT_AI_TOUR_STEPS} />
       <div>
-        <h1 className="text-2xl font-semibold">AI routing</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">AI routing</h1>
+          <ReplayTourButton id={SORT_AI_TOUR} />
+        </div>
         <p className="mt-1 text-sm text-gray-500">
           Let Claude propose where your captured notes belong. Claude proposes; the
           team confirms each placement in{' '}

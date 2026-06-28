@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/storage/db'
 import {
@@ -9,16 +10,27 @@ import {
   setActiveFocusText,
   setActiveGenre,
 } from '../lib/storage/appState'
+import { genreLayerStages, type GenreStage } from '../lib/content/loader'
+import { genreProgress } from '../lib/progress'
 import { useActiveContext } from '../components/ActiveContextProvider'
+import { useDepthMode } from '../components/DepthModeContext'
+import { useAllEntries } from '../lib/storage/entries'
+import { Tour, ReplayTourButton } from '../components/tour/TourProvider'
+import { GENRES_TOUR, GENRES_TOUR_STEPS } from '../components/tour/tours'
 
 /**
- * Genres & focus texts. The active focus text drives the Section 0 purpose; the
- * active genre drives the reusable genre analysis (1B, Sections 2 and 3); the
- * pairing drives the synthesis. Switching here re-points the worksheet without
- * losing any data, since genre analysis is reusable across focus texts.
+ * Genres hub. The genre list is the spine of the work: each genre is a card that
+ * shows how far its research has come (Details / Big picture / Style) and how
+ * many follow-up flags sit on it. Tapping a card makes it the active genre and
+ * opens its research. The active focus text drives Section 0 and 1A/1C; the
+ * active genre drives the reusable genre analysis; switching here re-points the
+ * worksheet without losing data.
  */
 export function GenreBank() {
   const { ctx, reload } = useActiveContext()
+  const { mode } = useDepthMode()
+  const navigate = useNavigate()
+  const entries = useAllEntries(ctx)
 
   const focusTexts = useLiveQuery(
     async () => (ctx ? await db.focusTexts.where('project_id').equals(ctx.projectId).toArray() : []),
@@ -31,13 +43,29 @@ export function GenreBank() {
 
   if (!ctx) return <p className="text-sm text-gray-400">Loading…</p>
 
+  const stages = genreLayerStages()
+  const firstSubId = stages[0]?.subIds[0]
+
+  const openGenre = async (id: string) => {
+    await setActiveGenre(ctx.projectId, id)
+    reload()
+    if (firstSubId) navigate(`/worksheet/${firstSubId}`)
+  }
+
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-semibold">Your psalms &amp; genres</h1>
-      <p className="text-sm text-gray-600">
-        Name the psalm you are translating and the genre you are studying. Tap one to
-        make it the one you are working on now. You can come back and switch any time.
-      </p>
+      <Tour id={GENRES_TOUR} steps={GENRES_TOUR_STEPS} />
+
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">Your psalms &amp; genres</h1>
+          <ReplayTourButton id={GENRES_TOUR} />
+        </div>
+        <p className="mt-1 text-sm text-gray-600">
+          A genre is a type of song or poem your people use. Add the ones you want
+          to study, and add the psalm you are translating. Tap a genre to work on it.
+        </p>
+      </div>
 
       <EntityList
         title="Psalms (the text you are translating)"
@@ -55,28 +83,143 @@ export function GenreBank() {
         onRename={(id, label) => renameFocusText(id, label)}
       />
 
-      <EntityList
-        title="Genres"
-        addLabel="Add genre"
-        items={(genres ?? []).map((g) => ({ id: g.id, label: g.name }))}
-        activeId={ctx.genreId}
-        onSelect={async (id) => {
-          await setActiveGenre(ctx.projectId, id)
-          reload()
-        }}
-        onCreate={async (label) => {
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold text-gray-700">Genres (local song &amp; poem types)</h2>
+        <div className="flex flex-col gap-2">
+          {(genres ?? []).map((g) => (
+            <GenreCard
+              key={g.id}
+              id={g.id}
+              name={g.name}
+              active={g.id === ctx.genreId}
+              stages={stages}
+              progress={genreProgress(entries ?? [], ctx.projectId, g.id, mode)}
+              followUps={(entries ?? []).filter((e) => e.genre_id === g.id && e.is_concern_flag).length}
+              onOpen={() => openGenre(g.id)}
+              onRename={(label) => renameGenre(g.id, label)}
+            />
+          ))}
+        </div>
+        <AddRow addLabel="Add genre" onCreate={async (label) => {
           await createGenre(ctx.projectId, label)
           reload()
-        }}
-        onRename={(id, label) => renameGenre(id, label)}
-      />
+        }} />
+      </section>
 
       <p className="text-sm text-gray-500">
-        Genre analysis is reusable: the same genre can be paired with several focus
-        texts, and editing it updates everywhere.
+        Genre study is reusable: the same genre can be paired with several psalms,
+        and editing it updates everywhere.
       </p>
     </div>
   )
+}
+
+/** Short names for the per-genre stage chips, keyed by top-level section id. */
+const SHORT_STAGE: Record<string, string> = {
+  s1: 'Details',
+  s2: 'Big picture',
+  s3: 'Style & detail',
+}
+
+function GenreCard({
+  name,
+  active,
+  stages,
+  progress,
+  followUps,
+  onOpen,
+  onRename,
+}: {
+  id: string
+  name: string
+  active: boolean
+  stages: GenreStage[]
+  progress: { overall: { done: number; total: number }; bySubsection: Record<string, { done: number; total: number }> }
+  followUps: number
+  onOpen: () => void
+  onRename: (label: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState(name)
+  const pct = progress.overall.total > 0
+    ? Math.round((progress.overall.done / progress.overall.total) * 100)
+    : 0
+
+  return (
+    <div
+      className={`rounded-xl border bg-white p-4 ${active ? 'border-gray-800 ring-1 ring-gray-800' : 'border-gray-200'}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        {editing ? (
+          <input
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={() => { onRename(text); setEditing(false) }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { onRename(text); setEditing(false) } }}
+            className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none"
+          />
+        ) : (
+          <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+            <span className="text-base font-medium text-gray-900">{name}</span>
+            {active && <span className="ml-2 text-[11px] font-medium text-emerald-600">active</span>}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => { setText(name); setEditing((v) => !v) }}
+          className="shrink-0 text-xs text-gray-400 hover:text-gray-700"
+        >
+          {editing ? 'cancel' : 'rename'}
+        </button>
+      </div>
+
+      <button type="button" onClick={onOpen} className="mt-3 block w-full text-left">
+        <div className="mb-1 flex justify-between text-xs text-gray-500">
+          <span>Research progress</span>
+          <span>{pct}%</span>
+        </div>
+        <div className="h-2 w-full rounded-full bg-gray-100">
+          <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+          {stages.map((stage) => {
+            const c = sumStage(stage, progress.bySubsection)
+            const done = c.total > 0 && c.done >= c.total
+            return (
+              <span key={stage.sectionId} className={done ? 'text-emerald-700' : ''}>
+                {done ? '✓ ' : ''}
+                {SHORT_STAGE[stage.sectionId] ?? stage.sectionLabel}: {c.done}/{c.total}
+              </span>
+            )
+          })}
+        </div>
+      </button>
+
+      {followUps > 0 && (
+        <div className="mt-2 text-xs font-medium text-violet-700">
+          {followUps} follow-up {followUps === 1 ? 'flag' : 'flags'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function sumStage(
+  stage: GenreStage,
+  bySubsection: Record<string, { done: number; total: number }>,
+): { done: number; total: number } {
+  let done = 0
+  let total = 0
+  for (const subId of stage.subIds) {
+    const c = bySubsection[subId]
+    if (c) {
+      done += c.done
+      total += c.total
+    }
+  }
+  return { done, total }
 }
 
 interface Item {
@@ -100,9 +243,7 @@ function EntityList({
   onSelect: (id: string) => void
   onCreate: (label: string) => void
   onRename: (id: string, label: string) => void
-  }) {
-  const [draft, setDraft] = useState('')
-
+}) {
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-sm font-semibold text-gray-700">{title}</h2>
@@ -111,27 +252,34 @@ function EntityList({
           <Row key={it.id} item={it} active={it.id === activeId} onSelect={onSelect} onRename={onRename} />
         ))}
       </ul>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={addLabel}
-          className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
-        />
-        <button
-          type="button"
-          onClick={() => {
-            if (!draft.trim()) return
-            onCreate(draft)
-            setDraft('')
-          }}
-          className="rounded-md bg-gray-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
-        >
-          Add
-        </button>
-      </div>
+      <AddRow addLabel={addLabel} onCreate={onCreate} />
     </section>
+  )
+}
+
+function AddRow({ addLabel, onCreate }: { addLabel: string; onCreate: (label: string) => void }) {
+  const [draft, setDraft] = useState('')
+  return (
+    <div className="flex gap-2">
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder={addLabel}
+        className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+      />
+      <button
+        type="button"
+        onClick={() => {
+          if (!draft.trim()) return
+          onCreate(draft)
+          setDraft('')
+        }}
+        className="rounded-md bg-gray-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
+      >
+        Add
+      </button>
+    </div>
   )
 }
 

@@ -3,6 +3,10 @@ import { Link, Outlet } from 'react-router-dom'
 import { NavShell } from './NavShell'
 import { ContextBar } from './ContextBar'
 import { AccountButton } from './AccountButton'
+import { GenreNameProvider } from './GenreNameProvider'
+import { QuickJot } from './QuickJot'
+import { Tour } from './tour/TourProvider'
+import { APP_TOUR, APP_TOUR_STEPS } from './tour/tours'
 
 /**
  * App shell: a persistent sidebar on wide screens, a slide-over drawer on mobile.
@@ -12,6 +16,8 @@ export function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   return (
+    <GenreNameProvider>
+    <Tour id={APP_TOUR} steps={APP_TOUR_STEPS} />
     <div className="flex min-h-dvh flex-col bg-gray-50 text-gray-900">
       <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
         <button
@@ -57,6 +63,8 @@ export function Layout() {
           </div>
         </main>
       </div>
+      <QuickJot />
     </div>
+    </GenreNameProvider>
   )
 }
