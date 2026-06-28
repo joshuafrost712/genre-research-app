@@ -1,15 +1,24 @@
 # Filling tables on a phone — design options (pick one)
 
-## Decision (2026-06-27): built the A + B blend
+## Decision (2026-06-27): A + B blend, with a field accordion (revised)
 
 Josh chose the **A + B blend**, now the shared renderer for every
 `repeatable_row_table` and `fixed_grid` (see `RepeatableTable` / `FixedGrid` in
-`src/components/blocks/BlockRenderer.tsx`). A row collapses to a tappable summary
-— a headline (its first answer, or the fixed row's label) plus a chip per field,
-green when filled and grey when empty. Tapping a row (or a chip) opens a
-one-field-at-a-time mini-form with Back / Skip / Next and a progress-dot row.
-This replaced the old scroll-down stack across 1C-area tables, 2C, 2D, 3A, and
-the Section 0 grids. The options below are kept as the original design record.
+`src/components/blocks/BlockRenderer.tsx`). Two levels:
+
+1. **Collapsed row** — a tappable summary: a headline (its first answer, or the
+   fixed row's label) plus a chip per field, green when filled and grey when
+   empty. All rows stay visible and compact.
+2. **Open row** — a **field accordion**: every field's title is listed (so you
+   always see all the options at once), and tapping a title opens just that
+   field's input inline while closing any other. A filled field shows its answer
+   as a one-line preview when closed. Only one input box is ever open at a time.
+
+The first revision used a one-field-at-a-time wizard (Back / Skip / Next), but on
+review that hid the other field titles; Josh asked to see every option's title
+while keeping a single input open, so the open row became the accordion above.
+This replaced the old scroll-down stack across the tables, 2C, 2D, 3A, and the
+Section 0 grids. The options below are kept as the original design record.
 
 ## The problem Katie named
 

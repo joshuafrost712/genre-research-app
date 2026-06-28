@@ -577,7 +577,11 @@ function ChipButton({
   )
 }
 
-/** One-field-at-a-time editor for a single row, with Back / Skip / Next. */
+/**
+ * Open row: every field title is listed (so you always see all the options), but
+ * only one field's input is open at a time. Tapping a title expands its box and
+ * closes any other. A filled field shows its answer as a preview when closed.
+ */
 function RowEditor({
   ctx,
   node,
@@ -597,67 +601,87 @@ function RowEditor({
   title?: string
   onClose: () => void
 }) {
-  const [idx, setIdx] = useState(Math.max(0, Math.min(startIdx, cols.length - 1)))
-  const col = cols[idx]
-  const last = idx >= cols.length - 1
-  if (!col) return null
+  const [openIdx, setOpenIdx] = useState(Math.max(0, Math.min(startIdx, cols.length - 1)))
+  const firstEntry = useEntry(ctx, node.id, layer, cols[0] ? cellKey(rowId, cols[0].id) : undefined)
+  const header = title || (cols[0] ? cellSummary(firstEntry, cols[0]) : '') || 'New item'
   return (
     <div className="rounded-lg border-2 border-gray-800 bg-white p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-xs font-medium text-gray-500">
-          {title ? `${title} · ` : ''}Field {idx + 1} of {cols.length}
-        </span>
+        <span className="min-w-0 truncate text-sm font-medium text-gray-800">{header}</span>
         <button type="button" onClick={onClose} className="shrink-0 text-xs text-gray-500 hover:underline">
           Done
         </button>
       </div>
-      <div className="mb-2 flex flex-wrap items-center gap-1">
-        {cols.map((c, i) => (
-          <span
-            key={c.id}
-            className={`h-1.5 w-1.5 rounded-full ${i === idx ? 'bg-gray-800' : 'bg-gray-300'}`}
+      <div className="flex flex-col gap-1.5">
+        {cols.map((col, i) => (
+          <FieldRow
+            key={col.id}
+            ctx={ctx}
+            node={node}
+            layer={layer}
+            rowId={rowId}
+            col={col}
+            open={openIdx === i}
+            onToggle={() => setOpenIdx((v) => (v === i ? -1 : i))}
           />
         ))}
       </div>
-      <label className="text-sm font-medium text-gray-800">{col.label}</label>
-      <div className="mt-1">
-        <CellInput
-          ctx={ctx}
-          nodeId={node.id}
-          layer={layer}
-          cellKey={cellKey(rowId, col.id)}
-          cellType={col.cellType}
-          options={col.options}
-        />
-      </div>
-      <div className="mt-3 flex items-center justify-between">
-        <button
-          type="button"
-          disabled={idx === 0}
-          onClick={() => setIdx((v) => v - 1)}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 disabled:opacity-40"
-        >
-          Back
-        </button>
-        <div className="flex gap-2">
-          {!last && (
-            <button
-              type="button"
-              onClick={() => setIdx((v) => v + 1)}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-500"
-            >
-              Skip
-            </button>
+    </div>
+  )
+}
+
+/** One field inside an open row: a tappable title (with filled marker + preview)
+ * that expands its input inline. */
+function FieldRow({
+  ctx,
+  node,
+  layer,
+  rowId,
+  col,
+  open,
+  onToggle,
+}: {
+  ctx: ActiveContext
+  node: GuideNode
+  layer: Layer
+  rowId: string
+  col: Column
+  open: boolean
+  onToggle: () => void
+}) {
+  const entry = useEntry(ctx, node.id, layer, cellKey(rowId, col.id))
+  const summary = cellSummary(entry, col)
+  const filled = !!summary
+  return (
+    <div className={`rounded-md border ${open ? 'border-gray-400' : 'border-gray-200'}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-start justify-between gap-2 px-2.5 py-2 text-left"
+      >
+        <span className="min-w-0">
+          <span className="flex items-center gap-2">
+            <span className={filled ? 'text-emerald-600' : 'text-gray-300'}>{filled ? '●' : '○'}</span>
+            <span className="text-sm text-gray-800">{col.label}</span>
+          </span>
+          {!open && filled && (
+            <span className="mt-0.5 block truncate pl-5 text-xs text-gray-500">{summary}</span>
           )}
-          <button
-            type="button"
-            onClick={() => (last ? onClose() : setIdx((v) => v + 1))}
-            className="rounded-lg bg-gray-800 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
-          >
-            {last ? 'Done' : 'Next'}
-          </button>
+        </span>
+        <span className="shrink-0 text-gray-400">{open ? '−' : '+'}</span>
+      </button>
+      {open && (
+        <div className="px-2.5 pb-2.5">
+          <CellInput
+            ctx={ctx}
+            nodeId={node.id}
+            layer={layer}
+            cellKey={cellKey(rowId, col.id)}
+            cellType={col.cellType}
+            options={col.options}
+          />
         </div>
-      </div>
+      )}
     </div>
   )
 }
