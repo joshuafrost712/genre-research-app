@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "title": "Local Genres Research for Psalms Translation",
   "sections": [
     {
@@ -521,86 +521,72 @@
         {
           "id": "s1b",
           "type": "group",
-          "label": "1B: Genre Details (Social Features)",
+          "label": "1B: About This Genre",
           "layer": "genre",
-          "guidance": "Each row is one genre. You will use this same table again for other psalms. In the simple view you fill in Genre, Who, and Strength; more columns appear when you choose the fuller view.",
+          "guidance": "Basic facts about {genre}: what its name means, what it is about, what it reminds people of, and whether it is still strong. You describe who performs it, when, and what they use in Section 2.",
           "children": [
             {
-              "id": "s1b.inventory",
-              "type": "repeatable_row_table",
-              "label": "Genre details table",
+              "id": "s1b.intro",
+              "type": "prose",
               "layer": "genre",
-              "minDepth": "quick",
-              "columns": [
+              "label": "Fill these in for the genre you are studying: {genre}. These are its basic facts. Its performance (who takes part, when, what they use) comes in Section 2.",
+              "xref": [
                 {
-                  "id": "genreName",
-                  "label": "Genre (its name and meaning; any word-play in the name)",
-                  "cellType": "short_text",
-                  "minDepth": "quick"
-                },
-                {
-                  "id": "who",
-                  "label": "Who takes part? (for example: men or women, young or old, leaders or anyone)",
-                  "cellType": "long_text",
-                  "minDepth": "quick"
-                },
-                {
-                  "id": "when",
-                  "label": "When is it performed? (time of year, time of day, or special events)",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "where",
-                  "label": "Where is it performed? (a special place, a prepared place, or anywhere)",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "materials",
-                  "label": "What is used? (instruments, objects, things to look at, equipment)",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "content",
-                  "label": "What is it about? Is it for fun or for ceremony? Made up on the spot or planned?",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "associations",
-                  "label": "What does it remind people of? (other art forms; religion, politics, or customs)",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "vitality",
-                  "label": "Is this genre still alive and loved? (Do people still use it and make new ones?)",
-                  "cellType": "single_select",
-                  "minDepth": "quick",
-                  "options": [
-                    {
-                      "id": "weak",
-                      "label": "Fading"
-                    },
-                    {
-                      "id": "neutral",
-                      "label": "Steady"
-                    },
-                    {
-                      "id": "strong",
-                      "label": "Strong"
-                    }
-                  ]
-                },
-                {
-                  "id": "other",
-                  "label": "Other notes",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
+                  "to": "s2eth",
+                  "label": "Go to 2A: The People and Things"
                 }
               ]
+            },
+            {
+              "id": "s1b.name_meaning",
+              "type": "short_text",
+              "layer": "genre",
+              "minDepth": "quick",
+              "label": "What does the name of {genre} mean? Is there any word-play in the name?"
+            },
+            {
+              "id": "s1b.content",
+              "type": "long_text",
+              "layer": "genre",
+              "minDepth": "quick",
+              "label": "What is {genre} about? Is it for fun or for ceremony? Is it made up on the spot or planned ahead?",
+              "example": "A harvest song: about thanking the land for food; sung at ceremony, not for fun; the tune is fixed but singers make up new verses each year."
+            },
+            {
+              "id": "s1b.associations",
+              "type": "long_text",
+              "layer": "genre",
+              "minDepth": "standard",
+              "label": "What does {genre} remind people of? (other art forms; religion, politics, or customs)",
+              "example": "It reminds people of old funeral chants, so using it for a joyful psalm could feel strange."
+            },
+            {
+              "id": "s1b.vitality",
+              "type": "single_select",
+              "layer": "genre",
+              "minDepth": "quick",
+              "label": "Is {genre} still alive and loved? (Do people still use it and make new ones?)",
+              "options": [
+                {
+                  "id": "weak",
+                  "label": "Fading"
+                },
+                {
+                  "id": "neutral",
+                  "label": "Steady"
+                },
+                {
+                  "id": "strong",
+                  "label": "Strong"
+                }
+              ]
+            },
+            {
+              "id": "s1b.other",
+              "type": "long_text",
+              "layer": "genre",
+              "minDepth": "standard",
+              "label": "Other notes about {genre}"
             }
           ]
         },

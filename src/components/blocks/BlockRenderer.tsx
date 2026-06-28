@@ -364,45 +364,59 @@ function RepeatableList({ ctx, node, layer }: BlockProps) {
   )
 }
 
+type Column = NonNullable<GuideNode['columns']>[number]
+
+/**
+ * Mobile-first table input (the "A + B blend" from docs/mobile-table-input.md).
+ * A row collapses to a tappable summary: its first answer as a headline plus a
+ * chip per other field (green = filled, grey = empty). Opening a row turns it
+ * into a one-field-at-a-time mini-form with Back / Skip / Next, so a translator
+ * on a phone fills one idea at a time instead of scrolling a tall stack, and can
+ * see at a glance what is still empty. Replaces the old scroll-down layout for
+ * every repeatable table and fixed grid.
+ */
 function RepeatableTable({ ctx, node, layer, mode }: BlockProps & { mode: DepthMode }) {
   const rowIds = useRowIds(ctx, node.id, layer) ?? []
   const cols = (node.columns ?? []).filter((c) => depthVisible(c.minDepth, mode))
+  const [open, setOpen] = useState<{ rowId: string; idx: number } | null>(null)
+
+  const addAndOpen = async () => {
+    const rowId = await addRow(ctx, node.id, layer)
+    setOpen({ rowId, idx: 0 })
+  }
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       {rowIds.length === 0 && <p className="text-xs text-gray-400">No rows yet.</p>}
-      {rowIds.map((rowId, i) => (
-        <div key={rowId} className="rounded-lg border border-gray-200 bg-white p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {node.priorityEligible && (
-                <PriorityStar ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
-              )}
-              <RowFollowUp ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
-              <span className="text-xs font-medium text-gray-400">Row {i + 1}</span>
-            </div>
-            <RemoveButton onClick={() => removeRow(ctx, node.id, layer, rowId)} />
-          </div>
-          <div className="flex flex-col gap-2">
-            {cols.map((col) => (
-              <div key={col.id}>
-                <label className="text-xs text-gray-500">{col.label}</label>
-                <CellInput
-                  ctx={ctx}
-                  nodeId={node.id}
-                  layer={layer}
-                  cellKey={cellKey(rowId, col.id)}
-                  cellType={col.cellType}
-                  options={col.options}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+      {rowIds.map((rowId, i) =>
+        open?.rowId === rowId ? (
+          <RowEditor
+            key={rowId}
+            ctx={ctx}
+            node={node}
+            layer={layer}
+            rowId={rowId}
+            cols={cols}
+            startIdx={open.idx}
+            onClose={() => setOpen(null)}
+          />
+        ) : (
+          <RowSummary
+            key={rowId}
+            ctx={ctx}
+            node={node}
+            layer={layer}
+            rowId={rowId}
+            index={i}
+            cols={cols}
+            onOpen={(idx) => setOpen({ rowId, idx })}
+          />
+        ),
+      )}
       {node.priorityEligible && node.priorityMax != null && (
         <p className="text-[11px] text-gray-400">Mark your top {node.priorityMax} with the star.</p>
       )}
-      <AddButton label="Add row" onClick={() => addRow(ctx, node.id, layer)} />
+      <AddButton label="Add row" onClick={addAndOpen} />
     </div>
   )
 }
@@ -410,30 +424,264 @@ function RepeatableTable({ ctx, node, layer, mode }: BlockProps & { mode: DepthM
 function FixedGrid({ ctx, node, layer, mode }: BlockProps & { mode: DepthMode }) {
   const rows = node.rows ?? []
   const cols = (node.columns ?? []).filter((c) => depthVisible(c.minDepth, mode))
+  const [open, setOpen] = useState<{ rowId: string; idx: number } | null>(null)
   return (
-    <div className="flex flex-col gap-3">
-      {rows.map((row) => (
-        <div key={row.id} className="rounded-lg border border-gray-200 bg-white p-3">
-          <div className="mb-2 text-sm font-medium text-gray-700">{row.label}</div>
-          <div className="flex flex-col gap-2">
-            {cols.map((col) => (
-              <div key={col.id}>
-                <label className="text-xs text-gray-500">{col.label}</label>
-                <CellInput
-                  ctx={ctx}
-                  nodeId={node.id}
-                  layer={layer}
-                  cellKey={cellKey(row.id, col.id)}
-                  cellType={col.cellType}
-                  options={col.options}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+    <div className="flex flex-col gap-2">
+      {rows.map((row) =>
+        open?.rowId === row.id ? (
+          <RowEditor
+            key={row.id}
+            ctx={ctx}
+            node={node}
+            layer={layer}
+            rowId={row.id}
+            cols={cols}
+            startIdx={open.idx}
+            title={row.label}
+            onClose={() => setOpen(null)}
+          />
+        ) : (
+          <RowSummary
+            key={row.id}
+            ctx={ctx}
+            node={node}
+            layer={layer}
+            rowId={row.id}
+            cols={cols}
+            fixedTitle={row.label}
+            onOpen={(idx) => setOpen({ rowId: row.id, idx })}
+          />
+        ),
+      )}
     </div>
   )
+}
+
+/** Collapsed row: a headline plus a filled/empty chip per field. */
+function RowSummary({
+  ctx,
+  node,
+  layer,
+  rowId,
+  index,
+  cols,
+  fixedTitle,
+  onOpen,
+}: {
+  ctx: ActiveContext
+  node: GuideNode
+  layer: Layer
+  rowId: string
+  index?: number
+  cols: Column[]
+  fixedTitle?: string
+  onOpen: (idx: number) => void
+}) {
+  // A fixed grid uses the row's own label as the headline and shows every column
+  // as a chip. A repeatable table uses its first answer as the headline.
+  const chipCols = fixedTitle ? cols : cols.slice(1)
+  const chipOffset = fixedTitle ? 0 : 1
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {node.priorityEligible && (
+            <PriorityStar ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
+          )}
+          {!fixedTitle && <RowFollowUp ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />}
+        </div>
+        {!fixedTitle && <RemoveButton onClick={() => removeRow(ctx, node.id, layer, rowId)} />}
+      </div>
+      <button type="button" onClick={() => onOpen(0)} className="mt-1 block w-full text-left">
+        {fixedTitle ? (
+          <div className="text-sm font-medium text-gray-800">{fixedTitle}</div>
+        ) : (
+          <CellTitle ctx={ctx} node={node} layer={layer} rowId={rowId} col={cols[0]} index={index ?? 0} />
+        )}
+      </button>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {chipCols.map((col, ri) => (
+          <ChipButton
+            key={col.id}
+            ctx={ctx}
+            node={node}
+            layer={layer}
+            rowId={rowId}
+            col={col}
+            onClick={() => onOpen(ri + chipOffset)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CellTitle({
+  ctx,
+  node,
+  layer,
+  rowId,
+  col,
+  index,
+}: {
+  ctx: ActiveContext
+  node: GuideNode
+  layer: Layer
+  rowId: string
+  col: Column
+  index: number
+}) {
+  const entry = useEntry(ctx, node.id, layer, cellKey(rowId, col.id))
+  const summary = cellSummary(entry, col)
+  return (
+    <div>
+      <div className="text-[11px] text-gray-400">{chipLabel(col.label)}</div>
+      {summary ? (
+        <div className="text-sm font-medium text-gray-900">{summary}</div>
+      ) : (
+        <div className="text-sm text-gray-400">Item {index + 1} — tap to fill</div>
+      )}
+    </div>
+  )
+}
+
+function ChipButton({
+  ctx,
+  node,
+  layer,
+  rowId,
+  col,
+  onClick,
+}: {
+  ctx: ActiveContext
+  node: GuideNode
+  layer: Layer
+  rowId: string
+  col: Column
+  onClick: () => void
+}) {
+  const entry = useEntry(ctx, node.id, layer, cellKey(rowId, col.id))
+  const filled = !!cellSummary(entry, col)
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={col.label}
+      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+        filled ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+      }`}
+    >
+      {filled ? '● ' : '○ '}
+      {chipLabel(col.label)}
+    </button>
+  )
+}
+
+/** One-field-at-a-time editor for a single row, with Back / Skip / Next. */
+function RowEditor({
+  ctx,
+  node,
+  layer,
+  rowId,
+  cols,
+  startIdx,
+  title,
+  onClose,
+}: {
+  ctx: ActiveContext
+  node: GuideNode
+  layer: Layer
+  rowId: string
+  cols: Column[]
+  startIdx: number
+  title?: string
+  onClose: () => void
+}) {
+  const [idx, setIdx] = useState(Math.max(0, Math.min(startIdx, cols.length - 1)))
+  const col = cols[idx]
+  const last = idx >= cols.length - 1
+  if (!col) return null
+  return (
+    <div className="rounded-lg border-2 border-gray-800 bg-white p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-xs font-medium text-gray-500">
+          {title ? `${title} · ` : ''}Field {idx + 1} of {cols.length}
+        </span>
+        <button type="button" onClick={onClose} className="shrink-0 text-xs text-gray-500 hover:underline">
+          Done
+        </button>
+      </div>
+      <div className="mb-2 flex flex-wrap items-center gap-1">
+        {cols.map((c, i) => (
+          <span
+            key={c.id}
+            className={`h-1.5 w-1.5 rounded-full ${i === idx ? 'bg-gray-800' : 'bg-gray-300'}`}
+          />
+        ))}
+      </div>
+      <label className="text-sm font-medium text-gray-800">{col.label}</label>
+      <div className="mt-1">
+        <CellInput
+          ctx={ctx}
+          nodeId={node.id}
+          layer={layer}
+          cellKey={cellKey(rowId, col.id)}
+          cellType={col.cellType}
+          options={col.options}
+        />
+      </div>
+      <div className="mt-3 flex items-center justify-between">
+        <button
+          type="button"
+          disabled={idx === 0}
+          onClick={() => setIdx((v) => v - 1)}
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 disabled:opacity-40"
+        >
+          Back
+        </button>
+        <div className="flex gap-2">
+          {!last && (
+            <button
+              type="button"
+              onClick={() => setIdx((v) => v + 1)}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-500"
+            >
+              Skip
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => (last ? onClose() : setIdx((v) => v + 1))}
+            className="rounded-lg bg-gray-800 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
+          >
+            {last ? 'Done' : 'Next'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** A short, chip-sized label: the part before the first "(" or "?", capped. */
+function chipLabel(label: string): string {
+  const head = label.split(/[(?]/)[0].trim()
+  return head.length > 22 ? `${head.slice(0, 21)}…` : head || label
+}
+
+/** A cell's display text for the summary/chip, or '' when empty. */
+function cellSummary(entry: ReturnType<typeof useEntry>, col: Column): string {
+  if (!entry) return ''
+  if (col.cellType === 'single_select') {
+    return (col.options ?? []).find((o) => o.id === entry.value)?.label ?? ''
+  }
+  if (col.cellType === 'multi_select') {
+    const ids = parseArray(entry.value)
+    return (col.options ?? [])
+      .filter((o) => ids.includes(o.id))
+      .map((o) => o.label)
+      .join(', ')
+  }
+  return (entry.text ?? '').trim()
 }
 
 function PriorityStar({
