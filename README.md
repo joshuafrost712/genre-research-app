@@ -82,6 +82,27 @@ There is nothing to configure to run the worksheet. `.env` values (see
 `.env.example`) are only needed once the AI broker (step 7) is wired up; project
 data stays local until then.
 
+### Desktop launcher
+
+For one-click local use there is a "Genre App" icon on the Desktop. Double-click
+it: it starts the dev server (if not already running) and opens
+`http://localhost:5173/` in the default browser.
+
+The launcher is a small macOS `.app` bundle built from two committed files:
+
+- `scripts/launch-local.sh` — the actual launch logic (start/reuse vite, then `open`).
+- `scripts/install-launcher.command` — idempotently (re)builds `~/Desktop/Genre App.app`.
+
+If the Desktop app is ever missing or stops working, rebuild it with:
+
+```bash
+bash scripts/install-launcher.command
+```
+
+The bundle deliberately *interprets* `launch-local.sh` (`/bin/bash "$SCRIPT"`)
+rather than executing it directly, so macOS Gatekeeper does not block the
+unsigned script (which previously broke the browser auto-open).
+
 ## Layout
 
 ```
