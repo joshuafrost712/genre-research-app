@@ -141,19 +141,26 @@ function splitCell(cellKey: string): [string, string | undefined] {
   return i === -1 ? [cellKey, undefined] : [cellKey.slice(0, i), cellKey.slice(i + 2)]
 }
 
+// Human-relevant columns lead; the technical/id columns trail. A CSV can't be
+// styled, but a legible column order (and a BOM so Excel opens Greek/diacritics
+// correctly) is the most people-friendly a CSV gets.
 const CSV_HEADERS: [keyof ExportRow, string][] = [
   ['section', 'Section'],
   ['subsection', 'Subsection'],
-  ['nodeId', 'Node ID'],
   ['question', 'Question'],
+  ['answer', 'Answer'],
+  ['priority', 'Priority'],
+  ['notApplicable', 'Not applicable'],
   ['layer', 'Layer'],
   ['container', 'Container'],
   ['row', 'Row'],
   ['column', 'Column'],
-  ['answer', 'Answer'],
-  ['priority', 'Priority'],
-  ['notApplicable', 'Not applicable'],
+  ['nodeId', 'Node ID'],
 ]
+
+// UTF-8 byte-order mark: makes Excel decode the file as UTF-8 so non-ASCII
+// (Greek, diacritics, curly quotes) renders instead of mojibake.
+const BOM = '﻿'
 
 function csvField(value: string): string {
   return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
@@ -162,7 +169,7 @@ function csvField(value: string): string {
 export function toCsv(rows: ExportRow[]): string {
   const header = CSV_HEADERS.map(([, label]) => label).join(',')
   const body = rows.map((r) => CSV_HEADERS.map(([key]) => csvField(r[key])).join(','))
-  return [header, ...body].join('\n')
+  return BOM + [header, ...body].join('\n')
 }
 
 export interface SheetTab {

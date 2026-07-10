@@ -111,12 +111,13 @@ describe('Progress + export', () => {
     const rows = buildRows(entries, names)
     // broad_genre select resolves to its label, not the raw id
     const genreRow = rows.find((r) => r.nodeId === 's0.purpose.broad_genre')
-    expect(genreRow?.answer).toBe('Lament')
+    expect(genreRow?.answer).toBe('Lament (a sad cry to God for help)')
     // the N/A item appears as a recorded decision
     expect(rows.some((r) => r.nodeId === 's2a.how' && r.notApplicable === 'yes')).toBe(true)
 
     const csv = toCsv(rows)
-    expect(csv.split('\n')[0]).toContain('Section,Subsection,Node ID')
+    // Human columns lead; technical/id columns trail.
+    expect(csv.split('\n')[0]).toContain('Section,Subsection,Question,Answer')
 
     const prompt = buildAiPrompt(rows, names)
     expect(prompt).toContain('Focus text: Psalm 13')
