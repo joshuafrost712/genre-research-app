@@ -35,6 +35,11 @@ jobs:
           # deployed app gains sign-in + cloud sync + teams. Leave the variable
           # unset to deploy the app fully local-only with no sign-in UI.
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          # Public Google Apps Script web-app URL for the in-app feedback sink
+          # (see feedback/server/README.md). Set as a repo Actions variable so
+          # deployed users can submit comments straight to your Sheet. Leave
+          # unset and submissions fall back to downloading a markdown file.
+          VITE_FEEDBACK_URL: ${{ vars.VITE_FEEDBACK_URL }}
       # SPA fallback: GitHub Pages serves 404.html for unknown paths; point it at
       # the app shell so deep links / refreshes resolve client-side.
       - run: cp dist/index.html dist/404.html

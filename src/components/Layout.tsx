@@ -7,6 +7,7 @@ import { GenreNameProvider } from './GenreNameProvider'
 import { QuickJot } from './QuickJot'
 import { Tour } from './tour/TourProvider'
 import { APP_TOUR, APP_TOUR_STEPS } from './tour/tours'
+import { DevFeedbackRoot } from '../devfeedback/DevFeedbackRoot'
 
 /**
  * App shell: a persistent sidebar on wide screens, a slide-over drawer on mobile.
@@ -64,6 +65,7 @@ export function Layout() {
         </main>
       </div>
       <QuickJot />
+      <DevFeedbackRoot />
     </div>
     </GenreNameProvider>
   )

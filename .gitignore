@@ -28,3 +28,10 @@ dev-dist
 
 # Build info
 node_modules/.tmp
+
+# In-app dev feedback batches — transient working artifacts, not history.
+# Keep the folders and README, ignore the batch files themselves.
+feedback/incoming/*
+feedback/processed/*
+!feedback/incoming/.gitkeep
+!feedback/processed/.gitkeep
