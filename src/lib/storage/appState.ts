@@ -217,6 +217,37 @@ export async function renameGenre(id: string, name: string): Promise<void> {
   if (updated) await trackUpsert('genres', updated)
 }
 
+/**
+ * Find or create the worksheet for a (focus text, genre) pairing WITHOUT
+ * touching the active-worksheet cursor. Used when a page needs synthesis-layer
+ * answers for a genre the user is only previewing (e.g. the compare page's
+ * genre switcher), so browsing other genres never hijacks the active worksheet.
+ */
+export async function ensureWorksheetFor(
+  projectId: string,
+  focusTextId: string,
+  genreId: string,
+): Promise<TranslationWorksheet> {
+  const existing = await db.worksheets
+    .where('project_id')
+    .equals(projectId)
+    .filter((w) => w.focus_text_id === focusTextId && w.genre_id === genreId)
+    .first()
+  if (existing) return existing
+  const worksheet: TranslationWorksheet = {
+    id: uid(),
+    project_id: projectId,
+    focus_text_id: focusTextId,
+    genre_id: genreId,
+    status: 'draft',
+    created_at: now(),
+    updated_at: now(),
+  }
+  await db.worksheets.put(worksheet)
+  await trackUpsert('worksheets', worksheet)
+  return worksheet
+}
+
 async function ensureActiveWorksheet(
   projectId: string,
   focusTextId: string,
@@ -229,26 +260,7 @@ async function ensureActiveWorksheet(
       return existing
     }
   }
-  const existing = await db.worksheets
-    .where('project_id')
-    .equals(projectId)
-    .filter((w) => w.focus_text_id === focusTextId && w.genre_id === genreId)
-    .first()
-  if (existing) {
-    await setMeta(activeWorksheetKey(projectId), existing.id)
-    return existing
-  }
-  const worksheet: TranslationWorksheet = {
-    id: uid(),
-    project_id: projectId,
-    focus_text_id: focusTextId,
-    genre_id: genreId,
-    status: 'draft',
-    created_at: now(),
-    updated_at: now(),
-  }
-  await db.worksheets.put(worksheet)
-  await trackUpsert('worksheets', worksheet)
+  const worksheet = await ensureWorksheetFor(projectId, focusTextId, genreId)
   await setMeta(activeWorksheetKey(projectId), worksheet.id)
   return worksheet
 }

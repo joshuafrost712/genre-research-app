@@ -31,6 +31,7 @@ const QUICK_LINKS = [
   { to: '/routing', label: 'Sort notes with AI' },
   { to: '/review', label: 'Review AI suggestions' },
   { to: '/genres', label: 'Genres & psalms' },
+  { to: '/compare', label: 'Compare fit' },
   { to: '/priorities', label: 'Your priorities' },
   { to: '/follow-up', label: 'Follow up' },
   { to: '/export', label: 'Export' },
