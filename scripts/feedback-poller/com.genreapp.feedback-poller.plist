@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.genreapp.feedback-poller</string>
+
+  <!-- Runs the pull script; new comments land in feedback/incoming/. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE__</string>
+    <string>__REPO__/scripts/pull-feedback.mjs</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+
+  <!-- Every 30 minutes. Feedback is low-volume, so this is deliberately slow. -->
+  <key>StartInterval</key>
+  <integer>1800</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>__REPO__/feedback/poller.log</string>
+  <key>StandardErrorPath</key>
+  <string>__REPO__/feedback/poller.log</string>
+</dict>
+</plist>

@@ -36,6 +36,42 @@ If you edit `Code.gs`, redeploy: **Deploy → Manage deployments → (edit, penc
 needed. (A brand-new deployment mints a *new* URL and would need the variable
 updated.)
 
+Gotcha that cost real time once: the `/exec` URL serves the *deployed version
+snapshot*, not your latest saved code. After you paste and **Save** (Cmd+S),
+you must push a **New version** (above) or the URL keeps serving the old code.
+Confirm the paste took by checking that `doGet`/`doPost` appear in the editor's
+function dropdown before deploying.
+
+## Pulling feedback into the repo automatically
+
+`Code.gs` also exposes a pull endpoint so new comments sync into
+`feedback/incoming/` (the same inbox the in-app tools use) with no manual export:
+
+- `GET <web-app-url>?pull=<PULL_TOKEN>` returns every row not yet pulled as JSON
+  and stamps a **Pulled** column so the next call only sees new rows. `&peek=1`
+  reads without stamping.
+- The token is **not** in `Code.gs` (public repo). Set it once in Apps Script:
+  **Project Settings (gear) → Script Properties → Add script property**, name
+  `PULL_TOKEN`, value = a random string. Put the *same* string as `token` in
+  `feedback/.pull.json` (copy `feedback/.pull.example.json`, also fill in the
+  `/exec` URL). That file is gitignored — it holds the live URL + token locally.
+
+Fetch on demand:
+
+```
+npm run pull-feedback
+```
+
+Run it hands-off with a launchd poller (every 30 min):
+
+```
+bash scripts/feedback-poller/install.sh            # install / update
+bash scripts/feedback-poller/install.sh uninstall  # stop + remove (kill path)
+```
+
+The poller logs to `feedback/poller.log`. Then just tell Claude "review the
+feedback batch" and it reads everything in `feedback/incoming/`.
+
 ## Notes
 
 - The app posts JSON as `text/plain` with `mode: 'no-cors'`. That avoids a CORS

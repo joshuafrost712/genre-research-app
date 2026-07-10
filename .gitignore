@@ -35,3 +35,6 @@ feedback/incoming/*
 feedback/processed/*
 !feedback/incoming/.gitkeep
 !feedback/processed/.gitkeep
+
+# Pull config holds the live web-app URL + token — local only.
+feedback/.pull.json
