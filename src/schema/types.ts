@@ -38,6 +38,9 @@ export type BlockType =
   | 'repeatable_list'
   | 'repeatable_row_table' // user-added rows, predefined columns
   | 'fixed_grid' // predefined rows x columns; cells addressed rowId__colId
+  | 'genre_bank' // the project's genre list, managed as entities (1A)
+  | 'genre_select' // pick one of the identified genres (stores the genre name)
+  | 'translation_summary' // read-only recap of purpose + genre + starred priorities
   | 'group' // container; nests children
 
 export type CellType =
@@ -45,6 +48,7 @@ export type CellType =
   | 'long_text'
   | 'single_select'
   | 'multi_select'
+  | 'genre_select' // pick one of the identified genres (stores the genre name)
 
 export type XRefRelation = 'feeds' | 'summarizes' | 'derivedFrom' | 'seeAlso'
 

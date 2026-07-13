@@ -1,4 +1,6 @@
+import { useLiveQuery } from 'dexie-react-hooks'
 import type { ActiveContext } from '../../lib/storage/appState'
+import { db } from '../../lib/storage/db'
 import { upsertEntry, useEntry } from '../../lib/storage/entries'
 import type { CellType, Layer, SelectOption } from '../../schema/types'
 import { AutosaveText } from './AutosaveText'
@@ -20,6 +22,10 @@ export function CellInput({
   options?: SelectOption[]
 }) {
   const entry = useEntry(ctx, nodeId, layer, cellKey)
+
+  if (cellType === 'genre_select') {
+    return <GenreCell ctx={ctx} nodeId={nodeId} layer={layer} cellKey={cellKey} value={entry?.text ?? ''} />
+  }
 
   if (cellType === 'single_select') {
     return (
@@ -72,6 +78,42 @@ export function CellInput({
       multiline={cellType === 'long_text'}
       onSave={(v) => upsertEntry(ctx, nodeId, layer, { text: v }, cellKey)}
     />
+  )
+}
+
+/** Cell picker sourced from the project's identified genres; stores the name. */
+function GenreCell({
+  ctx,
+  nodeId,
+  layer,
+  cellKey,
+  value,
+}: {
+  ctx: ActiveContext
+  nodeId: string
+  layer: Layer
+  cellKey: string
+  value: string
+}) {
+  const genres = useLiveQuery(
+    () => db.genres.where('project_id').equals(ctx.projectId).sortBy('created_at'),
+    [ctx.projectId],
+  )
+  const known = (genres ?? []).some((g) => g.name === value)
+  return (
+    <select
+      value={value}
+      onChange={(e) => upsertEntry(ctx, nodeId, layer, { text: e.target.value }, cellKey)}
+      className="w-full rounded-md border border-gray-300 px-2 py-2 text-sm focus:border-gray-500 focus:outline-none"
+    >
+      <option value="">Choose a genre…</option>
+      {(genres ?? []).map((g) => (
+        <option key={g.id} value={g.name}>
+          {g.name}
+        </option>
+      ))}
+      {value && !known && <option value={value}>{value}</option>}
+    </select>
   )
 }
 

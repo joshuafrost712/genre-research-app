@@ -82,13 +82,15 @@ describe('Capture + routing', () => {
 
   it('routes a note into a repeatable list as a new item', async () => {
     const ctx = await ensureActiveContext()
-    const note = await createCapturedNote(ctx, 'Sung lament')
-    const node = findNode('s1a.inventory')!.node
+    const note = await createCapturedNote(ctx, 'Ask the song leader')
+    // s1a.whom is a plain repeatable_list. (s1a.inventory is now a genre_bank —
+    // genres are managed as entities in 1A, not routed into as list entries.)
+    const node = findNode('s1a.whom')!.node
     await routeNoteToNode(ctx, note, node)
-    const rows = await getRowIds(ctx, 's1a.inventory', 'focusText')
+    const rows = await getRowIds(ctx, 's1a.whom', 'focusText')
     expect(rows).toHaveLength(1)
-    const item = await findEntry(ctx, 's1a.inventory', 'focusText', rows[0])
-    expect(item?.text).toBe('Sung lament')
+    const item = await findEntry(ctx, 's1a.whom', 'focusText', rows[0])
+    expect(item?.text).toBe('Ask the song leader')
   })
 })
 
@@ -162,7 +164,7 @@ describe('AI routing (GitHub / copy-paste, no API)', () => {
           routed_at: 't',
           placements: [
             { node_id: 's2a.how', text: 'Highlights via refrain', confidence: 'high', needs_review: false, reason: 'prominence' },
-            { node_id: 's1a.inventory', text: 'Sung lament', confidence: 'medium', needs_review: true, reason: 'a genre' },
+            { node_id: 's1a.whom', text: 'The song leader', confidence: 'medium', needs_review: true, reason: 'who to ask' },
             { node_id: 'not_a_node', text: 'x', confidence: 'low', needs_review: true, reason: 'bad' },
           ],
         },
@@ -180,7 +182,7 @@ describe('AI routing (GitHub / copy-paste, no API)', () => {
     await confirmEntry(scalar.id)
     expect((await db.entries.get(scalar.id))!.routing_status).toBe('confirmed')
 
-    const listItem = needs.find((e) => e.node_id === 's1a.inventory')!
+    const listItem = needs.find((e) => e.node_id === 's1a.whom')!
     await discardProposal(listItem)
     expect(await db.entries.get(listItem.id)).toBeUndefined()
   })

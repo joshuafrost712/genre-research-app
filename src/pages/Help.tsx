@@ -64,8 +64,8 @@ export function Help() {
         <h2 className="text-base font-semibold text-gray-800">The buttons on each question</h2>
         <ul className="flex flex-col gap-1.5 text-sm text-gray-700">
           <li>
-            <span className="font-medium">N/A</span> — mark a question that does not
-            apply to your situation, so you can pass it without leaving it blank.
+            <span className="font-medium">Not applicable</span> — mark a question that
+            does not apply to your situation, so you can pass it without leaving it blank.
           </li>
           <li>
             <span className="font-medium text-violet-700">Follow up</span> — mark a

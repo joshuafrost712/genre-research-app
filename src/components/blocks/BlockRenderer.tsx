@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { effectiveLayer, navSubsectionOf } from '../../lib/content/loader'
-import { cellKey } from '../../lib/storage/db'
-import type { ActiveContext } from '../../lib/storage/appState'
+import { cellKey, db } from '../../lib/storage/db'
+import { createGenre, renameGenre, type ActiveContext } from '../../lib/storage/appState'
 import {
   addRow,
   removeRow,
@@ -12,9 +13,11 @@ import {
   setRowFollowUp,
   setRowPriority,
   upsertEntry,
+  useAllEntries,
   useEntry,
   useRowIds,
 } from '../../lib/storage/entries'
+import { deriveSectionRecall, translationSummary } from '../../lib/content/sectionRecall'
 import { resolveGenreTokens, useGenreName } from '../GenreNameProvider'
 import {
   depthVisible,
@@ -38,6 +41,7 @@ const SCALAR_TYPES = new Set([
   'single_select',
   'multi_select',
   'three_point_scale',
+  'genre_select',
 ])
 
 /** Dispatches a worksheet node to the right input, recursing through groups. */
@@ -78,6 +82,10 @@ export function BlockRenderer({
         ))}
       </fieldset>
     )
+  }
+
+  if (node.type === 'translation_summary') {
+    return <TranslationSummaryBlock ctx={ctx} />
   }
 
   const layer = effectiveLayer(node.id)
@@ -202,7 +210,7 @@ function ScalarField({ ctx, node, layer }: BlockProps) {
               na ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
-            N/A
+            Not applicable
           </button>
         </div>
       </div>
@@ -226,6 +234,8 @@ function ScalarInput({ ctx, node, layer }: BlockProps) {
       return <MultiSelect ctx={ctx} node={node} layer={layer} />
     case 'three_point_scale':
       return <Scale ctx={ctx} node={node} layer={layer} />
+    case 'genre_select':
+      return <GenreSelect ctx={ctx} node={node} layer={layer} />
     default:
       return null
   }
@@ -244,9 +254,184 @@ function CollectionInput({
       return <RepeatableTable ctx={ctx} node={node} layer={layer} mode={mode} />
     case 'fixed_grid':
       return <FixedGrid ctx={ctx} node={node} layer={layer} mode={mode} />
+    case 'genre_bank':
+      return <GenreBankInline ctx={ctx} />
     default:
       return null
   }
+}
+
+/**
+ * The project's genre list, edited inline in 1A. These are real Genre entities
+ * (the single source of truth), so a genre added here appears on the All Psalms
+ * & Genres page and in every genre picker (feedback #4). Add + rename only, to
+ * match the genres hub; genres are reused across psalms, not casually deleted.
+ */
+function GenreBankInline({ ctx }: { ctx: ActiveContext }) {
+  const genres = useLiveQuery(
+    () => db.genres.where('project_id').equals(ctx.projectId).sortBy('created_at'),
+    [ctx.projectId],
+  )
+  const [draft, setDraft] = useState('')
+  const add = () => {
+    if (!draft.trim()) return
+    void createGenre(ctx.projectId, draft)
+    setDraft('')
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {(genres ?? []).map((g) => (
+        <GenreBankRow key={g.id} id={g.id} name={g.name} />
+      ))}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') add()
+          }}
+          placeholder="Add a genre"
+          className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={add}
+          className="rounded-md bg-gray-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
+        >
+          Add
+        </button>
+      </div>
+      <p className="text-[11px] text-gray-400">
+        These genres appear on the All Psalms &amp; Genres page and wherever you choose a genre.
+      </p>
+    </div>
+  )
+}
+
+function GenreBankRow({ id, name }: { id: string; name: string }) {
+  const [text, setText] = useState(name)
+  // Reflect external renames (e.g. edited on the genres hub) into the field.
+  useEffect(() => setText(name), [name])
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={() => {
+          if (text.trim() && text !== name) void renameGenre(id, text)
+        }}
+        className="flex-1 bg-transparent text-sm focus:outline-none"
+      />
+    </div>
+  )
+}
+
+/** Pick one of the identified genres. Stores the genre NAME as text so every
+ * existing reader (progress, export, summaries) works unchanged (feedback #2/#3). */
+function GenreSelect({ ctx, node, layer }: BlockProps) {
+  const entry = useEntry(ctx, node.id, layer)
+  const genres = useLiveQuery(
+    () => db.genres.where('project_id').equals(ctx.projectId).sortBy('created_at'),
+    [ctx.projectId],
+  )
+  const value = entry?.text ?? ''
+  const known = (genres ?? []).some((g) => g.name === value)
+  return (
+    <select
+      value={value}
+      onChange={(e) => upsertEntry(ctx, node.id, layer, { text: e.target.value })}
+      className="w-full rounded-md border border-gray-300 px-2 py-2 text-sm focus:border-gray-500 focus:outline-none"
+    >
+      <option value="">Choose a genre…</option>
+      {(genres ?? []).map((g) => (
+        <option key={g.id} value={g.name}>
+          {g.name}
+        </option>
+      ))}
+      {value && !known && <option value={value}>{value}</option>}
+    </select>
+  )
+}
+
+/**
+ * Read-only recall of the work already done in a Section 3 subsection, for the
+ * active genre, shown above the matching stylistic-notes table so a team sees
+ * their observations here instead of re-entering them (feedback #5/#22). Starred
+ * items come first and are marked.
+ */
+function SectionRecall({ ctx, sourceSubId }: { ctx: ActiveContext; sourceSubId: string }) {
+  const entries = useAllEntries(ctx)
+  if (entries === undefined) return null
+  const fields = deriveSectionRecall(entries, sourceSubId, ctx.genreId)
+  if (fields.length === 0) {
+    return (
+      <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-500">
+        Nothing recorded there yet.{' '}
+        <Link to={`/worksheet/${sourceSubId}`} className="text-sky-700 hover:underline">
+          Add it first →
+        </Link>
+      </p>
+    )
+  }
+  return (
+    <div className="rounded-md border border-gray-200 bg-gray-50 p-2 text-xs">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="font-medium text-gray-600">What you noted</span>
+        <Link to={`/worksheet/${sourceSubId}`} className="text-sky-700 hover:underline">
+          open →
+        </Link>
+      </div>
+      <ul className="flex flex-col gap-0.5">
+        {fields.map((f, i) => (
+          <li key={i} className={f.starred ? 'text-gray-800' : 'text-gray-600'}>
+            <span className="text-gray-400">{f.label}:</span> {f.value}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/** The drafting-step recap (#23): purpose, chosen genre, starred priorities. */
+function TranslationSummaryBlock({ ctx }: { ctx: ActiveContext }) {
+  const entries = useAllEntries(ctx)
+  if (entries === undefined) return null
+  const s = translationSummary(entries, ctx.focusTextId, ctx.worksheetId)
+  const empty = s.purpose.length === 0 && !s.chosenGenre && s.priorities.length === 0
+  if (empty) return null
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm">
+      <div className="mb-2 font-semibold text-gray-700">What you have found so far</div>
+      {s.chosenGenre && (
+        <p className="mb-1 text-gray-700">
+          <span className="text-gray-400">Chosen genre:</span> {s.chosenGenre}
+        </p>
+      )}
+      {s.purpose.length > 0 && (
+        <ul className="mb-1 flex flex-col gap-0.5">
+          {s.purpose.map((f, i) => (
+            <li key={i} className="text-gray-700">
+              <span className="text-gray-400">{f.label}:</span> {f.value}
+            </li>
+          ))}
+        </ul>
+      )}
+      {s.priorities.length > 0 && (
+        <>
+          <div className="mt-2 text-xs font-medium text-gray-500">Your starred priorities</div>
+          <ul className="flex flex-col gap-0.5">
+            {s.priorities.map((f, i) => (
+              <li key={i} className="text-gray-700">
+                <span className="text-amber-500">★</span>{' '}
+                <span className="text-gray-400">{f.label}:</span> {f.value}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  )
 }
 
 function ScalarText({ ctx, node, layer }: BlockProps) {
@@ -270,7 +455,11 @@ function SingleSelect({ ctx, node, layer }: BlockProps) {
         <button
           key={o.id}
           type="button"
-          onClick={() => upsertEntry(ctx, node.id, layer, { value: o.id })}
+          // Clicking the selected option again clears it, so a team can back out
+          // of a guess instead of being forced to keep one choice (feedback #17).
+          onClick={() =>
+            upsertEntry(ctx, node.id, layer, { value: entry?.value === o.id ? '' : o.id })
+          }
           className={`rounded-full border px-3 py-1 text-sm ${
             entry?.value === o.id
               ? 'border-gray-800 bg-gray-800 text-white'
@@ -359,6 +548,12 @@ function RepeatableList({ ctx, node, layer }: BlockProps) {
           <RemoveButton onClick={() => removeRow(ctx, node.id, layer, rowId)} />
         </div>
       ))}
+      {rowIds.length > 0 && (
+        <p className="text-[11px] text-gray-400">
+          <span className="text-violet-500">⚑</span> Flag one to come back to it later.
+          {node.priorityEligible && <> <span className="text-amber-500">★</span> marks your most important.</>}
+        </p>
+      )}
       <AddButton label="Add item" onClick={() => addRow(ctx, node.id, layer)} />
     </div>
   )
@@ -387,6 +582,7 @@ function RepeatableTable({ ctx, node, layer, mode }: BlockProps & { mode: DepthM
 
   return (
     <div className="flex flex-col gap-2">
+      {node.rowSource && <SectionRecall ctx={ctx} sourceSubId={node.rowSource} />}
       {rowIds.length === 0 && <p className="text-xs text-gray-400">No rows yet.</p>}
       {rowIds.map((rowId, i) =>
         open?.rowId === rowId ? (
@@ -607,7 +803,14 @@ function RowEditor({
   return (
     <div className="rounded-lg border-2 border-gray-800 bg-white p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-sm font-medium text-gray-800">{header}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          {/* Star is reachable while the row is open, so the last/new entry can be
+              starred without adding another row (feedback #26). */}
+          {node.priorityEligible && (
+            <PriorityStar ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
+          )}
+          <span className="min-w-0 truncate text-sm font-medium text-gray-800">{header}</span>
+        </div>
         <button type="button" onClick={onClose} className="shrink-0 text-xs text-gray-500 hover:underline">
           Done
         </button>

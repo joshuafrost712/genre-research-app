@@ -183,13 +183,13 @@ const JOURNEY: JourneyStage[] = [
     id: 'find',
     title: 'Step 2 — Find local genres',
     blurb: 'List the songs and poems your people use, describe them, and choose one for this psalm.',
-    subIds: ['s1a', 's1b', 's1c'],
+    subIds: ['s1a', 's1b', 's2eth', 's1c'],
   },
   {
     id: 'bigpicture',
     title: 'Step 3 — Study the genre: big picture',
-    blurb: 'Learn who performs the genre, how it is shaped, how it shows feelings, and how it links ideas.',
-    subIds: ['s2eth', 's2b', 's2a', 's2c', 's2d', 's2e'],
+    blurb: 'Learn how the genre is shaped, how it shows feelings, and how it links ideas.',
+    subIds: ['s2b', 's2a', 's2c', 's2d', 's2e'],
   },
   {
     id: 'details',

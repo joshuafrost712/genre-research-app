@@ -25,12 +25,13 @@ const LAYER_BADGE: Record<string, string> = {
  * every subsection is one tap. Subsections hidden by the current depth mode are
  * not shown, which is the anti-overwhelm mechanism at the navigation level.
  */
-const QUICK_LINKS = [
+const QUICK_LINKS: { to: string; label: string; end?: boolean }[] = [
+  { to: '/', label: 'Home', end: true },
   { to: '/wizard', label: 'Step-by-step guide' },
   { to: '/capture', label: 'Quick note' },
   { to: '/routing', label: 'Sort notes with AI' },
   { to: '/review', label: 'Review AI suggestions' },
-  { to: '/genres', label: 'Genres & psalms' },
+  { to: '/genres', label: 'All Psalms & Genres' },
   { to: '/compare', label: 'Compare fit' },
   { to: '/priorities', label: 'Your priorities' },
   { to: '/follow-up', label: 'Follow up' },
@@ -63,6 +64,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
           <li key={l.to}>
             <NavLink
               to={l.to}
+              end={l.end}
               onClick={onNavigate}
               className={({ isActive }) =>
                 `block rounded px-2 py-1.5 ${

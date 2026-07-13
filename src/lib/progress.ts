@@ -27,7 +27,14 @@ export function answerableLeaves(node: GuideNode, mode: DepthMode): GuideNode[] 
     for (const child of n.children ?? []) {
       if (!visibleAtDepth(child, mode)) continue
       if (child.type === 'group') recurse(child)
-      else if (child.type !== 'prose') out.push(child)
+      // genre_bank and translation_summary carry no per-node answer, so they do
+      // not count toward completion — like prose.
+      else if (
+        child.type !== 'prose' &&
+        child.type !== 'genre_bank' &&
+        child.type !== 'translation_summary'
+      )
+        out.push(child)
     }
   }
   recurse(node)
@@ -68,6 +75,7 @@ function isAnswered(node: GuideNode, layer: Layer, ctx: ActiveContext, idx: Inde
   switch (node.type) {
     case 'short_text':
     case 'long_text':
+    case 'genre_select':
       return !!(base && (base.text?.trim() || base.is_not_applicable))
     case 'single_select':
     case 'three_point_scale':

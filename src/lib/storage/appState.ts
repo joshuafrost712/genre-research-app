@@ -107,6 +107,10 @@ export async function ensureActiveContext(): Promise<ActiveContext> {
   const project = await ensureActiveProject()
   const projectId = project.id
 
+  // One-time: promote any genres entered in the old free-text 1A list into real
+  // Genre records so they appear on the genres hub and in pickers (feedback #4).
+  await migrateInventoryGenres(projectId)
+
   const focusText = await ensureActiveFocusText(projectId)
   const genre = await ensureActiveGenre(projectId)
   const worksheet = await ensureActiveWorksheet(projectId, focusText.id, genre.id)
@@ -161,6 +165,38 @@ async function ensureActiveGenre(projectId: string): Promise<Genre> {
   await trackUpsert('genres', genre)
   await setMeta(activeGenreKey(projectId), genre.id)
   return genre
+}
+
+/**
+ * Migrate the pre-unification 1A "Genres you have found so far" list (stored as
+ * free-text Entry rows on node `s1a.inventory`) into real Genre records. Runs
+ * once per project (guarded by a meta flag); dedupes by name (case-insensitive)
+ * against genres that already exist. Old entries are left in place, harmless.
+ */
+async function migrateInventoryGenres(projectId: string): Promise<void> {
+  const flagKey = `migrated:inventoryGenres:${projectId}`
+  if ((await getMeta(flagKey)) === '1') return
+  const rows = await db.entries.where('node_id').equals('s1a.inventory').toArray()
+  const existing = await db.genres.where('project_id').equals(projectId).toArray()
+  const seen = new Set(existing.map((g) => g.name.trim().toLowerCase()))
+  for (const e of rows) {
+    if (e.project_id !== projectId) continue
+    const name = e.text?.trim()
+    if (!name || !e.cell_key || e.cell_key === '__rows') continue
+    if (seen.has(name.toLowerCase())) continue
+    const genre: Genre = {
+      id: uid(),
+      project_id: projectId,
+      name,
+      is_sensitive: false,
+      created_at: now(),
+      updated_at: now(),
+    }
+    await db.genres.put(genre)
+    await trackUpsert('genres', genre)
+    seen.add(name.toLowerCase())
+  }
+  await setMeta(flagKey, '1')
 }
 
 // --- focus text + genre management (the context switcher) -----------------

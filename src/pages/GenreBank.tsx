@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/storage/db'
 import {
@@ -57,13 +57,21 @@ export function GenreBank() {
       <Tour id={GENRES_TOUR} steps={GENRES_TOUR_STEPS} />
 
       <div>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Your psalms &amp; genres</h1>
+        <Link to="/" className="text-sm text-sky-700 hover:underline">
+          ← Home
+        </Link>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">All Psalms &amp; Genres</h1>
           <ReplayTourButton id={GENRES_TOUR} />
         </div>
         <p className="mt-1 text-sm text-gray-600">
           A genre is a type of song or poem your people use. Add the ones you want
           to study, and add the psalm you are translating. Tap a genre to work on it.
+          If needed, you can begin the process of identifying local genres by using{' '}
+          <Link to="/worksheet/s1a" className="text-sky-700 hover:underline">
+            Finding and Describing Local Art Forms
+          </Link>
+          .
         </p>
       </div>
 
@@ -108,7 +116,7 @@ export function GenreBank() {
 
       <p className="text-sm text-gray-500">
         Genre study is reusable: the same genre can be paired with several psalms,
-        and editing it updates everywhere.
+        and editing it updates information about it everywhere.
       </p>
     </div>
   )

@@ -29,7 +29,7 @@ export const APP_TOUR_STEPS: TourStep[] = [
   },
   {
     title: 'Mark things to come back to',
-    body: 'On any question you can tap "Follow up" to save it for later, or "N/A" if it does not apply. Your "Follow up" questions gather on one page so you have them ready when you meet an expert.',
+    body: 'On any question you can tap "Follow up" to save it for later, or "Not applicable" if it does not apply. Your "Follow up" questions gather on one page so you have them ready when you meet an expert.',
   },
   {
     title: 'About the AI helper',
@@ -39,7 +39,7 @@ export const APP_TOUR_STEPS: TourStep[] = [
 
 export const GENRES_TOUR_STEPS: TourStep[] = [
   {
-    title: 'Your psalms and genres',
+    title: 'All Psalms & Genres',
     body: 'A "genre" is a type of song or poem your people use. Add each one you want to study. Add the psalm you are translating in the psalms list.',
   },
   {
@@ -59,7 +59,7 @@ export const WORKSHEET_TOUR_STEPS: TourStep[] = [
   },
   {
     title: 'The buttons on each question',
-    body: '"Follow up" saves a question to return to. "N/A" marks one that does not apply. The star marks the one or two things that matter most for your translation.',
+    body: '"Follow up" saves a question to return to. "Not applicable" marks one that does not apply. The star marks the one or two things that matter most for your translation.',
   },
   {
     title: 'See an example',
