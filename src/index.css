@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Height-based variant for condensing the sidebar on short viewports. */
+@custom-variant short (@media (max-height: 820px));
+
 html,
 body,
 #root {

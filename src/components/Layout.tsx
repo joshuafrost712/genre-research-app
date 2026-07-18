@@ -41,7 +41,7 @@ export function Layout() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-72 shrink-0 overflow-y-auto border-r border-gray-200 bg-white lg:block">
+        <aside className="hidden w-72 shrink-0 border-r border-gray-200 bg-white lg:block">
           <NavShell />
         </aside>
 
@@ -52,7 +52,7 @@ export function Layout() {
               onClick={() => setDrawerOpen(false)}
               aria-hidden
             />
-            <div className="absolute inset-y-0 left-0 w-72 overflow-y-auto bg-white shadow-xl">
+            <div className="absolute inset-y-0 left-0 w-72 bg-white shadow-xl">
               <NavShell onNavigate={() => setDrawerOpen(false)} />
             </div>
           </div>

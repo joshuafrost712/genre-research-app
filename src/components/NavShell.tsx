@@ -58,8 +58,8 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
       : 0
 
   return (
-    <nav className="flex h-full flex-col gap-4 p-4 text-sm">
-      <ul className="flex flex-col gap-0.5">
+    <nav className="flex h-full flex-col gap-4 p-4 text-sm short:gap-2 short:p-2">
+      <ul className="grid grid-cols-1 gap-0.5 shrink-0 short:grid-cols-2 short:gap-x-2">
         {QUICK_LINKS.map((l) => (
           <li key={l.to}>
             <NavLink
@@ -67,7 +67,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
               end={l.end}
               onClick={onNavigate}
               className={({ isActive }) =>
-                `block rounded px-2 py-1.5 ${
+                `block truncate rounded px-2 py-1.5 short:py-1 ${
                   isActive ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-100'
                 }`
               }
@@ -79,7 +79,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
       </ul>
 
       {progress && progress.overall.total > 0 && (
-        <div>
+        <div className="shrink-0">
           <div className="mb-1 flex justify-between text-xs text-gray-500">
             <span>Progress ({mode})</span>
             <span>
@@ -92,7 +92,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       )}
 
-      <div>
+      <div className="shrink-0">
         <div className="mb-1 font-semibold text-gray-700">Depth</div>
         <div className="flex gap-1" role="group" aria-label="Depth mode">
           {(['quick', 'standard'] as DepthMode[]).map((m) => (
@@ -112,7 +112,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <ul className="flex flex-col gap-3 overflow-y-auto">
+      <ul className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto">
         {tree.map(({ section, subsections }) => {
           const visibleSubs = subsections.filter((s) => visibleAtDepth(s, mode))
           if (visibleSubs.length === 0) return null
