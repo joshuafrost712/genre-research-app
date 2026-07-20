@@ -41,6 +41,17 @@ interface Anchor {
   left: number
   text: string
   label: string
+  /** Set when the selection sits inside a tagged guide-content string. */
+  edit?: { nodeId: string; field: string }
+}
+
+/** The guide-content node + field behind a selection, when the text is tagged. */
+function deriveEditTarget(node: Node | null): { nodeId: string; field: string } | undefined {
+  const el = node?.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element | null)
+  const tagged = el?.closest<HTMLElement>('[data-dfb-node]')
+  const nodeId = tagged?.dataset.dfbNode
+  const field = tagged?.dataset.dfbField
+  return nodeId && field ? { nodeId, field } : undefined
 }
 
 /**
@@ -52,7 +63,7 @@ interface Anchor {
  */
 export function SelectionLayer() {
   const { pathname } = useLocation()
-  const { openComment, draft, managerOpen } = useFeedback()
+  const { openComment, openEdit, draft, editDraft, managerOpen } = useFeedback()
   const [anchor, setAnchor] = useState<Anchor | null>(null)
 
   const readSelection = useCallback((): Anchor | null => {
@@ -65,16 +76,17 @@ export function SelectionLayer() {
     const rect = range.getBoundingClientRect()
     return {
       top: Math.max(4, rect.top - 38),
-      left: Math.min(rect.left, window.innerWidth - 130),
+      left: Math.min(rect.left, window.innerWidth - 230),
       text,
       label: deriveLocationLabel(range),
+      edit: deriveEditTarget(sel.anchorNode),
     }
   }, [])
 
   useEffect(() => {
     // Don't track selection while a comment window or the manager is open; the
     // button is also hidden in render below, so no stale anchor shows through.
-    if (draft || managerOpen) return
+    if (draft || editDraft || managerOpen) return
     const show = () => setAnchor(readSelection())
     const onSelectionChange = () => {
       const sel = window.getSelection()
@@ -91,7 +103,7 @@ export function SelectionLayer() {
       document.removeEventListener('selectionchange', onSelectionChange)
       window.removeEventListener('scroll', onScroll, true)
     }
-  }, [readSelection, draft, managerOpen])
+  }, [readSelection, draft, editDraft, managerOpen])
 
   // Keyboard shortcut: comment on the current selection, or a page-level note.
   useEffect(() => {
@@ -111,20 +123,44 @@ export function SelectionLayer() {
     return () => document.removeEventListener('keydown', onKey)
   }, [readSelection, openComment, pathname])
 
-  if (!anchor || draft || managerOpen) return null
+  if (!anchor || draft || editDraft || managerOpen) return null
 
   return (
-    <button
-      type="button"
-      className="dfb-root dfb-selection-btn"
-      style={{ top: anchor.top, left: anchor.left }}
-      onMouseDown={(e) => e.preventDefault()} // keep the selection alive through the click
-      onClick={() => {
-        openComment({ route: pathname, selectionText: anchor.text, locationLabel: anchor.label })
-        setAnchor(null)
-      }}
+    <span
+      className="dfb-root dfb-selection-group"
+      style={{ position: 'fixed', top: anchor.top, left: anchor.left, zIndex: 2147483000, display: 'flex', gap: 4 }}
     >
-      💬 Comment
-    </button>
+      <button
+        type="button"
+        className="dfb-selection-btn"
+        style={{ position: 'static' }}
+        onMouseDown={(e) => e.preventDefault()} // keep the selection alive through the click
+        onClick={() => {
+          openComment({ route: pathname, selectionText: anchor.text, locationLabel: anchor.label })
+          setAnchor(null)
+        }}
+      >
+        💬 Comment
+      </button>
+      {anchor.edit && (
+        <button
+          type="button"
+          className="dfb-selection-btn"
+          style={{ position: 'static' }}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            openEdit({
+              route: pathname,
+              locationLabel: anchor.label,
+              nodeId: anchor.edit!.nodeId,
+              field: anchor.edit!.field,
+            })
+            setAnchor(null)
+          }}
+        >
+          ✎ Edit text
+        </button>
+      )}
+    </span>
   )
 }

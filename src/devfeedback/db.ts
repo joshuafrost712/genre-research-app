@@ -23,6 +23,20 @@ export interface FeedbackComment {
   status: 'open' | 'sent'
   createdAt: string
   updatedAt: string
+
+  // Text-edit records (spec 10 WP9). kind 'edit' carries a structured
+  // old→new change to one guide-content field; absent kind means 'comment'.
+  kind?: 'comment' | 'edit'
+  /** guide-content node id the edit targets. */
+  nodeId?: string
+  /** Which field of the node: label | guidance | footnote | example | help. */
+  field?: string
+  /** The template text (with {genre}/{passage} tokens) before the edit. */
+  oldText?: string
+  /** The template text after the edit. */
+  newText?: string
+  /** True when the dev server applied it to guide-content.json immediately. */
+  applied?: boolean
 }
 
 class FeedbackDB extends Dexie {
@@ -56,6 +70,38 @@ export async function addComment(
     createdAt: now,
     updatedAt: now,
     ...draft,
+  })
+}
+
+/** Record a text edit (applied or pending) so the batch documents it. */
+export async function addEdit(draft: {
+  route: string
+  locationLabel: string
+  nodeId: string
+  field: string
+  oldText: string
+  newText: string
+  applied: boolean
+}): Promise<void> {
+  const now = new Date().toISOString()
+  await fdb.comments.add({
+    id: uid(),
+    status: 'open',
+    createdAt: now,
+    updatedAt: now,
+    kind: 'edit',
+    route: draft.route,
+    selectionText: draft.oldText,
+    locationLabel: draft.locationLabel,
+    comment: draft.applied
+      ? `Text edited in place (already applied to guide-content.json).`
+      : `Text edit suggestion (NOT yet applied — apply to guide-content.json).`,
+    importance: 'medium',
+    nodeId: draft.nodeId,
+    field: draft.field,
+    oldText: draft.oldText,
+    newText: draft.newText,
+    applied: draft.applied,
   })
 }
 

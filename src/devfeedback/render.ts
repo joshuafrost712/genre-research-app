@@ -27,9 +27,12 @@ function escapeQuote(text: string): string {
  * carrying the raw records for fidelity.
  */
 export function renderBatchMarkdown(comments: FeedbackComment[], generatedAt: string): string {
-  const sorted = [...comments].sort(
-    (a, b) => IMPORTANCE_ORDER[a.importance] - IMPORTANCE_ORDER[b.importance] || a.createdAt.localeCompare(b.createdAt),
-  )
+  const edits = comments.filter((c) => c.kind === 'edit')
+  const sorted = [...comments]
+    .filter((c) => c.kind !== 'edit')
+    .sort(
+      (a, b) => IMPORTANCE_ORDER[a.importance] - IMPORTANCE_ORDER[b.importance] || a.createdAt.localeCompare(b.createdAt),
+    )
   const counts = sorted.reduce<Record<Importance, number>>(
     (acc, c) => ({ ...acc, [c.importance]: acc[c.importance] + 1 }),
     { high: 0, medium: 0, low: 0 },
@@ -42,7 +45,8 @@ export function renderBatchMarkdown(comments: FeedbackComment[], generatedAt: st
   lines.push('')
   lines.push(
     `**${sorted.length} comment${sorted.length === 1 ? '' : 's'}** · ` +
-      `${counts.high} high · ${counts.medium} medium · ${counts.low} low`,
+      `${counts.high} high · ${counts.medium} medium · ${counts.low} low` +
+      (edits.length ? ` · ${edits.length} text edit${edits.length === 1 ? '' : 's'}` : ''),
   )
   lines.push('')
 
@@ -70,10 +74,48 @@ export function renderBatchMarkdown(comments: FeedbackComment[], generatedAt: st
     lines.push('')
   }
 
+  if (edits.length > 0) {
+    lines.push('## Text edits')
+    lines.push('')
+    lines.push(
+      'Direct wording changes made through the edit-in-place tool. `applied: true` means the dev',
+    )
+    lines.push(
+      'server already patched `src/content/guide-content.json` (verify via git diff); `applied:',
+    )
+    lines.push('false` means the change still needs to be applied by hand to that node + field.')
+    lines.push('')
+    let en = 0
+    for (const e of edits) {
+      en += 1
+      lines.push(
+        `### E${en}. \`${e.nodeId}\` · ${e.field} — ${e.applied ? 'APPLIED' : 'NOT applied'}`,
+      )
+      lines.push('')
+      lines.push(`- **Route:** \`${e.route}\``)
+      lines.push(`- **Location:** ${e.locationLabel || '(page level)'}`)
+      lines.push('')
+      lines.push('Old:')
+      lines.push('')
+      lines.push(escapeQuote(e.oldText ?? ''))
+      lines.push('')
+      lines.push('New:')
+      lines.push('')
+      lines.push(escapeQuote(e.newText ?? ''))
+      lines.push('')
+    }
+  }
+
   lines.push('## Raw records')
   lines.push('')
   lines.push('```json')
-  lines.push(JSON.stringify({ schema: 'genre.feedback-batch/v1', generatedAt, comments: sorted }, null, 2))
+  lines.push(
+    JSON.stringify(
+      { schema: 'genre.feedback-batch/v2', generatedAt, comments: sorted, edits },
+      null,
+      2,
+    ),
+  )
   lines.push('```')
   lines.push('')
 

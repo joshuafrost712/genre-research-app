@@ -7,11 +7,23 @@ export interface Draft {
   locationLabel: string
 }
 
+/** A text-edit-in-progress: which guide-content node + field to change. */
+export interface EditDraft {
+  route: string
+  locationLabel: string
+  nodeId: string
+  field: string
+}
+
 export interface FeedbackCtxValue {
   /** Non-null while the comment window is open. */
   draft: Draft | null
   openComment: (draft: Draft) => void
   closeComment: () => void
+  /** Non-null while the edit-text window is open. */
+  editDraft: EditDraft | null
+  openEdit: (draft: EditDraft) => void
+  closeEdit: () => void
   managerOpen: boolean
   setManagerOpen: (open: boolean) => void
 }

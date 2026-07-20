@@ -82,7 +82,9 @@ export function BlockRenderer({
   if (node.type === 'prose') {
     return (
       <div className="flex flex-col gap-1">
-        <p className="text-sm text-gray-600">{resolveGenreTokens(node.label, genre)}</p>
+        <p className="text-sm text-gray-600" data-dfb-node={node.id} data-dfb-field="label">
+          {resolveGenreTokens(node.label, genre)}
+        </p>
         <ExampleToggle node={node} genre={genre} />
         <XrefLinks node={node} />
       </div>
@@ -93,11 +95,13 @@ export function BlockRenderer({
     const children = (node.children ?? []).filter((c) => visibleAtDepth(c, mode))
     return (
       <fieldset className="flex flex-col gap-3">
-        <legend className="text-sm font-semibold text-gray-700">
+        <legend className="text-sm font-semibold text-gray-700" data-dfb-node={node.id} data-dfb-field="label">
           {resolveGenreTokens(node.label, genre)}
         </legend>
         {node.guidance && (
-          <p className="text-xs text-gray-500">{resolveGenreTokens(node.guidance, genre)}</p>
+          <p className="text-xs text-gray-500" data-dfb-node={node.id} data-dfb-field="guidance">
+            {resolveGenreTokens(node.guidance, genre)}
+          </p>
         )}
         <ExampleToggle node={node} genre={genre} />
         {children.map((child) => (
@@ -135,20 +139,28 @@ export function BlockRenderer({
 
 function FieldLabel({ node }: { node: GuideNode }) {
   const genre = useGenreName()
+  // data-dfb-* attributes trace rendered text back to its guide-content node +
+  // field so the dev feedback widget can offer edit-in-place (spec 10 WP9).
   return (
     <div>
-      <label className="text-sm font-medium text-gray-800">
+      <label className="text-sm font-medium text-gray-800" data-dfb-node={node.id} data-dfb-field="label">
         {resolveGenreTokens(node.label, genre)}
       </label>
       {node.guidance && (
-        <p className="mt-0.5 text-xs text-gray-500">{resolveGenreTokens(node.guidance, genre)}</p>
+        <p className="mt-0.5 text-xs text-gray-500" data-dfb-node={node.id} data-dfb-field="guidance">
+          {resolveGenreTokens(node.guidance, genre)}
+        </p>
       )}
       {node.footnote && (
-        <p className="mt-0.5 text-xs italic text-gray-400">
+        <p className="mt-0.5 text-xs italic text-gray-400" data-dfb-node={node.id} data-dfb-field="footnote">
           {resolveGenreTokens(node.footnote, genre)}
         </p>
       )}
-      {node.help && <ColumnHelp text={resolveGenreTokens(node.help, genre)} />}
+      {node.help && (
+        <div data-dfb-node={node.id} data-dfb-field="help">
+          <ColumnHelp text={resolveGenreTokens(node.help, genre)} />
+        </div>
+      )}
       <ExampleToggle node={node} genre={genre} />
       <XrefLinks node={node} />
     </div>
@@ -169,7 +181,11 @@ function ExampleToggle({ node, genre }: { node: GuideNode; genre: string }) {
         {open ? 'Hide example' : 'Show example'}
       </button>
       {open && (
-        <p className="mt-1 whitespace-pre-line rounded-md bg-sky-50 p-2 text-xs text-sky-900">
+        <p
+          className="mt-1 whitespace-pre-line rounded-md bg-sky-50 p-2 text-xs text-sky-900"
+          data-dfb-node={node.id}
+          data-dfb-field="example"
+        >
           {resolveGenreTokens(node.example, genre)}
         </p>
       )}

@@ -56,12 +56,18 @@ export function WorksheetView() {
       <Tour id={WORKSHEET_TOUR} steps={WORKSHEET_TOUR_STEPS} />
       <div>
         {sectionLabel && (
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+          <p
+            className="text-xs font-medium uppercase tracking-wide text-gray-400"
+            data-dfb-node={parents[0]?.id}
+            data-dfb-field="label"
+          >
             {resolveGenreTokens(sectionLabel, genre)}
           </p>
         )}
         <div className="mt-1 flex items-baseline justify-between gap-3">
-          <h1 className="text-2xl font-semibold">{resolveGenreTokens(node.label, genre)}</h1>
+          <h1 className="text-2xl font-semibold" data-dfb-node={node.id} data-dfb-field="label">
+            {resolveGenreTokens(node.label, genre)}
+          </h1>
           {subProgress && subProgress.total > 0 && (
             <span className="shrink-0 text-xs text-gray-500">
               {subProgress.done}/{subProgress.total} answered
@@ -69,7 +75,11 @@ export function WorksheetView() {
           )}
         </div>
         {node.guidance && (
-          <p className="mt-2 rounded-md bg-sky-50 p-3 text-sm text-sky-900">
+          <p
+            className="mt-2 rounded-md bg-sky-50 p-3 text-sm text-sky-900"
+            data-dfb-node={node.id}
+            data-dfb-field="guidance"
+          >
             {resolveGenreTokens(node.guidance, genre)}
           </p>
         )}

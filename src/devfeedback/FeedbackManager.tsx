@@ -101,6 +101,36 @@ function CommentRow({ comment }: { comment: FeedbackComment }) {
     setEditing(false)
   }
 
+  // Text-edit records are read-only old→new evidence (delete is still allowed).
+  if (comment.kind === 'edit') {
+    return (
+      <div className="dfb-item dfb-imp-medium">
+        <div className="dfb-item-head">
+          <span className="dfb-tag">{comment.applied ? '✎ applied' : '✎ pending edit'}</span>
+          <span className="dfb-tag dfb-tag-soft">{comment.route}</span>
+          <div className="dfb-spacer" />
+          <button
+            type="button"
+            className="dfb-link dfb-danger"
+            onClick={() => {
+              if (confirm('Delete this edit record? (An already-applied text change stays applied.)'))
+                void deleteComment(comment.id)
+            }}
+          >
+            Delete
+          </button>
+        </div>
+        <div className="dfb-muted dfb-loc">
+          {comment.nodeId} · {comment.field}
+        </div>
+        <blockquote className="dfb-quote dfb-quote-sm">
+          <s>{comment.oldText}</s>
+        </blockquote>
+        <blockquote className="dfb-quote dfb-quote-sm">{comment.newText}</blockquote>
+      </div>
+    )
+  }
+
   return (
     <div className={`dfb-item dfb-imp-${comment.importance}`}>
       <div className="dfb-item-head">

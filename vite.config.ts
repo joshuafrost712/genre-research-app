@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -40,11 +40,69 @@ function feedbackInbox(): Plugin {
   }
 }
 
+// Dev-only endpoint for edit-in-place (spec 10 WP9): applies a structured
+// {nodeId, field, oldText, newText} edit to src/content/guide-content.json.
+// The old text must match the file's current value (409 otherwise), so a stale
+// page can never clobber a newer edit. Never bumps the content version —
+// that stays a deliberate, per-release decision.
+function contentEditEndpoint(): Plugin {
+  const EDITABLE_FIELDS = new Set(['label', 'guidance', 'footnote', 'example', 'help'])
+  return {
+    name: 'genre-content-edit',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== 'POST' || !req.url?.split('?')[0].endsWith('/__content-edit')) return next()
+        let body = ''
+        req.on('data', (c) => (body += c))
+        req.on('end', () => {
+          const reply = (code: number, payload: object) => {
+            res.statusCode = code
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify(payload))
+          }
+          try {
+            const { nodeId, field, oldText, newText } = JSON.parse(body) as {
+              nodeId?: string
+              field?: string
+              oldText?: string
+              newText?: string
+            }
+            if (!nodeId || !field || !EDITABLE_FIELDS.has(field) || !newText?.trim()) {
+              return reply(400, { error: 'nodeId, an editable field, and non-empty newText are required' })
+            }
+            const file = join(process.cwd(), 'src', 'content', 'guide-content.json')
+            const content = JSON.parse(readFileSync(file, 'utf8')) as {
+              sections: Array<Record<string, unknown>>
+            }
+            let target: Record<string, unknown> | null = null
+            const walk = (n: Record<string, unknown>) => {
+              if (n.id === nodeId) target = n
+              for (const child of (n.children as Array<Record<string, unknown>> | undefined) ?? []) walk(child)
+            }
+            for (const s of content.sections) walk(s)
+            if (!target) return reply(404, { error: `node ${nodeId} not found` })
+            const current = (target as Record<string, unknown>)[field]
+            if ((current ?? '') !== (oldText ?? '')) {
+              return reply(409, { error: 'text changed since the page loaded — reload and retry' })
+            }
+            ;(target as Record<string, unknown>)[field] = newText.trim()
+            writeFileSync(file, JSON.stringify(content, null, 2) + '\n')
+            reply(200, { ok: true })
+          } catch (err) {
+            reply(400, { error: String(err) })
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base,
   plugins: [
     feedbackInbox(),
+    contentEditEndpoint(),
     react(),
     tailwindcss(),
     VitePWA({

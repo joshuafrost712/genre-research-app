@@ -4,6 +4,7 @@ import { FeedbackProvider } from './FeedbackProvider'
 import { useFeedback } from './feedbackContext'
 import { SelectionLayer } from './SelectionLayer'
 import { CommentWindow } from './CommentWindow'
+import { EditWindow } from './EditWindow'
 import { FeedbackManager } from './FeedbackManager'
 import { fdb } from './db'
 import './devfeedback.css'
@@ -21,6 +22,7 @@ export function DevFeedbackRoot() {
     <FeedbackProvider>
       <SelectionLayer />
       <CommentWindow />
+      <EditWindow />
       <FeedbackManager />
       <ManagerFab />
     </FeedbackProvider>
@@ -29,10 +31,10 @@ export function DevFeedbackRoot() {
 
 /** Floating button that opens the manager, badged with the open-comment count. */
 function ManagerFab() {
-  const { setManagerOpen, managerOpen, draft } = useFeedback()
+  const { setManagerOpen, managerOpen, draft, editDraft } = useFeedback()
   const openCount = useLiveQuery(() => fdb.comments.where('status').equals('open').count(), [], 0)
 
-  if (managerOpen || draft) return null
+  if (managerOpen || draft || editDraft) return null
 
   return (
     <button
