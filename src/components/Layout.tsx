@@ -20,7 +20,7 @@ export function Layout() {
     <GenreNameProvider>
     <Tour id={APP_TOUR} steps={APP_TOUR_STEPS} />
     <div className="flex h-dvh flex-col bg-gray-50 text-gray-900">
-      <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
+      <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 print:hidden">
         <button
           type="button"
           className="rounded p-2 hover:bg-gray-100 lg:hidden"
@@ -41,7 +41,7 @@ export function Layout() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-72 shrink-0 border-r border-gray-200 bg-white lg:block">
+        <aside className="hidden w-72 shrink-0 border-r border-gray-200 bg-white lg:block print:hidden">
           <NavShell />
         </aside>
 
@@ -64,8 +64,10 @@ export function Layout() {
           </div>
         </main>
       </div>
-      <QuickJot />
-      <DevFeedbackRoot />
+      <div className="print:hidden">
+        <QuickJot />
+        <DevFeedbackRoot />
+      </div>
     </div>
     </GenreNameProvider>
   )

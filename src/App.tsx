@@ -12,6 +12,8 @@ import { FollowUp } from './pages/FollowUp'
 import { Help } from './pages/Help'
 import { Capture } from './pages/Capture'
 import { GenreBank } from './pages/GenreBank'
+import { GenreSummary } from './pages/GenreSummary'
+import { PrintChart } from './pages/PrintChart'
 import { Compare } from './pages/Compare'
 import { ExportView } from './pages/ExportView'
 import { Routing } from './pages/Routing'
@@ -33,6 +35,8 @@ const router = createBrowserRouter(
         { path: 'help', element: <Help /> },
         { path: 'capture', element: <Capture /> },
         { path: 'genres', element: <GenreBank /> },
+        { path: 'summary', element: <GenreSummary /> },
+        { path: 'chart', element: <PrintChart /> },
         { path: 'compare', element: <Compare /> },
         { path: 'routing', element: <Routing /> },
         { path: 'review', element: <Review /> },

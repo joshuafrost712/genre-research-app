@@ -220,7 +220,6 @@ const JOURNEY: JourneyStage[] = [
     title: '2b — Choose a genre',
     blurb: 'Compare purposes first, shortlist the top 3, weigh the social factors, and lock one in.',
     subIds: ['s0.genre_choice'],
-    route: '/choose',
   },
   {
     id: 'macro',

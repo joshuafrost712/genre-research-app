@@ -23,6 +23,15 @@ async function setMeta(key: string, value: string): Promise<void> {
   await db.meta.put({ key, value })
 }
 
+/** Generic meta access for page-level preferences (e.g. summary-table columns). */
+export async function getMetaValue(key: string): Promise<string | undefined> {
+  return getMeta(key)
+}
+
+export async function setMetaValue(key: string, value: string): Promise<void> {
+  await setMeta(key, value)
+}
+
 /**
  * Per-tour "already seen" flag. Each guided tour is tracked independently (one
  * meta key per tour id) so a new page tour can run for the first time without

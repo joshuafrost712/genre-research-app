@@ -18,6 +18,7 @@ import {
   useRowIds,
 } from '../../lib/storage/entries'
 import { deriveSectionRecall, translationSummary } from '../../lib/content/sectionRecall'
+import { needsSummary, SUMMARY_KEY } from '../../lib/content/summarize'
 import { resolveGenreTokens, useGenreName } from '../GenreNameProvider'
 import {
   depthVisible,
@@ -218,8 +219,51 @@ function ScalarField({ ctx, node, layer }: BlockProps) {
       {na ? (
         <p className="text-xs italic text-gray-400">Marked not applicable.</p>
       ) : (
-        <ScalarInput ctx={ctx} node={node} layer={layer} />
+        <>
+          <ScalarInput ctx={ctx} node={node} layer={layer} />
+          {node.type === 'long_text' && layer === 'genre' && (
+            <SummaryCompanion ctx={ctx} node={node} layer={layer} mainText={entry?.text ?? ''} />
+          )}
+        </>
       )}
+    </div>
+  )
+}
+
+/**
+ * The one-line summary companion for a long genre answer. The full discussion
+ * is great record-keeping; the genre summary table (1f) shows this short line.
+ * Non-blocking: a nudge appears when the answer runs long (~15+ words), and the
+ * summary box stays once one exists.
+ */
+function SummaryCompanion({
+  ctx,
+  node,
+  layer,
+  mainText,
+}: BlockProps & { mainText: string }) {
+  const summaryEntry = useEntry(ctx, node.id, layer, SUMMARY_KEY)
+  const summary = (summaryEntry?.text ?? '').trim()
+  if (!needsSummary(mainText) && !summary) return null
+  return (
+    <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+      <div className="mb-1 flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-medium text-gray-600">Table summary (one line)</span>
+        {!summary && (
+          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+            ▲ needs a summary for the table
+          </span>
+        )}
+      </div>
+      <AutosaveText
+        value={summaryEntry?.text ?? ''}
+        placeholder="One short line for the genre summary table"
+        onSave={(v) => upsertEntry(ctx, node.id, layer, { text: v }, SUMMARY_KEY)}
+      />
+      <p className="mt-1 text-[10px] text-gray-400">
+        Your full notes above are great record-keeping. This short line is what the summary
+        table (1f) shows.
+      </p>
     </div>
   )
 }
