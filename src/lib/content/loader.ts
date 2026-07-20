@@ -181,23 +181,16 @@ const JOURNEY: JourneyStage[] = [
   {
     id: 'find',
     workspace: 'w1',
-    title: '1a–1c — Find & describe genres',
-    blurb: 'List the genres your people use; record what each is about, its purposes, and its social side.',
-    subIds: ['s1a', 's1b', 's2eth'],
+    title: '1a — Find Genres',
+    blurb: 'List the genres your people use — the songs, poems, stories, and chants people still enjoy and make.',
+    subIds: ['s1a'],
   },
   {
-    id: 'bigpicture',
+    id: 'describe',
     workspace: 'w1',
-    title: '1d — The big picture',
-    blurb: 'How the genre is shaped: its parts, what stands out, feelings, and connections.',
-    subIds: ['s2b', 's2a', 's2c', 's2d'],
-  },
-  {
-    id: 'details',
-    workspace: 'w1',
-    title: '1e — Style & details',
-    blurb: 'Words, discourse, sounds, picture-language, performance — and which features are Required.',
-    subIds: ['s3a', 's3b', 's3c', 's3d', 's3e', 's3f'],
+    title: '1b–1e — Describe a Genre',
+    blurb: 'For each genre: its purposes, its social side, its big picture, and its style details.',
+    subIds: ['s1b', 's2eth', 's2b', 's2a', 's2c', 's2d', 's3a', 's3b', 's3c', 's3d', 's3e', 's3f'],
   },
   {
     id: 'summary',
@@ -273,7 +266,7 @@ export function workspaces(): Workspace[] {
     {
       id: 'w2',
       title: 'Create / Translate',
-      blurb: 'Take one passage (a psalm or other Scripture) into a genre you have described.',
+      blurb: "Bring one passage to life in one of your community's genres.",
       stages: stages.filter((s) => s.workspace === 'w2'),
     },
   ]
