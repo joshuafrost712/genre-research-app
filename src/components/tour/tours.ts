@@ -59,7 +59,7 @@ export const WORKSHEET_TOUR_STEPS: TourStep[] = [
   },
   {
     title: 'The buttons on each question',
-    body: '"Follow up" saves a question to return to. "Not applicable" marks one that does not apply. The star marks the one or two things that matter most for your translation.',
+    body: '"Follow up" saves a question to return to — on table rows this is the ⚑ flag button. Everything you flag gathers on the Follow-up page, ready for when you meet an expert. "Not applicable" marks one that does not apply. The star marks the one or two things that matter most for your translation.',
   },
   {
     title: 'See an example',

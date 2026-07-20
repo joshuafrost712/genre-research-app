@@ -4,7 +4,7 @@ import { findNode, stageRoute, workspaces, type JourneyStage } from '../lib/cont
 import { visibleAtDepth, type DepthMode, type GuideNode } from '../schema/types'
 import { useDepthMode } from './DepthModeContext'
 import { useProgress } from './useProgress'
-import { resolveGenreTokens, useGenreName } from './GenreNameProvider'
+import { resolveGenreTokens, useNameTokens } from './GenreNameProvider'
 import { isGoogleConfigured } from '../lib/google/auth'
 
 const DEPTH_LABELS: Record<DepthMode, string> = {
@@ -140,7 +140,7 @@ function StageNav({
 }) {
   const { nodeId } = useParams()
   const progress = useProgress()
-  const genre = useGenreName()
+  const genre = useNameTokens()
   const [collapsed, setCollapsed] = useState(true)
 
   const subs = stage.subIds

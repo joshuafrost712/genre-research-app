@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "title": "Local Genres Research for Scripture Translation",
   "sections": [
     {
@@ -57,7 +57,7 @@
         {
           "id": "s1b",
           "type": "group",
-          "label": "1b: Genre Basics",
+          "label": "1b: Genre Purpose",
           "layer": "genre",
           "guidance": "Three basic things about {genre}: a short description, the topics it usually covers, and the purposes it serves in the community. This is the information you will use later to match genres with passages.",
           "children": [
@@ -69,7 +69,7 @@
               "xref": [
                 {
                   "to": "s2eth",
-                  "label": "Go to 1c: The Social Side"
+                  "label": "Go to 1c: Social Features"
                 }
               ]
             },
@@ -155,7 +155,7 @@
           "id": "s2eth",
           "type": "group",
           "layer": "genre",
-          "label": "1c: The Social Side of {genre}",
+          "label": "1c: Social Features of {genre}",
           "guidance": "Picture a real performance of {genre}. Work through the who, when, where, and what questions, plus what the genre reminds people of and how loved it is. This is the information that helps a team choose wisely between genres later.",
           "children": [
             {
@@ -163,17 +163,9 @@
               "type": "long_text",
               "layer": "genre",
               "minDepth": "standard",
-              "label": "Who takes part in {genre}, and who is it for?",
-              "guidance": "Think of singers, players, leaders, dancers, and also the listeners.",
+              "label": "Who takes part in {genre}?",
+              "guidance": "Note specific ages, genders, required status, or official roles of participants. Think of singers, players, leaders, dancers, and also the audience.",
               "example": "In a village hymn, a song leader starts each line and the whole gathering sings it back. Elders sit in front; children join the chorus."
-            },
-            {
-              "id": "s2eth.roles",
-              "type": "long_text",
-              "layer": "genre",
-              "minDepth": "standard",
-              "label": "What is each person's role in {genre}, and when do they do it?",
-              "example": "One person drums the whole time; a soloist sings the verses; everyone joins the refrain."
             },
             {
               "id": "s2eth.when",
@@ -1015,7 +1007,7 @@
         {
           "id": "s0.setup",
           "type": "group",
-          "label": "2a: Your Passage",
+          "label": "2a: Focus on {passage}",
           "layer": "focusText",
           "minDepth": "quick",
           "guidance": "Name the passage you want to translate or turn into Scripture-art (for example, Psalm 13). Use the passage picker at the top of the screen, or the Passages & Genres page, to add or switch passages. This workspace works for any passage, not only psalms.",

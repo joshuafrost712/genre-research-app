@@ -7,7 +7,7 @@ import { useDepthMode } from '../components/DepthModeContext'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import { useProgress } from '../components/useProgress'
 import { BlockRenderer } from '../components/blocks/BlockRenderer'
-import { resolveGenreTokens, useGenreName } from '../components/GenreNameProvider'
+import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 import { Tour, ReplayTourButton } from '../components/tour/TourProvider'
 import { WORKSHEET_TOUR, WORKSHEET_TOUR_STEPS } from '../components/tour/tours'
 
@@ -20,7 +20,7 @@ export function WorksheetView() {
   const { mode } = useDepthMode()
   const { ctx } = useActiveContext()
   const progress = useProgress()
-  const genre = useGenreName()
+  const genre = useNameTokens()
   const ref = nodeId ? findNode(nodeId) : undefined
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export function WorksheetView() {
             to={routeForSub(next.node.id)}
             className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
           >
-            Next: {next.node.label} →
+            Next: {resolveGenreTokens(next.node.label, genre)} →
           </Link>
         ) : (
           <span className="text-sm text-gray-400">End of worksheet</span>
