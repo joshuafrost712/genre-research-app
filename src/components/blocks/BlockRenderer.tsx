@@ -1,9 +1,19 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { effectiveLayer, navSubsectionOf } from '../../lib/content/loader'
 import { cellKey, db } from '../../lib/storage/db'
-import { createGenre, renameGenre, type ActiveContext } from '../../lib/storage/appState'
+import {
+  createGenre,
+  deleteGenre,
+  mergeGenres,
+  renameGenre,
+  setActiveGenre,
+  type ActiveContext,
+} from '../../lib/storage/appState'
+import { duplicatePairs, findDuplicate } from '../../lib/genreNames'
+import { useActiveContext } from '../ActiveContextProvider'
+import type { Genre } from '../../lib/types'
 import {
   addRow,
   removeRow,
@@ -316,24 +326,88 @@ function CollectionInput({
 /**
  * The project's genre list, edited inline in 1A. These are real Genre entities
  * (the single source of truth), so a genre added here appears on the All Psalms
- * & Genres page and in every genre picker (feedback #4). Add + rename only, to
- * match the genres hub; genres are reused across psalms, not casually deleted.
+ * & Genres page and in every genre picker (feedback #4). Feedback 2026-07-20
+ * #7/#12 added: a "Describe" jump to 1b, deletion (confirmed, with an
+ * explanation), unique names, and near-duplicate detection with a merge offer.
  */
 function GenreBankInline({ ctx }: { ctx: ActiveContext }) {
+  const navigate = useNavigate()
+  const { reload } = useActiveContext()
   const genres = useLiveQuery(
     () => db.genres.where('project_id').equals(ctx.projectId).sortBy('created_at'),
     [ctx.projectId],
   )
+  const dismissed = useLiveQuery(
+    () => db.meta.where('key').startsWith('dupDismiss:').toArray(),
+    [],
+  )
   const [draft, setDraft] = useState('')
+  const [notice, setNotice] = useState<string | null>(null)
+  const [nearMatch, setNearMatch] = useState<{ draft: string; match: Genre } | null>(null)
+  const [mergePair, setMergePair] = useState<[Genre, Genre] | null>(null)
+
   const add = () => {
-    if (!draft.trim()) return
-    void createGenre(ctx.projectId, draft)
+    const name = draft.trim()
+    if (!name) return
+    const dup = findDuplicate(name, genres ?? [])
+    if (dup?.kind === 'exact') {
+      setNotice(
+        `"${dup.match.name}" is already in your list. Every genre needs its own name, so give this one a different name (or open the existing entry instead).`,
+      )
+      return
+    }
+    if (dup?.kind === 'near') {
+      setNearMatch({ draft: name, match: dup.match })
+      return
+    }
+    void createGenre(ctx.projectId, name)
     setDraft('')
   }
+
+  const dismissKey = (a: Genre, b: Genre) => `dupDismiss:${[a.id, b.id].sort().join(':')}`
+  const openPair = duplicatePairs(genres ?? []).find(
+    (pair) => !(dismissed ?? []).some((m) => m.key === dismissKey(pair[0], pair[1])),
+  )
+
   return (
     <div className="flex flex-col gap-2">
+      {openPair && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <span className="font-medium">"{openPair[0].name}"</span> and{' '}
+          <span className="font-medium">"{openPair[1].name}"</span> look like they could be the
+          same genre written two ways.
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setMergePair(openPair)}
+              className="rounded-md bg-amber-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-800"
+            >
+              They are the same — merge them
+            </button>
+            <button
+              type="button"
+              onClick={() => void db.meta.put({ key: dismissKey(openPair[0], openPair[1]), value: '1' })}
+              className="rounded-md border border-amber-300 px-2.5 py-1 text-xs text-amber-800 hover:bg-amber-100"
+            >
+              They are different — keep both
+            </button>
+          </div>
+        </div>
+      )}
       {(genres ?? []).map((g) => (
-        <GenreBankRow key={g.id} id={g.id} name={g.name} />
+        <GenreBankRow
+          key={g.id}
+          ctx={ctx}
+          genre={g}
+          others={(genres ?? []).filter((o) => o.id !== g.id)}
+          onNotice={setNotice}
+          onChanged={reload}
+          onDescribe={async () => {
+            await setActiveGenre(ctx.projectId, g.id)
+            reload()
+            navigate('/worksheet/s1b')
+          }}
+        />
       ))}
       <div className="flex gap-2">
         <input
@@ -357,24 +431,201 @@ function GenreBankInline({ ctx }: { ctx: ActiveContext }) {
       <p className="text-[11px] text-gray-400">
         These genres appear on the All Psalms &amp; Genres page and wherever you choose a genre.
       </p>
+
+      {notice && (
+        <BankDialog onClose={() => setNotice(null)}>
+          <h2 className="text-base font-semibold text-gray-900">That name is taken</h2>
+          <p className="mt-2 text-sm text-gray-700">{notice}</p>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="mt-4 rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+          >
+            OK
+          </button>
+        </BankDialog>
+      )}
+
+      {nearMatch && (
+        <BankDialog onClose={() => setNearMatch(null)}>
+          <h2 className="text-base font-semibold text-gray-900">Is this the same genre?</h2>
+          <p className="mt-2 text-sm text-gray-700">
+            "{nearMatch.draft}" is spelled very close to "{nearMatch.match.name}", which is
+            already in your list. Adding it twice would split your answers between two copies.
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                await setActiveGenre(ctx.projectId, nearMatch.match.id)
+                setNearMatch(null)
+                setDraft('')
+              }}
+              className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+            >
+              Same genre — use "{nearMatch.match.name}"
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void createGenre(ctx.projectId, nearMatch.draft)
+                setNearMatch(null)
+                setDraft('')
+              }}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Different genre — add both
+            </button>
+            <button
+              type="button"
+              onClick={() => setNearMatch(null)}
+              className="text-xs text-gray-500 hover:underline"
+            >
+              Go back and edit the name
+            </button>
+          </div>
+        </BankDialog>
+      )}
+
+      {mergePair && (
+        <BankDialog onClose={() => setMergePair(null)}>
+          <h2 className="text-base font-semibold text-gray-900">Merge these two genres</h2>
+          <p className="mt-2 text-sm text-gray-700">
+            Pick the name to keep. Answers from the other copy move over wherever the kept genre
+            has none of its own; where both copies answered the same question, the kept genre's
+            answer wins. This cannot be undone.
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            {[
+              [mergePair[0], mergePair[1]],
+              [mergePair[1], mergePair[0]],
+            ].map(([keep, fold]) => (
+              <button
+                key={keep.id}
+                type="button"
+                onClick={async () => {
+                  await mergeGenres(ctx.projectId, fold.id, keep.id)
+                  setMergePair(null)
+                  reload()
+                }}
+                className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+              >
+                Keep "{keep.name}" (fold "{fold.name}" into it)
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setMergePair(null)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </BankDialog>
+      )}
     </div>
   )
 }
 
-function GenreBankRow({ id, name }: { id: string; name: string }) {
-  const [text, setText] = useState(name)
+function GenreBankRow({
+  ctx,
+  genre,
+  others,
+  onNotice,
+  onChanged,
+  onDescribe,
+}: {
+  ctx: ActiveContext
+  genre: Genre
+  others: Genre[]
+  onNotice: (msg: string) => void
+  onChanged: () => void
+  onDescribe: () => void
+}) {
+  const [text, setText] = useState(genre.name)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   // Reflect external renames (e.g. edited on the genres hub) into the field.
-  useEffect(() => setText(name), [name])
+  useEffect(() => setText(genre.name), [genre.name])
   return (
     <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
         onBlur={() => {
-          if (text.trim() && text !== name) void renameGenre(id, text)
+          const name = text.trim()
+          if (!name || name === genre.name) return
+          if (findDuplicate(name, others)?.kind === 'exact') {
+            onNotice(
+              `"${name}" is already the name of another genre in your list. Every genre needs its own name, so this one keeps its old name.`,
+            )
+            setText(genre.name)
+            return
+          }
+          void renameGenre(genre.id, name)
         }}
         className="flex-1 bg-transparent text-sm focus:outline-none"
       />
+      <button
+        type="button"
+        onClick={onDescribe}
+        className="shrink-0 rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-800"
+      >
+        Describe this genre →
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirmDelete(true)}
+        aria-label={`Delete ${genre.name}`}
+        className="shrink-0 rounded-md px-1.5 py-1 text-sm text-gray-400 hover:bg-red-50 hover:text-red-600"
+      >
+        ✕
+      </button>
+      {confirmDelete && (
+        <BankDialog onClose={() => setConfirmDelete(false)}>
+          <h2 className="text-base font-semibold text-gray-900">Delete "{genre.name}"?</h2>
+          <p className="mt-2 text-sm text-gray-700">
+            This removes the genre and everything written about it: its answers in Workspace 1,
+            and any comparisons or flags that used it in Workspace 2. This cannot be undone. If
+            two entries are really the same genre, merging keeps the answers — deleting does not.
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                await deleteGenre(ctx.projectId, genre.id)
+                setConfirmDelete(false)
+                onChanged()
+              }}
+              className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800"
+            >
+              Delete it
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(false)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Keep it
+            </button>
+          </div>
+        </BankDialog>
+      )}
+    </div>
+  )
+}
+
+/** Minimal modal shell for the genre-bank confirmations. */
+function BankDialog({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+      >
+        {children}
+      </div>
     </div>
   )
 }

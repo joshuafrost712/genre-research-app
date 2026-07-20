@@ -6,7 +6,7 @@
 import { db } from './db'
 import { getContentVersion } from '../content/loader'
 import { now, uid } from '../util'
-import { trackUpsert } from '../sync/outbox'
+import { trackDelete, trackUpsert } from '../sync/outbox'
 import type { FocusText, Genre, Project, TranslationWorksheet } from '../types'
 
 const ACTIVE_PROJECT = 'activeProjectId'
@@ -112,19 +112,34 @@ export interface ActiveContext {
   worksheetId: string
 }
 
-export async function ensureActiveContext(): Promise<ActiveContext> {
-  const project = await ensureActiveProject()
-  const projectId = project.id
+// Single-flight: concurrent callers (e.g. React StrictMode's double effect, or
+// two components mounting together) share one run. Without this, two
+// interleaved runs each saw "nothing exists yet" and both created starter
+// records / re-ran the inventory migration, duplicating every genre
+// (feedback 2026-07-20 #3/#4).
+let ensureInFlight: Promise<ActiveContext> | null = null
 
-  // One-time: promote any genres entered in the old free-text 1A list into real
-  // Genre records so they appear on the genres hub and in pickers (feedback #4).
-  await migrateInventoryGenres(projectId)
+export function ensureActiveContext(): Promise<ActiveContext> {
+  if (ensureInFlight) return ensureInFlight
+  ensureInFlight = (async () => {
+    const project = await ensureActiveProject()
+    const projectId = project.id
 
-  const focusText = await ensureActiveFocusText(projectId)
-  const genre = await ensureActiveGenre(projectId)
-  const worksheet = await ensureActiveWorksheet(projectId, focusText.id, genre.id)
+    // One-time: promote any genres entered in the old free-text 1A list into real
+    // Genre records so they appear on the genres hub and in pickers (feedback #4).
+    await migrateInventoryGenres(projectId)
 
-  return { projectId, focusTextId: focusText.id, genreId: genre.id, worksheetId: worksheet.id }
+    const focusText = await ensureActiveFocusText(projectId)
+    const genre = await ensureActiveGenre(projectId)
+    const worksheet = await ensureActiveWorksheet(projectId, focusText.id, genre.id)
+
+    return { projectId, focusTextId: focusText.id, genreId: genre.id, worksheetId: worksheet.id }
+  })()
+  const clear = () => {
+    ensureInFlight = null
+  }
+  ensureInFlight.then(clear, clear)
+  return ensureInFlight
 }
 
 async function ensureActiveFocusText(projectId: string): Promise<FocusText> {
@@ -260,6 +275,83 @@ export async function renameGenre(id: string, name: string): Promise<void> {
   await db.genres.update(id, { name: name.trim() || 'Untitled genre', updated_at: now() })
   const updated = await db.genres.get(id)
   if (updated) await trackUpsert('genres', updated)
+}
+
+/**
+ * Delete a genre and everything hanging off it: its genre-layer entries, its
+ * worksheets (with their synthesis entries and recordings). Exists so a double
+ * or a mistaken add can be removed (feedback 2026-07-20 #12); the UI always
+ * confirms with an explanation first. If the deleted genre was active, the
+ * active-genre cursor moves to another genre in the project.
+ */
+export async function deleteGenre(projectId: string, genreId: string): Promise<void> {
+  const worksheets = await db.worksheets
+    .where('project_id')
+    .equals(projectId)
+    .filter((w) => w.genre_id === genreId)
+    .toArray()
+  const worksheetIds = new Set(worksheets.map((w) => w.id))
+
+  const entries = await db.entries
+    .where('project_id')
+    .equals(projectId)
+    .filter(
+      (e) => e.genre_id === genreId || (!!e.worksheet_id && worksheetIds.has(e.worksheet_id)),
+    )
+    .toArray()
+
+  for (const e of entries) {
+    await db.entries.delete(e.id)
+    await trackDelete('entries', e.id, projectId)
+  }
+  for (const w of worksheets) {
+    await db.recordings.where('worksheet_id').equals(w.id).delete()
+    await db.worksheets.delete(w.id)
+    await trackDelete('worksheets', w.id, projectId)
+  }
+  await db.genres.delete(genreId)
+  await trackDelete('genres', genreId, projectId)
+
+  if ((await getMeta(activeGenreKey(projectId))) === genreId) {
+    const fallback = await db.genres.where('project_id').equals(projectId).first()
+    if (fallback) await setMeta(activeGenreKey(projectId), fallback.id)
+  }
+}
+
+/**
+ * Merge one genre into another (they turned out to be the same thing under two
+ * spellings). Answers move to the surviving genre wherever it has no answer of
+ * its own; where both genres answered the same question, the surviving genre's
+ * answer wins and the duplicate's copy is removed with the rest of it.
+ */
+export async function mergeGenres(
+  projectId: string,
+  fromId: string,
+  intoId: string,
+): Promise<void> {
+  if (fromId === intoId) return
+  const fromEntries = await db.entries
+    .where('project_id')
+    .equals(projectId)
+    .filter((e) => e.genre_id === fromId && !e.worksheet_id)
+    .toArray()
+  const intoEntries = await db.entries
+    .where('project_id')
+    .equals(projectId)
+    .filter((e) => e.genre_id === intoId && !e.worksheet_id)
+    .toArray()
+  const taken = new Set(intoEntries.map((e) => `${e.node_id}::${e.cell_key ?? ''}`))
+  for (const e of fromEntries) {
+    if (taken.has(`${e.node_id}::${e.cell_key ?? ''}`)) continue
+    await db.entries.update(e.id, { genre_id: intoId, updated_at: now() })
+    const updated = await db.entries.get(e.id)
+    if (updated) await trackUpsert('entries', updated)
+    taken.add(`${e.node_id}::${e.cell_key ?? ''}`)
+  }
+  // Everything left on the duplicate (conflicting answers, worksheets, flags)
+  // goes with it; the survivor keeps its own versions.
+  await deleteGenre(projectId, fromId)
+  await setMeta(activeGenreKey(projectId), intoId)
 }
 
 /**

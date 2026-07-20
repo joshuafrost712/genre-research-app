@@ -111,6 +111,22 @@ export function summaryCell(entries: Entry[], genreId: string, colId: string): S
   return { text: `${full.slice(0, SUMMARY_CHAR_LIMIT)}…`, missingSummary: true }
 }
 
+/**
+ * The full (thorough-discussion) answer behind a summary cell, when there is
+ * more to read than the cell shows. Empty string when the cell already shows
+ * everything (short answers, selects, the computed Required column).
+ */
+export function fullAnswerBehindCell(entries: Entry[], genreId: string, colId: string): string {
+  if (colId === REQUIRED_COL) return ''
+  const node = findNode(colId)?.node
+  if (!node || node.type === 'single_select' || node.type === 'multi_select') return ''
+  const full = (
+    entries.find((e) => e.node_id === colId && e.genre_id === genreId && !e.cell_key)?.text ?? ''
+  ).trim()
+  const shown = summaryCell(entries, genreId, colId).text
+  return full && full !== shown ? full : ''
+}
+
 /** The genre's Required features across every 1e feature table, headlines only. */
 export function requiredFeatures(entries: Entry[], genreId: string): string[] {
   const out: string[] = []

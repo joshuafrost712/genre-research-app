@@ -13,7 +13,7 @@ import {
   type ActiveContext,
 } from '../lib/storage/appState'
 import { upsertEntry, useAllEntries, useEntry } from '../lib/storage/entries'
-import { shortPrompt, summaryCell } from '../lib/content/summarize'
+import { fullAnswerBehindCell, shortPrompt, summaryCell } from '../lib/content/summarize'
 import type { Entry, Genre } from '../lib/types'
 
 /**
@@ -31,7 +31,6 @@ import type { Entry, Genre } from '../lib/types'
 const FACTORS = [
   's1b.purposes',
   's2eth.who',
-  's2eth.roles',
   's2eth.when',
   's2eth.materials',
   's2eth.space',
@@ -301,7 +300,9 @@ export function ChooseGenre() {
                           <FlagCell
                             gctx={genreCtxs[g.id]}
                             factorId={factorId}
+                            genreName={g.name}
                             note={summaryCell(entries, g.id, factorId).text}
+                            fullText={fullAnswerBehindCell(entries, g.id, factorId)}
                           />
                         </td>
                       ))}
@@ -397,6 +398,13 @@ function Header({ passage }: { passage: string }) {
       <p className="mt-1 text-sm text-gray-600">
         For <span className="font-medium text-sky-700">{passage}</span>: compare purposes first,
         keep the top 3, weigh the social factors, then choose.
+      </p>
+      <p className="mt-2 rounded-md bg-sky-50 p-3 text-sm text-sky-900">
+        This step draws on the local genres you found and described in Workspace 1. The more
+        complete your answers in 1b and 1c are, the better this comparison works.{' '}
+        <Link to="/worksheet/s1a" className="font-medium underline">
+          Go to 1a: Find Local Genres
+        </Link>
       </p>
     </div>
   )
@@ -504,16 +512,22 @@ function PurposeRow({
 function FlagCell({
   gctx,
   factorId,
+  genreName,
   note,
+  fullText,
 }: {
   gctx?: ActiveContext
   factorId: string
+  genreName: string
   note: string
+  fullText: string
 }) {
   const entry = useEntry(gctx ?? null, 'choose.flag', 'synthesis', factorId)
+  const [showFull, setShowFull] = useState(false)
   const level = (entry?.value ?? '') as FlagLevel
   const cycle: FlagLevel[] = ['', 'good', 'question', 'warning']
   const next = cycle[(cycle.indexOf(level) + 1) % cycle.length]
+  const sourceSub = findNode(factorId)?.parents.at(-1)?.id
   return (
     <div className="flex flex-col gap-1">
       <button
@@ -532,6 +546,53 @@ function FlagCell({
       <div className="whitespace-pre-wrap text-xs text-gray-600">
         {note || <span className="text-gray-300">nothing recorded</span>}
       </div>
+      {fullText && (
+        <button
+          type="button"
+          onClick={() => setShowFull(true)}
+          className="self-start text-[11px] text-sky-700 hover:underline"
+        >
+          Read the full note
+        </button>
+      )}
+      {showFull && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFull(false)} aria-hidden />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+          >
+            <div className="text-xs font-medium uppercase tracking-wide text-gray-400">
+              {genreName}
+            </div>
+            <h2 className="mt-0.5 text-base font-semibold text-gray-900">
+              {(() => {
+                const node = findNode(factorId)?.node
+                return node ? shortPrompt(node) : factorId
+              })()}
+            </h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{fullText}</p>
+            <div className="mt-4 flex items-center justify-between">
+              {sourceSub && (
+                <Link
+                  to={`/worksheet/${sourceSub}`}
+                  className="text-xs text-sky-700 hover:underline"
+                >
+                  Edit in Workspace 1 →
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowFull(false)}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
