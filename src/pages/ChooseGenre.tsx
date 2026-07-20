@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../lib/storage/db'
+import { cellKey, db } from '../lib/storage/db'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import { useDepthMode } from '../components/DepthModeContext'
 import { BlockRenderer } from '../components/blocks/BlockRenderer'
@@ -12,9 +12,17 @@ import {
   setLastNode,
   type ActiveContext,
 } from '../lib/storage/appState'
-import { upsertEntry, useAllEntries, useEntry } from '../lib/storage/entries'
+import { addRow, upsertEntry, useAllEntries, useEntry } from '../lib/storage/entries'
 import { fullAnswerBehindCell, shortPrompt, summaryCell } from '../lib/content/summarize'
 import { mergeOptions, useCustomOptions } from '../lib/customOptions'
+import {
+  deriveShortlist,
+  keepGenre,
+  setAsideGenre,
+  setRestAside,
+  KEEP_CAP,
+  type ShortlistIds,
+} from '../lib/chooseShortlist'
 import type { Entry, Genre } from '../lib/types'
 import type { SelectOption } from '../schema/types'
 
@@ -69,9 +77,11 @@ export function ChooseGenre() {
   )
   const lockedEntry = useEntry(ctx, 'choose.locked', 'focusText')
   const shortlistEntry = useEntry(ctx, 'choose.shortlist', 'focusText')
+  const setAsideEntry = useEntry(ctx, 'choose.setAside', 'focusText')
   const customPurposes = useCustomOptions(ctx?.projectId ?? '', 's1b.purpose_families')
   const [showSetAside, setShowSetAside] = useState(false)
   const [guardFor, setGuardFor] = useState<Genre | null>(null)
+  const seedingRef = useRef(false)
 
   // Per-genre synthesis contexts (flags live on the passage x genre worksheet).
   const [genreCtxs, setGenreCtxs] = useState<Record<string, ActiveContext>>({})
@@ -98,6 +108,60 @@ export function ChooseGenre() {
     if (ctx) void setLastNode(ctx.projectId, 's0.genre_choice')
   }, [ctx])
 
+  // #25: every kept genre gets a pre-named row in the candidates table, once
+  // per genre per passage (the seeded marker means a deleted row stays
+  // deleted). The ref is the single-flight guard against StrictMode's
+  // double-run of effects — the bug class behind the spec-09 duplicate genres.
+  const keptValue = shortlistEntry?.value
+  useEffect(() => {
+    if (!ctx || !genres || entries === undefined || seedingRef.current) return
+    const keptIds = parseIds(keptValue)
+    if (keptIds.length === 0) return
+    const seeded = parseIds(
+      entries.find(
+        (e) =>
+          e.node_id === 'choose.seededCandidates' &&
+          e.focus_text_id === ctx.focusTextId &&
+          !e.cell_key,
+      )?.value,
+    )
+    const existingNames = new Set(
+      entries
+        .filter(
+          (e) =>
+            e.node_id === 's0.genre_choice.candidates' &&
+            e.worksheet_id === ctx.worksheetId &&
+            e.cell_key?.endsWith('__name'),
+        )
+        .map((e) => (e.text ?? '').trim().toLowerCase()),
+    )
+    const toSeed = keptIds
+      .map((id) => genres.find((g) => g.id === id))
+      .filter((g): g is Genre => !!g)
+      .filter((g) => !seeded.includes(g.id) && !existingNames.has(g.name.trim().toLowerCase()))
+    if (toSeed.length === 0) return
+    seedingRef.current = true
+    void (async () => {
+      try {
+        for (const g of toSeed) {
+          const rowId = await addRow(ctx, 's0.genre_choice.candidates', 'synthesis')
+          await upsertEntry(
+            ctx,
+            's0.genre_choice.candidates',
+            'synthesis',
+            { text: g.name },
+            cellKey(rowId, 'name'),
+          )
+        }
+        await upsertEntry(ctx, 'choose.seededCandidates', 'focusText', {
+          value: JSON.stringify([...seeded, ...toSeed.map((g) => g.id)]),
+        })
+      } finally {
+        seedingRef.current = false
+      }
+    })()
+  }, [ctx, genres, entries, keptValue])
+
   if (!ctx || entries === undefined || genres === undefined) {
     return <p className="text-sm text-gray-400">Loading…</p>
   }
@@ -105,7 +169,6 @@ export function ChooseGenre() {
   const passage = focusText?.reference?.trim() || 'this passage'
   const purposeNode = findNode('s0.purpose')?.node
   const candidatesNode = findNode('s0.genre_choice.candidates')?.node
-  const notesNode = findNode('s1c.notes')?.node
 
   if (genres.length === 0) {
     return (
@@ -124,17 +187,25 @@ export function ChooseGenre() {
     )
   }
 
-  const shortlist = parseIds(shortlistEntry?.value)
-  const kept = shortlist.length > 0 ? genres.filter((g) => shortlist.includes(g.id)) : []
-  const setAside = shortlist.length > 0 ? genres.filter((g) => !shortlist.includes(g.id)) : []
+  const ids: ShortlistIds = {
+    keptIds: parseIds(shortlistEntry?.value),
+    setAsideIds: parseIds(setAsideEntry?.value),
+  }
+  const { kept, setAside, undecided, atCap } = deriveShortlist(genres, ids.keptIds, ids.setAsideIds)
   const lockedGenre = lockedEntry?.value ? genres.find((g) => g.id === lockedEntry.value) : undefined
 
   const passageBroad = entries.find(
     (e) => e.node_id === 's0.purpose.broad_genre' && e.focus_text_id === ctx.focusTextId && !e.cell_key,
   )?.value
 
-  const setShortlist = (ids: string[]) =>
-    void upsertEntry(ctx, 'choose.shortlist', 'focusText', { value: JSON.stringify(ids) })
+  const writeShortlist = (next: ShortlistIds) => {
+    void upsertEntry(ctx, 'choose.shortlist', 'focusText', {
+      value: JSON.stringify(next.keptIds),
+    })
+    void upsertEntry(ctx, 'choose.setAside', 'focusText', {
+      value: JSON.stringify(next.setAsideIds),
+    })
+  }
 
   const flagsFor = (g: Genre): Array<{ factorId: string; level: FlagLevel; note: string }> => {
     const gctx = genreCtxs[g.id]
@@ -217,20 +288,34 @@ export function ChooseGenre() {
           hint="Purpose is the matching key: keep the genres whose purposes fit what this passage is doing. Set the others aside — you can always bring them back."
         />
         <ul className="flex flex-col gap-2">
-          {(shortlist.length > 0 ? kept : genres).map((g) => (
+          {[...kept, ...undecided].map((g) => (
             <PurposeRow
               key={g.id}
               genre={g}
               entries={entries}
               customPurposes={customPurposes}
               passageBroad={passageBroad}
-              kept={shortlist.includes(g.id)}
-              anyKept={shortlist.length > 0}
-              onKeep={() => setShortlist([...shortlist, g.id])}
-              onSetAside={() => setShortlist(shortlist.filter((id) => id !== g.id))}
+              state={kept.some((k) => k.id === g.id) ? 'kept' : 'undecided'}
+              atCap={atCap}
+              onKeep={() => writeShortlist(keepGenre(ids, g.id))}
+              onSetAside={() => writeShortlist(setAsideGenre(ids, g.id))}
             />
           ))}
         </ul>
+        {atCap && undecided.length > 0 && (
+          <p className="mt-2 text-xs text-gray-500">
+            You already have {KEEP_CAP} — set one aside to keep a different genre.
+          </p>
+        )}
+        {kept.length > 0 && undecided.length > 0 && (
+          <button
+            type="button"
+            onClick={() => writeShortlist(setRestAside(ids, genres.map((g) => g.id)))}
+            className="mt-2 text-xs text-gray-500 hover:underline"
+          >
+            Set the {undecided.length === 1 ? 'other genre' : `other ${undecided.length} genres`} aside
+          </button>
+        )}
         {setAside.length > 0 && (
           <div className="mt-3">
             <button
@@ -250,21 +335,16 @@ export function ChooseGenre() {
                     entries={entries}
                     customPurposes={customPurposes}
                     passageBroad={passageBroad}
-                    kept={false}
-                    anyKept
+                    state="aside"
+                    atCap={atCap}
                     dim
-                    onKeep={() => setShortlist([...shortlist, g.id])}
+                    onKeep={() => writeShortlist(keepGenre(ids, g.id))}
                     onSetAside={() => undefined}
                   />
                 ))}
               </ul>
             )}
           </div>
-        )}
-        {shortlist.length > 3 && (
-          <p className="mt-2 text-xs text-amber-700">
-            You are keeping {shortlist.length} — three is usually enough to compare well.
-          </p>
         )}
       </section>
 
@@ -273,7 +353,7 @@ export function ChooseGenre() {
         <StepHeading
           n={3}
           title="Weigh the social factors"
-          hint="Tap a flag to mark how each factor fits THIS passage: green = good fit, yellow = a question to settle, red = a warning. The colors are for seeing at a glance — they never decide for you."
+          hint="Tap a flag to mark how each factor fits THIS passage: green = good fit (1 tap), yellow = a question to settle (2 taps), red = a warning (3 taps); a 4th tap clears it. The colors are for seeing at a glance — they never decide for you."
         />
         {kept.length === 0 ? (
           <p className="text-sm text-gray-500">Keep at least one genre in step 2 first.</p>
@@ -348,7 +428,7 @@ export function ChooseGenre() {
                 >
                   {isLocked ? `✓ ${g.name} (locked in)` : `Choose ${g.name}`}
                   {!isLocked && concerns.length > 0 && (
-                    <span className="ml-1.5 text-xs text-amber-300">
+                    <span className="ml-1.5 text-xs text-red-300">
                       {concerns.length} flag{concerns.length === 1 ? '' : 's'}
                     </span>
                   )}
@@ -359,14 +439,13 @@ export function ChooseGenre() {
         )}
       </section>
 
-      {/* Optional notes: the candidates table + free discussion notes */}
+      {/* Optional notes: the candidates table (rows are seeded from kept genres) */}
       <details className="rounded-xl border border-gray-200 bg-white p-4">
         <summary className="cursor-pointer text-sm font-semibold text-gray-700">
-          Notes on your candidates (optional)
+          Note Taking Space for Considering Genres
         </summary>
         <div className="mt-3 flex flex-col gap-4">
           {candidatesNode && <BlockRenderer ctx={ctx} node={candidatesNode} mode={mode} />}
-          {notesNode && <BlockRenderer ctx={ctx} node={notesNode} mode={mode} />}
         </div>
       </details>
 
@@ -435,8 +514,8 @@ function PurposeRow({
   entries,
   customPurposes,
   passageBroad,
-  kept,
-  anyKept,
+  state,
+  atCap,
   dim,
   onKeep,
   onSetAside,
@@ -445,12 +524,14 @@ function PurposeRow({
   entries: Entry[]
   customPurposes: SelectOption[]
   passageBroad?: string
-  kept: boolean
-  anyKept: boolean
+  /** kept = on the shortlist; aside = explicitly set aside; undecided = neither. */
+  state: 'kept' | 'undecided' | 'aside'
+  atCap: boolean
   dim?: boolean
   onKeep: () => void
   onSetAside: () => void
 }) {
+  const kept = state === 'kept'
   const familiesNode = findNode('s1b.purpose_families')?.node
   const purposeOptions = familiesNode ? mergeOptions(familiesNode, customPurposes) : customPurposes
   const familyIds = parseIds(
@@ -505,13 +586,31 @@ function PurposeRow({
           Set aside
         </button>
       ) : (
-        <button
-          type="button"
-          onClick={onKeep}
-          className="rounded-md bg-gray-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-700"
-        >
-          {anyKept ? 'Bring back' : 'Keep'}
-        </button>
+        <span className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onKeep}
+            disabled={atCap}
+            title={atCap ? `You already have ${KEEP_CAP} — set one aside first.` : undefined}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+              atCap
+                ? 'cursor-not-allowed bg-gray-200 text-gray-400'
+                : 'bg-gray-800 text-white hover:bg-gray-700'
+            }`}
+          >
+            {/* "Bring back" only for a genre someone chose to set aside (#21). */}
+            {state === 'aside' ? 'Bring back' : 'Keep'}
+          </button>
+          {state === 'undecided' && (
+            <button
+              type="button"
+              onClick={onSetAside}
+              className="text-xs text-gray-500 hover:underline"
+            >
+              Set aside
+            </button>
+          )}
+        </span>
       )}
     </li>
   )
@@ -548,7 +647,7 @@ function FlagCell({
         className={`self-start rounded-md border px-2 py-0.5 text-[11px] font-medium ${
           level ? FLAG_STYLE[level] : 'border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100'
         }`}
-        title="Tap to cycle: good fit → question → warning → clear"
+        title="Tap to cycle: good fit (1 tap) → question (2 taps) → warning (3 taps) → clear"
       >
         {level ? FLAG_ICON[level] : '○ flag'}
       </button>
