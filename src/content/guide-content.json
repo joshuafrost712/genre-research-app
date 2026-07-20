@@ -1035,6 +1035,13 @@
           "guidance": "Name the passage you want to translate or turn into Scripture-art (for example, Psalm 13). Pick the passage to focus on below, or add a new one. This workspace works for any passage, not only psalms.",
           "children": [
             {
+              "id": "s0.setup.passages",
+              "type": "passage_bank",
+              "label": "Your passages",
+              "layer": "focusText",
+              "minDepth": "quick"
+            },
+            {
               "id": "s0.purpose.intended_use",
               "type": "long_text",
               "label": "How will people use this translation / Scripture-inspired artistic creation? Will they sing it, listen to it, read it, or join in? Where will they use it? (Example: sung together in church.)",

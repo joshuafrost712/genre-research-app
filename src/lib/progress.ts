@@ -27,11 +27,12 @@ export function answerableLeaves(node: GuideNode, mode: DepthMode): GuideNode[] 
     for (const child of n.children ?? []) {
       if (!visibleAtDepth(child, mode)) continue
       if (child.type === 'group') recurse(child)
-      // genre_bank, translation_summary, and audio_recorder carry no per-node
-      // answer, so they do not count toward completion — like prose.
+      // genre_bank, passage_bank, translation_summary, and audio_recorder carry
+      // no per-node answer, so they do not count toward completion — like prose.
       else if (
         child.type !== 'prose' &&
         child.type !== 'genre_bank' &&
+        child.type !== 'passage_bank' &&
         child.type !== 'translation_summary' &&
         child.type !== 'audio_recorder'
       )

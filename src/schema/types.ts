@@ -39,6 +39,7 @@ export type BlockType =
   | 'repeatable_row_table' // user-added rows, predefined columns
   | 'fixed_grid' // predefined rows x columns; cells addressed rowId__colId
   | 'genre_bank' // the project's genre list, managed as entities (1a)
+  | 'passage_bank' // the project's passages, add/switch/rename inline (2a)
   | 'genre_select' // pick one of the identified genres (stores the genre name)
   | 'translation_summary' // read-only recap of purpose + genre + starred priorities
   | 'audio_recorder' // voice recordings attached to the container (2e first draft)

@@ -4,10 +4,13 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { effectiveLayer, navSubsectionOf } from '../../lib/content/loader'
 import { cellKey, db } from '../../lib/storage/db'
 import {
+  createFocusText,
   createGenre,
   deleteGenre,
   mergeGenres,
+  renameFocusText,
   renameGenre,
+  setActiveFocusText,
   setActiveGenre,
   type ActiveContext,
 } from '../../lib/storage/appState'
@@ -320,6 +323,8 @@ function CollectionInput({
       return <FixedGrid ctx={ctx} node={node} layer={layer} mode={mode} />
     case 'genre_bank':
       return <GenreBankInline ctx={ctx} />
+    case 'passage_bank':
+      return <PassageBankInline ctx={ctx} />
     case 'audio_recorder':
       return <AudioRecorderBlock ctx={ctx} nodeId={node.id} />
     default:
@@ -571,6 +576,135 @@ function GenreBankInline({ ctx }: { ctx: ActiveContext }) {
           </div>
         </BankDialog>
       )}
+    </div>
+  )
+}
+
+/**
+ * The project's passages, edited inline in 2a (feedback 2026-07-20 evening #3):
+ * pick the passage this workspace focuses on, add a new one, or rename one,
+ * without leaving the page. These are real FocusText entities, the same ones
+ * the Passages & Genres page manages; tapping a row re-scopes all of
+ * Workspace 2 (the {passage} heading, 2b-2e) to that passage.
+ */
+function PassageBankInline({ ctx }: { ctx: ActiveContext }) {
+  const { reload } = useActiveContext()
+  const passages = useLiveQuery(
+    () => db.focusTexts.where('project_id').equals(ctx.projectId).sortBy('created_at'),
+    [ctx.projectId],
+  )
+  const [draft, setDraft] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState('')
+
+  const add = async () => {
+    const ref = draft.trim()
+    if (!ref) return
+    await createFocusText(ctx.projectId, ref) // creates AND activates
+    setDraft('')
+    reload()
+  }
+  const select = async (id: string) => {
+    if (id === ctx.focusTextId) return
+    await setActiveFocusText(ctx.projectId, id)
+    reload()
+  }
+  const saveRename = async (id: string) => {
+    const ref = editDraft.trim()
+    if (ref) {
+      await renameFocusText(id, ref)
+      reload()
+    }
+    setEditingId(null)
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void add()
+          }}
+          placeholder="Add a passage (e.g. Psalm 13)"
+          className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => void add()}
+          className="rounded-md bg-gray-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
+        >
+          Add
+        </button>
+      </div>
+      {(passages ?? []).map((p) => {
+        const active = p.id === ctx.focusTextId
+        return (
+          <div
+            key={p.id}
+            className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+              active ? 'border-sky-300 bg-sky-50/60' : 'border-gray-200 bg-white'
+            }`}
+          >
+            {editingId === p.id ? (
+              <input
+                autoFocus
+                type="text"
+                value={editDraft}
+                onChange={(e) => setEditDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void saveRename(p.id)
+                  if (e.key === 'Escape') setEditingId(null)
+                }}
+                onBlur={() => void saveRename(p.id)}
+                className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-gray-500 focus:outline-none"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => void select(p.id)}
+                className="min-w-0 flex-1 text-left text-sm font-medium text-gray-900"
+              >
+                {p.reference}
+                {active && (
+                  <span className="ml-2 rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-medium text-white">
+                    focusing on this
+                  </span>
+                )}
+              </button>
+            )}
+            <div className="flex items-center gap-2">
+              {!active && editingId !== p.id && (
+                <button
+                  type="button"
+                  onClick={() => void select(p.id)}
+                  className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                >
+                  Focus on this
+                </button>
+              )}
+              {editingId !== p.id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(p.id)
+                    setEditDraft(p.reference)
+                  }}
+                  className="text-xs text-gray-500 hover:underline"
+                >
+                  Rename
+                </button>
+              )}
+            </div>
+          </div>
+        )
+      })}
+      <p className="text-[11px] text-gray-400">
+        Switching the passage re-scopes all of Create / Translate (2a–2e) to it. Your answers for
+        each passage are kept separately.
+      </p>
     </div>
   )
 }
