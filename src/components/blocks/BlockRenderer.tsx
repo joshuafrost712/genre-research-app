@@ -27,6 +27,7 @@ import {
   type Layer,
 } from '../../schema/types'
 import { AutosaveText } from './AutosaveText'
+import { AudioRecorderBlock } from './AudioRecorder'
 import { CellInput } from './CellInput'
 
 const SCALE_FALLBACK = [
@@ -256,6 +257,8 @@ function CollectionInput({
       return <FixedGrid ctx={ctx} node={node} layer={layer} mode={mode} />
     case 'genre_bank':
       return <GenreBankInline ctx={ctx} />
+    case 'audio_recorder':
+      return <AudioRecorderBlock ctx={ctx} nodeId={node.id} />
     default:
       return null
   }
@@ -875,6 +878,7 @@ function FieldRow({
       </button>
       {open && (
         <div className="px-2.5 pb-2.5">
+          {col.help && <ColumnHelp text={col.help} />}
           <CellInput
             ctx={ctx}
             nodeId={node.id}
@@ -884,6 +888,32 @@ function FieldRow({
             options={col.options}
           />
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Explainer behind a "What do these mean?" toggle, shown above a column's input
+ * when the content config supplies `help`. The text (including its concrete
+ * example) lives in the config so app translations can localize it.
+ */
+function ColumnHelp({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  const genre = useGenreName()
+  return (
+    <div className="mb-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs font-medium text-sky-700 hover:underline"
+      >
+        {open ? 'Hide explanation' : 'What do these mean?'}
+      </button>
+      {open && (
+        <p className="mt-1 rounded-md bg-sky-50 p-2 text-xs text-sky-900">
+          {resolveGenreTokens(text, genre)}
+        </p>
       )}
     </div>
   )

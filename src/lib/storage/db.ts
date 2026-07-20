@@ -4,9 +4,11 @@ import type {
   Entry,
   FocusText,
   Genre,
+  HistoryRow,
   MetaRecord,
   Person,
   Project,
+  Recording,
   TranslationWorksheet,
 } from '../types'
 import type { OutboxRow } from '../sync/types'
@@ -28,6 +30,10 @@ class GenreResearchDB extends Dexie {
   meta!: EntityTable<MetaRecord, 'key'>
   /** Pending local changes awaiting a cloud flush (added in v2; see lib/sync). */
   outbox!: EntityTable<OutboxRow, 'seq'>
+  /** Prior values of edited entries, for recover-lost-information (added in v3). */
+  history!: EntityTable<HistoryRow, 'seq'>
+  /** Voice recordings (first-draft takes), stored as blobs (added in v3). */
+  recordings!: EntityTable<Recording, 'id'>
 
   constructor() {
     super('genre-research')
@@ -47,6 +53,27 @@ class GenreResearchDB extends Dexie {
     this.version(2).stores({
       outbox: '++seq, table, recordId, project_id, updated_at',
     })
+    // v3: entry version history + voice recordings, plus a data migration for
+    // the feature scale — the old 3-way Possible/Expected/Required select became
+    // the 2-way Required/Common (old possible + expected map to common).
+    this.version(3)
+      .stores({
+        history: '++seq, entry_id, project_id, changed_at',
+        recordings: 'id, project_id, worksheet_id, created_at',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('entries')
+          .toCollection()
+          .modify((e: Entry) => {
+            if (
+              e.cell_key?.endsWith('__modality') &&
+              (e.value === 'possible' || e.value === 'expected')
+            ) {
+              e.value = 'common'
+            }
+          })
+      })
   }
 }
 

@@ -38,9 +38,10 @@ export type BlockType =
   | 'repeatable_list'
   | 'repeatable_row_table' // user-added rows, predefined columns
   | 'fixed_grid' // predefined rows x columns; cells addressed rowId__colId
-  | 'genre_bank' // the project's genre list, managed as entities (1A)
+  | 'genre_bank' // the project's genre list, managed as entities (1a)
   | 'genre_select' // pick one of the identified genres (stores the genre name)
   | 'translation_summary' // read-only recap of purpose + genre + starred priorities
+  | 'audio_recorder' // voice recordings attached to the container (2e first draft)
   | 'group' // container; nests children
 
 export type CellType =
@@ -69,6 +70,12 @@ export interface ColumnDef {
   cellType: CellType
   minDepth?: DepthMode // columns can appear only at greater depth
   options?: SelectOption[]
+  /**
+   * Explainer shown behind a small "?" toggle beside the column label. Lives in
+   * the content config (not code) so official app translations can localize it,
+   * including swapping the concrete example for one that fits the culture.
+   */
+  help?: string
 }
 
 export interface RowDef {

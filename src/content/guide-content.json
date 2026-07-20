@@ -1,508 +1,32 @@
 {
-  "version": "1.3.0",
-  "title": "Local Genres Research for Psalms Translation",
+  "version": "2.0.0",
+  "title": "Local Genres Research for Scripture Translation",
   "sections": [
-    {
-      "id": "s0",
-      "type": "group",
-      "label": "Section 0: The Psalm You Are Translating",
-      "children": [
-        {
-          "id": "s0.purpose",
-          "type": "group",
-          "label": "Psalm Purpose: What This Psalm Is Doing",
-          "layer": "focusText",
-          "minDepth": "quick",
-          "guidance": "Answer these few questions first, then go to Section 1. Come back here later to write down what you learn. To find this information, use a trusted study process or resource. For example: the Psalms OBT Exegesis Worksheet (purpose is mostly in its section C), or 'Psalms: Layer by Layer' (see its overview sections and overview videos).",
-          "children": [
-            {
-              "id": "s0.purpose.specific",
-              "type": "long_text",
-              "label": "What is this psalm mainly about? Write its specific message. (Example: it thanks God for healing from a sickness.)",
-              "layer": "focusText",
-              "minDepth": "quick"
-            },
-            {
-              "id": "s0.purpose.general",
-              "type": "short_text",
-              "label": "What is the psalm mainly doing? (For example: teaching, encouraging, or mourning.)",
-              "layer": "focusText",
-              "minDepth": "quick"
-            },
-            {
-              "id": "s0.purpose.broad_genre",
-              "type": "single_select",
-              "label": "What kind of psalm is it?",
-              "layer": "focusText",
-              "minDepth": "quick",
-              "options": [
-                {
-                  "id": "wisdom",
-                  "label": "Wisdom (teaches how to live well)"
-                },
-                {
-                  "id": "lament",
-                  "label": "Lament (a sad cry to God for help)"
-                },
-                {
-                  "id": "praise",
-                  "label": "Praise (worship that honors God)"
-                },
-                {
-                  "id": "thanksgiving",
-                  "label": "Thanksgiving (thanks God for something he did)"
-                },
-                {
-                  "id": "royal",
-                  "label": "Royal (about a king)"
-                },
-                {
-                  "id": "trust",
-                  "label": "Trust (says God can be relied on)"
-                },
-                {
-                  "id": "other",
-                  "label": "Other"
-                }
-              ]
-            },
-            {
-              "id": "s0.purpose.intended_use",
-              "type": "long_text",
-              "label": "How will people use this translation? Will they sing it, listen to it, read it, or join in? Where will they use it? (Example: sung together in church.)",
-              "layer": "focusText",
-              "minDepth": "quick"
-            }
-          ]
-        },
-        {
-          "id": "s0.genre_choice",
-          "type": "group",
-          "label": "Psalm Genre Choice",
-          "layer": "synthesis",
-          "minDepth": "quick",
-          "guidance": "Look at the genres you have identified. Choose up to 3 genres that could work for this psalm. For each one, note the problems and ideas for how to handle them.",
-          "children": [
-            {
-              "id": "s0.genre_choice.candidates",
-              "type": "repeatable_row_table",
-              "label": "Genres that could work for this psalm",
-              "layer": "synthesis",
-              "minDepth": "quick",
-              "footnote": "Examples of problems: (1) Who takes part. The genre may be sung only by women, but the translation is meant for the whole church to sing together. (2) What it reminds people of. The genre may use a drum that is linked to worshiping ancestors or to calling on evil spirits.",
-              "xref": [
-                {
-                  "to": "s1a",
-                  "relation": "derivedFrom",
-                  "label": "see the genres you identified (1A)"
-                }
-              ],
-              "columns": [
-                {
-                  "id": "name",
-                  "label": "Genre",
-                  "cellType": "genre_select",
-                  "minDepth": "quick"
-                },
-                {
-                  "id": "why",
-                  "label": "Why could it work well?",
-                  "cellType": "long_text",
-                  "minDepth": "quick"
-                },
-                {
-                  "id": "concerns",
-                  "label": "Any problems? (who uses it, when, or what it reminds people of)",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "strategy",
-                  "label": "Idea to handle the problem",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            },
-            {
-              "id": "s0.genre_choice.chosen",
-              "type": "genre_select",
-              "label": "Which genre will the team study for this psalm?",
-              "layer": "synthesis",
-              "minDepth": "quick"
-            }
-          ]
-        },
-        {
-          "id": "s0.macro_notes",
-          "type": "group",
-          "label": "Psalm Notes: The Big Picture",
-          "layer": "synthesis",
-          "minDepth": "standard",
-          "guidance": "Write a short summary of what you found in Section 2, and how it fits this psalm.",
-          "children": [
-            {
-              "id": "s0.macro_notes.prominence",
-              "type": "fixed_grid",
-              "label": "The most important parts",
-              "layer": "synthesis",
-              "minDepth": "standard",
-              "xref": [
-                {
-                  "to": "s2a",
-                  "relation": "derivedFrom",
-                  "label": "see 2B"
-                }
-              ],
-              "rows": [
-                {
-                  "id": "primary",
-                  "label": "Most important"
-                },
-                {
-                  "id": "secondary",
-                  "label": "Next most important"
-                },
-                {
-                  "id": "additional",
-                  "label": "Also important"
-                }
-              ],
-              "columns": [
-                {
-                  "id": "psalm",
-                  "label": "What this part of the psalm says",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "genre_strategy",
-                  "label": "How this genre makes a part stand out",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "translation_idea",
-                  "label": "Idea for the translation",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            },
-            {
-              "id": "s0.macro_notes.sections",
-              "type": "repeatable_row_table",
-              "label": "Parts (sections)",
-              "layer": "synthesis",
-              "minDepth": "standard",
-              "footnote": "Sometimes the parts of the psalm fit the genre's parts in a different order. For example, in a verse-and-refrain song, the words that work best as the refrain may come earlier in the psalm than some of the verse words.",
-              "xref": [
-                {
-                  "to": "s2b",
-                  "relation": "derivedFrom",
-                  "label": "see 2A"
-                }
-              ],
-              "columns": [
-                {
-                  "id": "psalm_section",
-                  "label": "Part of the psalm",
-                  "cellType": "short_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "genre_section",
-                  "label": "Part of the genre",
-                  "cellType": "short_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "shift_notes",
-                  "label": "Notes on where the psalm moves from one part to the next",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "genre_features",
-                  "label": "Special features of this genre's parts",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "psalm_features",
-                  "label": "Special features of this psalm, and ideas for translating them",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            },
-            {
-              "id": "s0.macro_notes.emotions",
-              "type": "repeatable_row_table",
-              "label": "Feelings (emotions)",
-              "layer": "synthesis",
-              "minDepth": "standard",
-              "guidance": "List 3 to 5 feelings, in about the order they appear. If the same feeling comes up more than once, put it in one row.",
-              "xref": [
-                {
-                  "to": "s2c",
-                  "relation": "derivedFrom",
-                  "label": "see 2C"
-                }
-              ],
-              "columns": [
-                {
-                  "id": "emotion",
-                  "label": "Feeling, and where it appears (verse or part)",
-                  "cellType": "short_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "genre_elements",
-                  "label": "How to show this feeling using the genre's normal tools",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            },
-            {
-              "id": "s0.macro_notes.connections",
-              "type": "repeatable_row_table",
-              "label": "Connections",
-              "layer": "synthesis",
-              "minDepth": "standard",
-              "guidance": "Find at least 3 places where parts of the psalm link together. For example: the same word repeated, an idea that echoes, or two parts that answer each other.",
-              "xref": [
-                {
-                  "to": "s2d",
-                  "relation": "derivedFrom",
-                  "label": "see 2D"
-                }
-              ],
-              "columns": [
-                {
-                  "id": "connection",
-                  "label": "Connection found in the psalm",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "genre_elements",
-                  "label": "Idea for showing it using the genre's normal tools",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "s0.stylistic_notes",
-          "type": "group",
-          "label": "Psalm Notes: The Small Details",
-          "layer": "synthesis",
-          "minDepth": "standard",
-          "guidance": "For each group below, write 3 to 5 things that make this genre special. Mark the 1 or 2 most important to keep in the translation, and write how.",
-          "children": [
-            {
-              "id": "s0.sn.words",
-              "type": "repeatable_row_table",
-              "label": "Words (from 3A)",
-              "rowSource": "s3a",
-              "layer": "synthesis",
-              "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
-              "columns": [
-                {
-                  "id": "feature",
-                  "label": "What you noticed",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "idea",
-                  "label": "Idea for translating it in this psalm",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            },
-            {
-              "id": "s0.sn.discourse",
-              "type": "repeatable_row_table",
-              "label": "How the text is put together (from 3B)",
-              "rowSource": "s3b",
-              "layer": "synthesis",
-              "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
-              "columns": [
-                {
-                  "id": "feature",
-                  "label": "What you noticed",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "idea",
-                  "label": "Idea for translating it in this psalm",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            },
-            {
-              "id": "s0.sn.sounds",
-              "type": "repeatable_row_table",
-              "label": "Sounds (from 3C)",
-              "rowSource": "s3c",
-              "layer": "synthesis",
-              "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
-              "columns": [
-                {
-                  "id": "feature",
-                  "label": "What you noticed",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "idea",
-                  "label": "Idea for translating it in this psalm",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            },
-            {
-              "id": "s0.sn.figurative",
-              "type": "repeatable_row_table",
-              "label": "Picture-language (from 3D)",
-              "rowSource": "s3d",
-              "layer": "synthesis",
-              "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
-              "columns": [
-                {
-                  "id": "feature",
-                  "label": "What you noticed",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "idea",
-                  "label": "Idea for translating it in this psalm",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            },
-            {
-              "id": "s0.sn.performance",
-              "type": "repeatable_row_table",
-              "label": "Performance (from 3E)",
-              "rowSource": "s3e",
-              "layer": "synthesis",
-              "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
-              "columns": [
-                {
-                  "id": "feature",
-                  "label": "What you noticed",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "idea",
-                  "label": "Idea for translating it in this psalm",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            },
-            {
-              "id": "s0.sn.additional",
-              "type": "repeatable_row_table",
-              "label": "Other (from 3F)",
-              "rowSource": "s3f",
-              "layer": "synthesis",
-              "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
-              "columns": [
-                {
-                  "id": "feature",
-                  "label": "What you noticed",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "idea",
-                  "label": "Idea for translating it in this psalm",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "s0.translation",
-          "type": "group",
-          "label": "Psalm Translation",
-          "layer": "synthesis",
-          "minDepth": "quick",
-          "children": [
-            {
-              "id": "s0.translation.intro",
-              "type": "prose",
-              "label": "You are ready to create the translation. Keep prayer part of the work, and include people who enjoy making art in this genre. The summary below gathers what you have found so far."
-            },
-            {
-              "id": "s0.translation.summary",
-              "type": "translation_summary",
-              "label": "What you have found so far",
-              "layer": "synthesis"
-            },
-            {
-              "id": "s0.translation.draft",
-              "type": "long_text",
-              "label": "Translation draft and notes",
-              "layer": "synthesis",
-              "minDepth": "quick"
-            }
-          ]
-        }
-      ]
-    },
     {
       "id": "s1",
       "type": "group",
-      "label": "Section 1: Finding and Describing Local Art Forms",
+      "label": "Find & Describe Local Genres",
+      "guidance": "This is the starting point of the whole process: learn what genres your people have, before thinking about any one passage. Everything you record here is reusable for every passage you translate later.",
       "children": [
         {
           "id": "s1a",
           "type": "group",
-          "label": "1A: Finding Local Genres",
+          "label": "1a: Find Local Genres",
           "layer": "focusText",
-          "guidance": "A 'genre' is a kind of song, poem, story, or chant your people use. List the ones people enjoy, understand, and can still make and perform today.",
+          "guidance": "A 'genre' is a kind of song, poem, story, or chant your people use. List the ones people enjoy, understand, and can still make and perform today. Catalog as many as make sense for your group — many teams find 5 to 20.",
           "children": [
-            {
-              "id": "s1a.intro",
-              "type": "prose",
-              "label": "List the kinds of songs, poems, stories, and chants your people use. Choose ones that people understand, enjoy, and can still create and perform today (for listening, singing, reading, or performing)."
-            },
             {
               "id": "s1a.inventory",
               "type": "genre_bank",
-              "label": "Genres you have found so far",
+              "label": "Your genre list",
               "layer": "focusText",
               "minDepth": "quick",
               "footnote": "These prompts are only a few of many ideas for finding genres; see pages 67-69 of the CLAT Companion for more. For more on why local genres matter, see 'Why Consider Local Genres in Translation?' (Frost 2024)."
+            },
+            {
+              "id": "s1a.intro",
+              "type": "prose",
+              "label": "Need more genres? Use the prompts below to plan whom to ask, where to ask, and what to ask. Look for kinds of songs, poems, stories, and chants that people understand, enjoy, and can still create and perform today."
             },
             {
               "id": "s1a.whom",
@@ -533,27 +57,35 @@
         {
           "id": "s1b",
           "type": "group",
-          "label": "1B: About This Genre",
+          "label": "1b: Genre Basics",
           "layer": "genre",
-          "guidance": "Basic facts about {genre}: what its name means, what it is about, what it reminds people of, and whether it is still strong. You describe who performs it, when, and what they use in the next part (1C).",
+          "guidance": "Three basic things about {genre}: a short description, the topics it usually covers, and the purposes it serves in the community. This is the information you will use later to match genres with passages.",
           "children": [
             {
               "id": "s1b.intro",
               "type": "prose",
               "layer": "genre",
-              "label": "Fill these in for the genre you are studying: {genre}. These are its basic facts. Its performance (who takes part, when, what they use) comes next, in 1C.",
+              "label": "Fill these in for the genre you are studying: {genre}. Who performs it, when, and what they use comes next, in 1c.",
               "xref": [
                 {
                   "to": "s2eth",
-                  "label": "Go to 1C: The People and Things"
+                  "label": "Go to 1c: The Social Side"
                 }
               ]
+            },
+            {
+              "id": "s1b.description",
+              "type": "long_text",
+              "layer": "genre",
+              "minDepth": "quick",
+              "label": "Describe {genre} briefly. What would you tell an outsider so they could recognize it?",
+              "example": "A slow song sung by one voice with a bamboo flute, always at night, with long held notes at the end of each line."
             },
             {
               "id": "s1b.name_meaning",
               "type": "short_text",
               "layer": "genre",
-              "minDepth": "quick",
+              "minDepth": "standard",
               "label": "What does the name of {genre} mean? Is there any word-play in the name?"
             },
             {
@@ -561,37 +93,54 @@
               "type": "long_text",
               "layer": "genre",
               "minDepth": "quick",
-              "label": "What is {genre} about? Is it for fun or for ceremony? Is it made up on the spot or planned ahead?",
-              "example": "A harvest song: about thanking the land for food; sung at ceremony, not for fun; the tune is fixed but singers make up new verses each year."
+              "label": "What is {genre} usually about? What topics come up again and again?",
+              "example": "A harvest song: about thanking the land for food, the work of planting, and the family eating together."
             },
             {
-              "id": "s1b.associations",
-              "type": "long_text",
-              "layer": "genre",
-              "minDepth": "standard",
-              "label": "What does {genre} remind people of? (for example, a religious practice, a musical instrument, a type of dance, a certain topic, a particular kind of clothing, specific objects, politics, or customs)",
-              "example": "It reminds people of old funeral chants, so using it for a joyful psalm could feel strange."
-            },
-            {
-              "id": "s1b.vitality",
-              "type": "single_select",
+              "id": "s1b.purpose_families",
+              "type": "multi_select",
               "layer": "genre",
               "minDepth": "quick",
-              "label": "Is {genre} still alive and loved? (Do people still use it and make new ones?)",
+              "label": "What is {genre} used to do in the community? Choose all that fit.",
+              "guidance": "One genre can serve more than one purpose. For example, a genre could carry both laments and praise.",
               "options": [
                 {
-                  "id": "weak",
-                  "label": "Fading"
+                  "id": "wisdom",
+                  "label": "Teaching / wisdom"
                 },
                 {
-                  "id": "neutral",
-                  "label": "Steady"
+                  "id": "lament",
+                  "label": "Lament (a sad cry for help)"
                 },
                 {
-                  "id": "strong",
-                  "label": "Strong"
+                  "id": "praise",
+                  "label": "Praise / honoring"
+                },
+                {
+                  "id": "thanksgiving",
+                  "label": "Thanksgiving"
+                },
+                {
+                  "id": "royal",
+                  "label": "About a king or leader"
+                },
+                {
+                  "id": "trust",
+                  "label": "Trust / comfort"
+                },
+                {
+                  "id": "other",
+                  "label": "Other"
                 }
               ]
+            },
+            {
+              "id": "s1b.purposes",
+              "type": "long_text",
+              "layer": "genre",
+              "minDepth": "quick",
+              "label": "Say more about the purposes of {genre}: when do people use it, and what does it accomplish? Is it more for fun or for ceremony, or both?",
+              "example": "Sung at funerals to help the family cry together; also sung alone by widows. It is ceremonial, never for entertainment."
             },
             {
               "id": "s1b.other",
@@ -606,8 +155,8 @@
           "id": "s2eth",
           "type": "group",
           "layer": "genre",
-          "label": "1C: The People and Things in {genre}",
-          "guidance": "Before studying how {genre} works, picture a real performance. Notice who is there, what each person does, and what they use. This sets up everything that follows.",
+          "label": "1c: The Social Side of {genre}",
+          "guidance": "Picture a real performance of {genre}. Work through the who, when, where, and what questions, plus what the genre reminds people of and how loved it is. This is the information that helps a team choose wisely between genres later.",
           "children": [
             {
               "id": "s2eth.who",
@@ -651,35 +200,42 @@
               "example": "The singers stand in a circle facing inward; the soloist steps into the middle for the most important verse."
             },
             {
+              "id": "s1b.associations",
+              "type": "long_text",
+              "layer": "genre",
+              "minDepth": "standard",
+              "label": "What does {genre} remind people of? (for example, a religious practice, a musical instrument, a type of dance, a certain topic, a particular kind of clothing, specific objects, politics, or customs)",
+              "example": "It reminds people of old funeral chants, so using it for a joyful psalm could feel strange."
+            },
+            {
+              "id": "s1b.vitality",
+              "type": "single_select",
+              "layer": "genre",
+              "minDepth": "quick",
+              "label": "How popular and loved is {genre}? (Do people still use it and make new ones?)",
+              "options": [
+                {
+                  "id": "weak",
+                  "label": "Fading"
+                },
+                {
+                  "id": "neutral",
+                  "label": "Steady"
+                },
+                {
+                  "id": "strong",
+                  "label": "Strong"
+                }
+              ]
+            },
+            {
               "id": "s2eth.stable_malleable",
               "type": "long_text",
               "layer": "genre",
               "minDepth": "standard",
-              "label": "Which parts of {genre} must always stay the same, and which parts can change from one performance to the next?",
-              "guidance": "Some features are fixed and are what make it this genre. Others a skilled performer can change freely. Knowing which is which shows you where a translation has room to move.",
-              "example": "The drum rhythm and the opening call must stay the same (fixed). The exact words of the middle verses can change each time (free to change)."
-            }
-          ]
-        },
-        {
-          "id": "s1c",
-          "type": "group",
-          "label": "1D: Matching the Psalm to a Genre",
-          "layer": "focusText",
-          "children": [
-            {
-              "id": "s1c.notes",
-              "type": "long_text",
-              "label": "Which genre or genres fit this psalm's message and purpose? What works well? What problems might there be (who uses it, when, or what it reminds people of), and how could you handle them? (Write your final choices in Psalm Genre Choice.)",
-              "layer": "focusText",
-              "minDepth": "quick",
-              "xref": [
-                {
-                  "to": "s0.genre_choice",
-                  "relation": "feeds",
-                  "label": "write your choices in Psalm Genre Choice"
-                }
-              ]
+              "label": "Which parts of {genre} must always stay the same, and which parts can change from one performance to the next? Is it planned ahead, or made up on the spot?",
+              "guidance": "Some features are fixed and are what make it this genre. Others a skilled performer can change freely, or invent in the moment. Knowing which is which shows you where a translation has room to move.",
+              "example": "The drum rhythm and the opening call must stay the same (fixed). The exact words of the middle verses are made up fresh each time (free to change)."
             }
           ]
         }
@@ -688,12 +244,12 @@
     {
       "id": "s2",
       "type": "group",
-      "label": "Section 2: The Big-Picture Shape of {genre}",
+      "label": "1d: The Big Picture of {genre}",
       "children": [
         {
           "id": "s2b",
           "type": "group",
-          "label": "2A: The Parts (Sections) of {genre}",
+          "label": "1d.1: The Parts (Sections) of {genre}",
           "layer": "genre",
           "children": [
             {
@@ -746,14 +302,14 @@
               "label": "What usually marks the beginning, the middle, and the end of {genre}, both of the whole performance and of each part?",
               "layer": "genre",
               "minDepth": "standard",
-              "footnote": "Examples: expected words, content, set phrases, performance features, pauses or timing, or a change in the space, the objects, or the people taking part. See Section 3 for more ideas."
+              "footnote": "Examples: expected words, content, set phrases, performance features, pauses or timing, or a change in the space, the objects, or the people taking part. See the style pages (1e) for more ideas."
             }
           ]
         },
         {
           "id": "s2a",
           "type": "group",
-          "label": "2B: How {genre} Makes Things Stand Out (prominence)",
+          "label": "1d.2: How {genre} Makes Things Stand Out (prominence)",
           "layer": "genre",
           "children": [
             {
@@ -777,7 +333,7 @@
               "label": "What tells the listener that the high point of {genre} has arrived?",
               "layer": "genre",
               "minDepth": "standard",
-              "footnote": "This may overlap with the most important material above. If you have not done the detailed study in Section 3 yet, make a note to come back and add to this answer later."
+              "footnote": "This may overlap with the most important material above. If you have not done the detailed style study (1e) yet, make a note to come back and add to this answer later."
             },
             {
               "id": "s2a.peak",
@@ -793,7 +349,7 @@
         {
           "id": "s2c",
           "type": "group",
-          "label": "2C: How {genre} Shows Feelings (Emotions)",
+          "label": "1d.3: How {genre} Shows Feelings (Emotions)",
           "layer": "genre",
           "children": [
             {
@@ -809,7 +365,7 @@
               "label": "How does {genre} show each feeling? (Use one row per feeling.)",
               "layer": "genre",
               "minDepth": "standard",
-              "footnote": "You can add to these answers using the detailed features in Section 3. For example, a certain instrument may stand for sadness.",
+              "footnote": "You can add to these answers using the detailed style features (1e). For example, a certain instrument may stand for sadness.",
               "columns": [
                 {
                   "id": "emotion",
@@ -873,7 +429,7 @@
         {
           "id": "s2d",
           "type": "group",
-          "label": "2D: How {genre} Links Related Ideas (connections)",
+          "label": "1d.4: How {genre} Links Related Ideas (connections)",
           "layer": "genre",
           "children": [
             {
@@ -946,39 +502,20 @@
             }
           ],
           "guidance": "Good songs help listeners feel that things belong together. This page is about the ways {genre} shows that two things are connected, even when they are far apart in the song."
-        },
-        {
-          "id": "s2e",
-          "type": "group",
-          "label": "2E: Translation Choices for the Big Picture",
-          "layer": "genre",
-          "children": [
-            {
-              "id": "s2e.intro",
-              "type": "prose",
-              "label": "Write your big-picture findings into the Psalm Notes: The Big Picture (in Section 0).",
-              "xref": [
-                {
-                  "to": "s0.macro_notes",
-                  "relation": "feeds",
-                  "label": "go to Psalm Notes: The Big Picture"
-                }
-              ]
-            }
-          ]
         }
       ],
-      "guidance": "Study one genre at a time. These pages are about {genre} as a whole: who performs it, how it is shaped, how it carries feelings, and how it ties ideas together."
+      "guidance": "Study one genre at a time. These four pages are about the big-picture shape of {genre}: its parts, how it makes things stand out, how it carries feelings, and how it ties ideas together."
     },
     {
       "id": "s3",
       "type": "group",
-      "label": "Section 3: The Style and Details of {genre}",
+      "label": "1e: The Style & Details of {genre}",
+      "guidance": "The finer features of {genre}. On each page, record what you notice, then pull out the special features and mark each one Required or Common. The Required features drive the translation work later.",
       "children": [
         {
           "id": "s3a",
           "type": "group",
-          "label": "3A: How {genre} Uses Words",
+          "label": "1e.1: How {genre} Uses Words",
           "layer": "genre",
           "children": [
             {
@@ -1012,7 +549,8 @@
             {
               "id": "s3a.features",
               "type": "repeatable_row_table",
-              "label": "Special word features to keep in the translation",
+              "label": "Special word features of {genre} to remember",
+              "guidance": "Pull out the 3 to 5 word features that stand out most from your answers above, and mark each one Required or Common.",
               "layer": "genre",
               "minDepth": "standard",
               "priorityEligible": true,
@@ -1026,21 +564,18 @@
                 },
                 {
                   "id": "modality",
-                  "label": "How fixed is it?",
+                  "label": "Part of the genre?",
                   "cellType": "single_select",
                   "minDepth": "standard",
+                  "help": "Required means the genre is not itself without this feature — leaving it out breaks the genre. Common means it often appears, but a performance without it still counts as this genre. Example: in a lullaby, a soft, slow voice is Required; calling the child by name is Common — a lullaby without the name is still a lullaby.",
                   "options": [
                     {
-                      "id": "possible",
-                      "label": "Can be used"
-                    },
-                    {
-                      "id": "expected",
-                      "label": "Usually used"
-                    },
-                    {
                       "id": "required",
-                      "label": "Must be used"
+                      "label": "Required (must be there)"
+                    },
+                    {
+                      "id": "common",
+                      "label": "Common (often there, can vary)"
                     }
                   ]
                 }
@@ -1051,7 +586,7 @@
         {
           "id": "s3b",
           "type": "group",
-          "label": "3B: How {genre} Is Put Together (Discourse)",
+          "label": "1e.2: How {genre} Is Put Together (Discourse)",
           "layer": "genre",
           "children": [
             {
@@ -1081,13 +616,48 @@
               "label": "Does the genre quote people's exact words, or report them? Are there small words used again and again (for example, a word that means 'thus' or 'look!')?",
               "layer": "genre",
               "minDepth": "standard"
+            },
+            {
+              "id": "s3b.features",
+              "type": "repeatable_row_table",
+              "label": "Special discourse features of {genre} to remember",
+              "guidance": "Pull out the 3 to 5 features that stand out most from your answers above, and mark each one Required or Common.",
+              "layer": "genre",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "modality",
+                  "label": "Part of the genre?",
+                  "cellType": "single_select",
+                  "minDepth": "standard",
+                  "help": "Required means the genre is not itself without this feature — leaving it out breaks the genre. Common means it often appears, but a performance without it still counts as this genre. Example: in a lullaby, a soft, slow voice is Required; calling the child by name is Common — a lullaby without the name is still a lullaby.",
+                  "options": [
+                    {
+                      "id": "required",
+                      "label": "Required (must be there)"
+                    },
+                    {
+                      "id": "common",
+                      "label": "Common (often there, can vary)"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
         {
           "id": "s3c",
           "type": "group",
-          "label": "3C: The Sounds of {genre}",
+          "label": "1e.3: The Sounds of {genre}",
           "layer": "genre",
           "children": [
             {
@@ -1131,13 +701,48 @@
               "label": "If your language uses tones, how do the tones work together with the rhythm and the matching sounds above?",
               "layer": "genre",
               "minDepth": "standard"
+            },
+            {
+              "id": "s3c.features",
+              "type": "repeatable_row_table",
+              "label": "Special sound features of {genre} to remember",
+              "guidance": "Pull out the 3 to 5 features that stand out most from your answers above, and mark each one Required or Common.",
+              "layer": "genre",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "modality",
+                  "label": "Part of the genre?",
+                  "cellType": "single_select",
+                  "minDepth": "standard",
+                  "help": "Required means the genre is not itself without this feature — leaving it out breaks the genre. Common means it often appears, but a performance without it still counts as this genre. Example: in a lullaby, a soft, slow voice is Required; calling the child by name is Common — a lullaby without the name is still a lullaby.",
+                  "options": [
+                    {
+                      "id": "required",
+                      "label": "Required (must be there)"
+                    },
+                    {
+                      "id": "common",
+                      "label": "Common (often there, can vary)"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
         {
           "id": "s3d",
           "type": "group",
-          "label": "3D: Picture-Language in {genre} (Figurative Language)",
+          "label": "1e.4: Picture-Language in {genre} (Figurative Language)",
           "layer": "genre",
           "children": [
             {
@@ -1213,13 +818,48 @@
               "label": "What other ways does this genre use to paint pictures in the mind?",
               "layer": "genre",
               "minDepth": "standard"
+            },
+            {
+              "id": "s3d.features",
+              "type": "repeatable_row_table",
+              "label": "Special picture-language features of {genre} to remember",
+              "guidance": "Pull out the 3 to 5 features that stand out most from your answers above, and mark each one Required or Common.",
+              "layer": "genre",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "modality",
+                  "label": "Part of the genre?",
+                  "cellType": "single_select",
+                  "minDepth": "standard",
+                  "help": "Required means the genre is not itself without this feature — leaving it out breaks the genre. Common means it often appears, but a performance without it still counts as this genre. Example: in a lullaby, a soft, slow voice is Required; calling the child by name is Common — a lullaby without the name is still a lullaby.",
+                  "options": [
+                    {
+                      "id": "required",
+                      "label": "Required (must be there)"
+                    },
+                    {
+                      "id": "common",
+                      "label": "Common (often there, can vary)"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
         {
           "id": "s3e",
           "type": "group",
-          "label": "3E: How {genre} Is Performed",
+          "label": "1e.5: How {genre} Is Performed",
           "layer": "genre",
           "children": [
             {
@@ -1242,13 +882,48 @@
               "label": "If your language uses tones, how do the tones work together with the voice features above?",
               "layer": "genre",
               "minDepth": "standard"
+            },
+            {
+              "id": "s3e.features",
+              "type": "repeatable_row_table",
+              "label": "Special performance features of {genre} to remember",
+              "guidance": "Pull out the 3 to 5 features that stand out most from your answers above, and mark each one Required or Common.",
+              "layer": "genre",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "modality",
+                  "label": "Part of the genre?",
+                  "cellType": "single_select",
+                  "minDepth": "standard",
+                  "help": "Required means the genre is not itself without this feature — leaving it out breaks the genre. Common means it often appears, but a performance without it still counts as this genre. Example: in a lullaby, a soft, slow voice is Required; calling the child by name is Common — a lullaby without the name is still a lullaby.",
+                  "options": [
+                    {
+                      "id": "required",
+                      "label": "Required (must be there)"
+                    },
+                    {
+                      "id": "common",
+                      "label": "Common (often there, can vary)"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
         {
           "id": "s3f",
           "type": "group",
-          "label": "3F: Other Things You Notice in {genre}",
+          "label": "1e.6: Other Things You Notice in {genre}",
           "layer": "genre",
           "children": [
             {
@@ -1292,26 +967,548 @@
               "label": "Anything else about this genre that does not fit the groups above?",
               "layer": "genre",
               "minDepth": "standard"
+            },
+            {
+              "id": "s3f.features",
+              "type": "repeatable_row_table",
+              "label": "Other special features of {genre} to remember",
+              "guidance": "Pull out the features that stand out most from your answers above, and mark each one Required or Common.",
+              "layer": "genre",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "modality",
+                  "label": "Part of the genre?",
+                  "cellType": "single_select",
+                  "minDepth": "standard",
+                  "help": "Required means the genre is not itself without this feature — leaving it out breaks the genre. Common means it often appears, but a performance without it still counts as this genre. Example: in a lullaby, a soft, slow voice is Required; calling the child by name is Common — a lullaby without the name is still a lullaby.",
+                  "options": [
+                    {
+                      "id": "required",
+                      "label": "Required (must be there)"
+                    },
+                    {
+                      "id": "common",
+                      "label": "Common (often there, can vary)"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s0",
+      "type": "group",
+      "label": "Create / Translate",
+      "children": [
+        {
+          "id": "s0.setup",
+          "type": "group",
+          "label": "2a: Your Passage",
+          "layer": "focusText",
+          "minDepth": "quick",
+          "guidance": "Name the passage you want to translate or turn into Scripture-art (for example, Psalm 13). Use the passage picker at the top of the screen, or the Passages & Genres page, to add or switch passages. This workspace works for any passage, not only psalms.",
+          "children": [
+            {
+              "id": "s0.purpose.intended_use",
+              "type": "long_text",
+              "label": "How will people use this translation? Will they sing it, listen to it, read it, or join in? Where will they use it? (Example: sung together in church.)",
+              "layer": "focusText",
+              "minDepth": "quick"
             }
           ]
         },
         {
-          "id": "s3g",
+          "id": "s0.genre_choice",
           "type": "group",
-          "label": "3G: Translation Choices for Style",
-          "layer": "genre",
+          "label": "2b: Choose a Genre",
+          "layer": "synthesis",
+          "minDepth": "quick",
+          "guidance": "First say what the passage is doing. Then compare its purpose with your genres' purposes, keep the top 3, look closely at the social factors, and choose one.",
           "children": [
             {
-              "id": "s3g.intro",
-              "type": "prose",
-              "label": "Write your style findings into the Psalm Notes: The Small Details (in Section 0).",
-              "xref": [
+              "id": "s0.purpose",
+              "type": "group",
+              "label": "What is this passage doing?",
+              "layer": "focusText",
+              "minDepth": "quick",
+              "guidance": "Answer these from a trusted study process or resource. For example: the Psalms OBT Exegesis Worksheet (purpose is mostly in its section C), or 'Psalms: Layer by Layer' (see its overview sections and overview videos).",
+              "children": [
                 {
-                  "to": "s0.stylistic_notes",
-                  "relation": "feeds",
-                  "label": "go to Psalm Notes: The Small Details"
+                  "id": "s0.purpose.specific",
+                  "type": "long_text",
+                  "label": "What is this passage mainly about? Write its specific message. (Example: it thanks God for healing from a sickness.)",
+                  "layer": "focusText",
+                  "minDepth": "quick"
+                },
+                {
+                  "id": "s0.purpose.general",
+                  "type": "short_text",
+                  "label": "What is the passage mainly doing? (For example: teaching, encouraging, or mourning.)",
+                  "layer": "focusText",
+                  "minDepth": "quick"
+                },
+                {
+                  "id": "s0.purpose.broad_genre",
+                  "type": "single_select",
+                  "label": "What kind of passage is it?",
+                  "layer": "focusText",
+                  "minDepth": "quick",
+                  "options": [
+                    {
+                      "id": "wisdom",
+                      "label": "Wisdom (teaches how to live well)"
+                    },
+                    {
+                      "id": "lament",
+                      "label": "Lament (a sad cry to God for help)"
+                    },
+                    {
+                      "id": "praise",
+                      "label": "Praise (worship that honors God)"
+                    },
+                    {
+                      "id": "thanksgiving",
+                      "label": "Thanksgiving (thanks God for something he did)"
+                    },
+                    {
+                      "id": "royal",
+                      "label": "Royal (about a king)"
+                    },
+                    {
+                      "id": "trust",
+                      "label": "Trust (says God can be relied on)"
+                    },
+                    {
+                      "id": "other",
+                      "label": "Other"
+                    }
+                  ]
                 }
               ]
+            },
+            {
+              "id": "s0.genre_choice.candidates",
+              "type": "repeatable_row_table",
+              "label": "Genres that could work for this passage",
+              "layer": "synthesis",
+              "minDepth": "quick",
+              "footnote": "Examples of problems: (1) Who takes part. The genre may be sung only by women, but the translation is meant for the whole church to sing together. (2) What it reminds people of. The genre may use a drum that is linked to worshiping ancestors or to calling on evil spirits.",
+              "xref": [
+                {
+                  "to": "s1a",
+                  "relation": "derivedFrom",
+                  "label": "see the genres you identified (1a)"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "name",
+                  "label": "Genre",
+                  "cellType": "genre_select",
+                  "minDepth": "quick"
+                },
+                {
+                  "id": "why",
+                  "label": "Why could it work well?",
+                  "cellType": "long_text",
+                  "minDepth": "quick"
+                },
+                {
+                  "id": "concerns",
+                  "label": "Any problems? (who uses it, when, or what it reminds people of)",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "strategy",
+                  "label": "Idea to handle the problem",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            },
+            {
+              "id": "s1c.notes",
+              "type": "long_text",
+              "label": "Discussion notes: which genres fit this passage's message and purpose? What works well, and what problems might there be?",
+              "layer": "focusText",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s0.genre_choice.chosen",
+              "type": "genre_select",
+              "label": "Which genre will the team use for this passage?",
+              "layer": "synthesis",
+              "minDepth": "quick"
+            }
+          ]
+        },
+        {
+          "id": "s0.macro_notes",
+          "type": "group",
+          "label": "2c: The Big Picture — Compare & Decide",
+          "layer": "synthesis",
+          "minDepth": "standard",
+          "guidance": "Work through the four big-picture areas: enter what you find in the passage, see how {genre} handles it (from your genre study, 1d), and write your idea for the translation.",
+          "children": [
+            {
+              "id": "s0.macro_notes.prominence",
+              "type": "fixed_grid",
+              "label": "The most important parts",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "xref": [
+                {
+                  "to": "s2a",
+                  "relation": "derivedFrom",
+                  "label": "see 1d.2 (standing out)"
+                }
+              ],
+              "rows": [
+                {
+                  "id": "primary",
+                  "label": "Most important"
+                },
+                {
+                  "id": "secondary",
+                  "label": "Next most important"
+                },
+                {
+                  "id": "additional",
+                  "label": "Also important"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "psalm",
+                  "label": "What this part of the passage says",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "genre_strategy",
+                  "label": "How this genre makes a part stand out",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "translation_idea",
+                  "label": "Idea for the translation",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            },
+            {
+              "id": "s0.macro_notes.sections",
+              "type": "repeatable_row_table",
+              "label": "Parts (sections)",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "footnote": "Sometimes the parts of the passage fit the genre's parts in a different order. For example, in a verse-and-refrain song, the words that work best as the refrain may come earlier in the passage than some of the verse words.",
+              "xref": [
+                {
+                  "to": "s2b",
+                  "relation": "derivedFrom",
+                  "label": "see 1d.1 (parts)"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "psalm_section",
+                  "label": "Part of the passage",
+                  "cellType": "short_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "genre_section",
+                  "label": "Part of the genre",
+                  "cellType": "short_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "shift_notes",
+                  "label": "Notes on where the passage moves from one part to the next",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "genre_features",
+                  "label": "Special features of this genre's parts",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "psalm_features",
+                  "label": "Special features of this passage, and ideas for translating them",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            },
+            {
+              "id": "s0.macro_notes.emotions",
+              "type": "repeatable_row_table",
+              "label": "Feelings (emotions)",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "guidance": "List 3 to 5 feelings, in about the order they appear. If the same feeling comes up more than once, put it in one row.",
+              "xref": [
+                {
+                  "to": "s2c",
+                  "relation": "derivedFrom",
+                  "label": "see 1d.3 (feelings)"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "emotion",
+                  "label": "Feeling, and where it appears (verse or part)",
+                  "cellType": "short_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "genre_elements",
+                  "label": "How to show this feeling using the genre's normal tools",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            },
+            {
+              "id": "s0.macro_notes.connections",
+              "type": "repeatable_row_table",
+              "label": "Connections",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "guidance": "Find at least 3 places where parts of the passage link together. For example: the same word repeated, an idea that echoes, or two parts that answer each other.",
+              "xref": [
+                {
+                  "to": "s2d",
+                  "relation": "derivedFrom",
+                  "label": "see 1d.4 (connections)"
+                }
+              ],
+              "columns": [
+                {
+                  "id": "connection",
+                  "label": "Connection found in the passage",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "genre_elements",
+                  "label": "Idea for showing it using the genre's normal tools",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "s0.stylistic_notes",
+          "type": "group",
+          "label": "2d: The Style — Compare & Decide",
+          "layer": "synthesis",
+          "minDepth": "standard",
+          "guidance": "The genre's Required features (from your style study, 1e) appear here automatically. For each one, record your idea for achieving it with this passage. Have the text in front of you — or better, internalized, especially in oral contexts — so you can think about the whole.",
+          "children": [
+            {
+              "id": "s0.sn.words",
+              "type": "repeatable_row_table",
+              "label": "Words (from 1e.1)",
+              "rowSource": "s3a",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "idea",
+                  "label": "Idea for translating it in this passage",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            },
+            {
+              "id": "s0.sn.discourse",
+              "type": "repeatable_row_table",
+              "label": "How the text is put together (from 1e.2)",
+              "rowSource": "s3b",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "idea",
+                  "label": "Idea for translating it in this passage",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            },
+            {
+              "id": "s0.sn.sounds",
+              "type": "repeatable_row_table",
+              "label": "Sounds (from 1e.3)",
+              "rowSource": "s3c",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "idea",
+                  "label": "Idea for translating it in this passage",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            },
+            {
+              "id": "s0.sn.figurative",
+              "type": "repeatable_row_table",
+              "label": "Picture-language (from 1e.4)",
+              "rowSource": "s3d",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "idea",
+                  "label": "Idea for translating it in this passage",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            },
+            {
+              "id": "s0.sn.performance",
+              "type": "repeatable_row_table",
+              "label": "Performance (from 1e.5)",
+              "rowSource": "s3e",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "idea",
+                  "label": "Idea for translating it in this passage",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            },
+            {
+              "id": "s0.sn.additional",
+              "type": "repeatable_row_table",
+              "label": "Other (from 1e.6)",
+              "rowSource": "s3f",
+              "layer": "synthesis",
+              "minDepth": "standard",
+              "priorityEligible": true,
+              "priorityMax": 2,
+              "columns": [
+                {
+                  "id": "feature",
+                  "label": "What you noticed",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "idea",
+                  "label": "Idea for translating it in this passage",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "s0.translation",
+          "type": "group",
+          "label": "2e: Decisions & First Draft",
+          "layer": "synthesis",
+          "minDepth": "quick",
+          "children": [
+            {
+              "id": "s0.translation.intro",
+              "type": "prose",
+              "label": "You are ready to create. Keep prayer part of the work, and include people who enjoy making art in this genre. The summary below gathers the decisions you have made so far."
+            },
+            {
+              "id": "s0.translation.summary",
+              "type": "translation_summary",
+              "label": "What you have decided so far",
+              "layer": "synthesis"
+            },
+            {
+              "id": "s0.translation.draft",
+              "type": "long_text",
+              "label": "First draft and notes",
+              "layer": "synthesis",
+              "minDepth": "quick"
+            },
+            {
+              "id": "s0.translation.audio",
+              "type": "audio_recorder",
+              "label": "Record your first draft (voice)",
+              "layer": "synthesis",
+              "minDepth": "quick",
+              "guidance": "In oral contexts, speaking or singing a draft often works better than writing one. Record as many takes as you like; keep the ones worth keeping."
+            },
+            {
+              "id": "s0.translation.reminders",
+              "type": "prose",
+              "label": "Two reminders. (1) Keep prayer part of the process, from start to finish. (2) This tool helps with the genre side of translation. You still need to check key words and sentence-level meaning carefully with your normal translation process."
             }
           ]
         }

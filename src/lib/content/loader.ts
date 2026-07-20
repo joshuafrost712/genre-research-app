@@ -158,50 +158,90 @@ export function navSubsectionOf(id: string): string | null {
 }
 
 /**
- * The recommended journey: the worksheet's subsections grouped and ORDERED the
- * way the work actually happens, so a translator guiding themselves is never sent
- * to a synthesis step before its inputs exist. (Document order interleaves the
- * Section 0 synthesis pieces at the front; this moves them to the end.) The
- * section menu still lets anyone jump anywhere; this drives the home page, the
- * wizard, and the worksheet "Next" button.
+ * The recommended journey: the worksheet's subsections grouped into the two
+ * WORKSPACES of the process and ordered the way the work actually happens.
+ * Workspace 1 (Find & Describe Local Genres) is the standalone ethnography;
+ * Workspace 2 (Create / Translate) consumes it for one passage. The section menu
+ * still lets anyone jump anywhere; this drives the home chart, the wizard, and
+ * the worksheet "Next" button.
  */
+export type WorkspaceId = 'w1' | 'w2'
+
 export interface JourneyStage {
   id: string
+  workspace: WorkspaceId
   title: string
   blurb: string
   subIds: string[]
+  /** Route for stages that are an app page rather than worksheet subsections. */
+  route?: string
 }
 
 const JOURNEY: JourneyStage[] = [
   {
-    id: 'start',
-    title: 'Step 1 — Your psalm',
-    blurb: 'Say what this psalm is about and what it is doing.',
-    subIds: ['s0.purpose'],
-  },
-  {
     id: 'find',
-    title: 'Step 2 — Find local genres',
-    blurb: 'List the songs and poems your people use, describe them, and choose one for this psalm.',
-    subIds: ['s1a', 's1b', 's2eth', 's1c'],
+    workspace: 'w1',
+    title: '1a–1c — Find & describe genres',
+    blurb: 'List the genres your people use; record what each is about, its purposes, and its social side.',
+    subIds: ['s1a', 's1b', 's2eth'],
   },
   {
     id: 'bigpicture',
-    title: 'Step 3 — Study the genre: big picture',
-    blurb: 'Learn how the genre is shaped, how it shows feelings, and how it links ideas.',
-    subIds: ['s2b', 's2a', 's2c', 's2d', 's2e'],
+    workspace: 'w1',
+    title: '1d — The big picture',
+    blurb: 'How the genre is shaped: its parts, what stands out, feelings, and connections.',
+    subIds: ['s2b', 's2a', 's2c', 's2d'],
   },
   {
     id: 'details',
-    title: 'Step 4 — Study the genre: details',
-    blurb: 'Look closely at its words, sounds, picture-language, and performance.',
-    subIds: ['s3a', 's3b', 's3c', 's3d', 's3e', 's3f', 's3g'],
+    workspace: 'w1',
+    title: '1e — Style & details',
+    blurb: 'Words, discourse, sounds, picture-language, performance — and which features are Required.',
+    subIds: ['s3a', 's3b', 's3c', 's3d', 's3e', 's3f'],
   },
   {
-    id: 'together',
-    title: 'Step 5 — Put it together and translate',
-    blurb: 'Bring your notes back together, choose the genre, and write the translation.',
-    subIds: ['s0.genre_choice', 's0.macro_notes', 's0.stylistic_notes', 's0.translation'],
+    id: 'summary',
+    workspace: 'w1',
+    title: '1f — Genre summary table',
+    blurb: 'All your genres side by side, with purpose coverage at a glance.',
+    subIds: [],
+    route: '/summary',
+  },
+  {
+    id: 'setup',
+    workspace: 'w2',
+    title: '2a — Your passage',
+    blurb: 'Name the passage and say how people will use the translation.',
+    subIds: ['s0.setup'],
+  },
+  {
+    id: 'choose',
+    workspace: 'w2',
+    title: '2b — Choose a genre',
+    blurb: 'Compare purposes first, shortlist the top 3, weigh the social factors, and lock one in.',
+    subIds: ['s0.genre_choice'],
+    route: '/choose',
+  },
+  {
+    id: 'macro',
+    workspace: 'w2',
+    title: '2c — The big picture',
+    blurb: 'Compare the passage with the genre across the four big-picture areas and decide.',
+    subIds: ['s0.macro_notes'],
+  },
+  {
+    id: 'style',
+    workspace: 'w2',
+    title: '2d — The style',
+    blurb: "Plan how to achieve the genre's Required features with this passage.",
+    subIds: ['s0.stylistic_notes'],
+  },
+  {
+    id: 'draft',
+    workspace: 'w2',
+    title: '2e — Decisions & first draft',
+    blurb: 'See every decision in one place and make a first draft, in text or voice.',
+    subIds: ['s0.translation'],
   },
 ]
 
@@ -211,7 +251,38 @@ export function journey(): JourneyStage[] {
   return JOURNEY.map((stage) => ({
     ...stage,
     subIds: stage.subIds.filter((id) => known.has(id)),
-  })).filter((stage) => stage.subIds.length > 0)
+  })).filter((stage) => stage.subIds.length > 0 || stage.route)
+}
+
+export interface Workspace {
+  id: WorkspaceId
+  title: string
+  blurb: string
+  stages: JourneyStage[]
+}
+
+/** The two workspaces of the process, each with its ordered stages. */
+export function workspaces(): Workspace[] {
+  const stages = journey()
+  return [
+    {
+      id: 'w1',
+      title: 'Find & Describe Local Genres',
+      blurb: 'The ethnography: learn what genres your people have. Reusable for every passage.',
+      stages: stages.filter((s) => s.workspace === 'w1'),
+    },
+    {
+      id: 'w2',
+      title: 'Create / Translate',
+      blurb: 'Take one passage (a psalm or other Scripture) into a genre you have described.',
+      stages: stages.filter((s) => s.workspace === 'w2'),
+    },
+  ]
+}
+
+/** The route a journey stage opens: its page route, or its first subsection. */
+export function stageRoute(stage: JourneyStage): string {
+  return stage.route ?? `/worksheet/${stage.subIds[0]}`
 }
 
 /** Flat subsection ids in journey (recommended-path) order. */

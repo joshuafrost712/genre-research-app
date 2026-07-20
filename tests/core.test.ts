@@ -107,7 +107,8 @@ describe('Progress + export', () => {
 
     const progress = computeProgress(entries, ctx, 'quick')
     expect(progress.overall.done).toBeGreaterThanOrEqual(3) // 2 answered + 1 N/A
-    expect(progress.bySubsection['s0.purpose'].done).toBe(2)
+    // s0.purpose now nests inside the 2b Choose a Genre subsection.
+    expect(progress.bySubsection['s0.genre_choice'].done).toBeGreaterThanOrEqual(2)
 
     const names = { focusText: 'Psalm 13', genre: 'Sung lament', mode: 'quick' }
     const rows = buildRows(entries, names)
@@ -127,8 +128,8 @@ describe('Progress + export', () => {
 
     const tabs = buildSheetTabs(rows, names)
     // a tab per section present in the rows, with a header row
-    expect(tabs.some((t) => t.title.startsWith('Section 0'))).toBe(true)
-    const s0 = tabs.find((t) => t.title.startsWith('Section 0'))!
+    expect(tabs.some((t) => t.title.startsWith('Create'))).toBe(true)
+    const s0 = tabs.find((t) => t.title.startsWith('Create'))!
     expect(s0.values[2]).toContain('Answer') // header is the third row
     // sheet titles stay within Google's 31-char limit
     expect(tabs.every((t) => t.title.length <= 31)).toBe(true)

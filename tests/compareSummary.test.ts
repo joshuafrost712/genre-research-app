@@ -73,7 +73,7 @@ describe('compareSummary', () => {
     const featureFields = fields.filter((f) => f.label.includes('feature') || f.label.includes('Feature'))
     expect(featureFields[0].label).toBe('★ Key feature')
     expect(featureFields[0].value).toContain('key feature')
-    expect(featureFields[0].value).toContain('Must be used')
+    expect(featureFields[0].value).toContain('Required')
     expect(featureFields[1].label).toBe('Feature')
   })
 })

@@ -114,3 +114,34 @@ export interface MetaRecord {
   key: string
   value: string
 }
+
+/**
+ * One prior value of an Entry, written whenever a click-through edit changes
+ * shared genre data from the Create / Translate workspace (and cheap enough to
+ * write on any edit path that opts in). Lets a team recover lost information.
+ */
+export interface HistoryRow {
+  seq?: number // auto-increment
+  entry_id: string
+  project_id: string
+  node_id: string
+  cell_key?: string
+  prev_text?: string
+  prev_value?: string
+  changed_at: string
+  /** Where the edit came from (e.g. 'compare-edit' for the 2c/2d click-through). */
+  source?: string
+}
+
+/** A voice recording (first-draft take) attached to a translation worksheet. */
+export interface Recording {
+  id: string
+  project_id: string
+  worksheet_id: string
+  node_id: string
+  mime_type: string
+  blob: Blob
+  duration_sec?: number
+  label?: string
+  created_at: string
+}
