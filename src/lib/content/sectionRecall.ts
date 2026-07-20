@@ -223,7 +223,7 @@ export function translationSummary(
   const purpose: SummaryField[] = [
     { label: 'What it is about', value: purposeSpecific },
     { label: 'What it is doing', value: purposeGeneral },
-    { label: 'Kind of psalm', value: broad ? optionLabel(broadNode?.options, broad) : '' },
+    { label: 'Kind of passage', value: broad ? optionLabel(broadNode?.options, broad) : '' },
   ].filter((f) => f.value)
 
   const chosenGenre = trimmed(

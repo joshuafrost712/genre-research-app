@@ -54,7 +54,7 @@ export function psalmIdentity(entries: Entry[], focusTextId: string): SummaryFie
   return [
     field('What it is mainly about', trimmed(scalarEntry(entries, 's0.purpose.specific', inFocus)?.text)),
     field('What it is mainly doing', trimmed(scalarEntry(entries, 's0.purpose.general', inFocus)?.text)),
-    field('Kind of psalm', broad?.value ? optionLabel(broadNode?.options, broad.value) : ''),
+    field('Kind of passage', broad?.value ? optionLabel(broadNode?.options, broad.value) : ''),
     field('How it will be used', trimmed(scalarEntry(entries, 's0.purpose.intended_use', inFocus)?.text)),
   ].filter((f): f is SummaryField => f !== null)
 }
@@ -70,7 +70,7 @@ export function psalmReminder(entries: Entry[], focusTextId: string): SummaryFie
   const broad = scalarEntry(entries, 's0.purpose.broad_genre', inFocus)
   const broadNode = findNode('s0.purpose.broad_genre')?.node
   return [
-    field('Kind of psalm', broad?.value ? optionLabel(broadNode?.options, broad.value) : ''),
+    field('Kind of passage', broad?.value ? optionLabel(broadNode?.options, broad.value) : ''),
     field('What it is mainly doing', trimmed(scalarEntry(entries, 's0.purpose.general', inFocus)?.text)),
   ].filter((f): f is SummaryField => f !== null)
 }

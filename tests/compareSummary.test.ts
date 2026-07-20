@@ -32,7 +32,7 @@ describe('compareSummary', () => {
     ]
     const fields = psalmIdentity(entries, 'f1')
     expect(fields.find((f) => f.label === 'What it is mainly about')?.value).toBe('A cry for rescue')
-    expect(fields.find((f) => f.label === 'Kind of psalm')?.value).toMatch(/^Lament/)
+    expect(fields.find((f) => f.label === 'Kind of passage')?.value).toMatch(/^Lament/)
     expect(fields.find((f) => f.label === 'What it is mainly doing')).toBeUndefined()
   })
 
