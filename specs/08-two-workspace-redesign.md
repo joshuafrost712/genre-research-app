@@ -68,3 +68,11 @@ Built on `feature/two-workspace-redesign` (stacked on
 `feature/sidebar-responsive-density` → `feature/katie-feedback-2026-07-11`).
 Gate: typecheck, lint, 32 tests, PWA build. Awaiting Josh & Katie's
 click-through before any merge/deploy to main.
+
+## Known review items (from the 2026-07-20 e2e walk)
+
+- The first-run starter rows ("Untitled genre" / "Untitled focus text") appear
+  in the 2b chooser list, the 1f summary table, and the header context bar
+  until renamed. Pre-existing behavior, but the new views make it more
+  visible. Candidate fix: create no starter genre, or hide Untitled entities
+  from the funnel/summary until named. Awaiting Josh & Katie's call.
