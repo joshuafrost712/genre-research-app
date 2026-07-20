@@ -111,6 +111,11 @@ export interface GuideNode {
 
   // select inputs
   options?: SelectOption[]
+  /**
+   * Lets users add their own options ("+ Other…" chip); the added options are
+   * project-wide and stored in meta (see lib/customOptions.ts).
+   */
+  allowCustomOptions?: boolean
 
   // table / grid inputs
   columns?: ColumnDef[]

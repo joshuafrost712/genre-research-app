@@ -108,6 +108,7 @@
               "minDepth": "quick",
               "label": "What is {genre} used to do in the community? Choose all that fit.",
               "guidance": "One genre can serve more than one purpose. For example, a genre could carry both laments and praise.",
+              "allowCustomOptions": true,
               "options": [
                 {
                   "id": "wisdom",
@@ -136,10 +137,6 @@
                 {
                   "id": "entertaining",
                   "label": "Entertaining / for fun"
-                },
-                {
-                  "id": "other",
-                  "label": "Other"
                 }
               ]
             },

@@ -6,6 +6,7 @@ import { useActiveContext } from '../components/ActiveContextProvider'
 import { useAllEntries } from '../lib/storage/entries'
 import { getMetaValue, setActiveGenre, setMetaValue } from '../lib/storage/appState'
 import { navSubsectionOf } from '../lib/content/loader'
+import { useCustomOptions } from '../lib/customOptions'
 import {
   columnCatalog,
   DEFAULT_COLUMNS,
@@ -30,6 +31,7 @@ export function GenreSummary() {
     () => (ctx ? db.genres.where('project_id').equals(ctx.projectId).sortBy('created_at') : []),
     [ctx?.projectId],
   )
+  const customPurposes = useCustomOptions(ctx?.projectId ?? '', 's1b.purpose_families')
 
   const [colIds, setColIds] = useState<string[] | null>(null)
   const [rowOrder, setRowOrder] = useState<string[] | null>(null)
@@ -84,7 +86,7 @@ export function GenreSummary() {
     navigate(`/worksheet/${sub}`)
   }
 
-  const coverage = purposeCoverage(entries, ordered)
+  const coverage = purposeCoverage(entries, ordered, customPurposes)
 
   return (
     <div className="flex flex-col gap-6">
@@ -177,7 +179,12 @@ export function GenreSummary() {
                     </div>
                   </th>
                   {cols.map((c) => {
-                    const cell = summaryCell(entries, g.id, c.id)
+                    const cell = summaryCell(
+                      entries,
+                      g.id,
+                      c.id,
+                      c.id === 's1b.purpose_families' ? customPurposes : undefined,
+                    )
                     return (
                       <td key={c.id} className="max-w-56 px-3 py-2">
                         <button

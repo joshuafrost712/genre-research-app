@@ -37,6 +37,7 @@ import {
 import { resolveGenreTokens, useGenreName } from '../GenreNameProvider'
 import { useDepthMode } from '../DepthModeContext'
 import { genreProgress } from '../../lib/progress'
+import { addCustomOption, mergeOptions, useCustomOptions } from '../../lib/customOptions'
 import {
   depthVisible,
   visibleAtDepth,
@@ -879,13 +880,23 @@ function SingleSelect({ ctx, node, layer }: BlockProps) {
 function MultiSelect({ ctx, node, layer }: BlockProps) {
   const entry = useEntry(ctx, node.id, layer)
   const selected = parseArray(entry?.value)
+  const custom = useCustomOptions(ctx.projectId, node.id)
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState('')
   const toggle = (id: string) => {
     const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]
     upsertEntry(ctx, node.id, layer, { value: JSON.stringify(next) })
   }
+  const options = node.allowCustomOptions ? mergeOptions(node, custom) : (node.options ?? [])
+  const saveCustom = async () => {
+    const opt = await addCustomOption(ctx.projectId, node, draft)
+    if (opt && !selected.includes(opt.id)) toggle(opt.id)
+    setDraft('')
+    setAdding(false)
+  }
   return (
     <div className="flex flex-wrap gap-1.5">
-      {(node.options ?? []).map((o) => (
+      {options.map((o) => (
         <button
           key={o.id}
           type="button"
@@ -899,6 +910,45 @@ function MultiSelect({ ctx, node, layer }: BlockProps) {
           {o.label}
         </button>
       ))}
+      {node.allowCustomOptions &&
+        (adding ? (
+          <span className="flex items-center gap-1">
+            <input
+              autoFocus
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void saveCustom()
+                if (e.key === 'Escape') setAdding(false)
+              }}
+              placeholder="Name the purpose"
+              className="w-40 rounded-full border border-gray-400 px-3 py-1 text-sm focus:border-gray-600 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => void saveCustom()}
+              className="rounded-full bg-gray-800 px-2.5 py-1 text-xs font-medium text-white hover:bg-gray-700"
+            >
+              Add
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdding(false)}
+              className="px-1 text-xs text-gray-500 hover:underline"
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="rounded-full border border-dashed border-gray-400 px-3 py-1 text-sm text-gray-500 hover:bg-gray-50"
+          >
+            + Other…
+          </button>
+        ))}
     </div>
   )
 }

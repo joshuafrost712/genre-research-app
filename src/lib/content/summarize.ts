@@ -80,22 +80,32 @@ export interface SummaryCell {
   missingSummary: boolean
 }
 
-/** The display value of one table cell for one genre. */
-export function summaryCell(entries: Entry[], genreId: string, colId: string): SummaryCell {
+/**
+ * The display value of one table cell for one genre. `extraOptions` lets a
+ * caller resolve labels for user-added options (lib/customOptions) that the
+ * content tree does not know about.
+ */
+export function summaryCell(
+  entries: Entry[],
+  genreId: string,
+  colId: string,
+  extraOptions?: SelectOption[],
+): SummaryCell {
   if (colId === REQUIRED_COL) {
     return { text: requiredFeatures(entries, genreId).join(' · '), missingSummary: false }
   }
   const node = findNode(colId)?.node
   if (!node) return { text: '', missingSummary: false }
 
+  const options = extraOptions?.length ? [...(node.options ?? []), ...extraOptions] : node.options
   const base = entries.find((e) => e.node_id === colId && e.genre_id === genreId && !e.cell_key)
   if (node.type === 'single_select') {
-    return { text: optionLabel(node.options, base?.value ?? ''), missingSummary: false }
+    return { text: optionLabel(options, base?.value ?? ''), missingSummary: false }
   }
   if (node.type === 'multi_select') {
     const ids = parseIdArray(base?.value)
     return {
-      text: ids.map((id) => optionLabel(node.options, id)).join(', '),
+      text: ids.map((id) => optionLabel(options, id)).join(', '),
       missingSummary: false,
     }
   }
@@ -199,9 +209,10 @@ export interface CoverageFamily {
 export function purposeCoverage(
   entries: Entry[],
   genres: Array<{ id: string; name: string }>,
+  customOptions: SelectOption[] = [],
 ): CoverageFamily[] {
   const node = findNode('s1b.purpose_families')?.node
-  const families = (node?.options ?? []).filter((o) => o.id !== 'other')
+  const families = [...(node?.options ?? []), ...customOptions].filter((o) => o.id !== 'other')
   return families.map((f) => ({
     id: f.id,
     label: f.label,
@@ -236,7 +247,9 @@ function cleanAreaLabel(label: string): string {
 
 function optionLabel(options: SelectOption[] | undefined, value: string): string {
   if (!value) return ''
-  return options?.find((o) => o.id === value)?.label ?? value
+  // 'other' was a built-in purpose-family chip before custom options existed
+  // (spec 10 WP5); stored selections of it still need a readable label.
+  return options?.find((o) => o.id === value)?.label ?? (value === 'other' ? 'Other' : value)
 }
 
 function parseIdArray(value: string | undefined): string[] {

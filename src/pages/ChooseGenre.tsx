@@ -14,7 +14,9 @@ import {
 } from '../lib/storage/appState'
 import { upsertEntry, useAllEntries, useEntry } from '../lib/storage/entries'
 import { fullAnswerBehindCell, shortPrompt, summaryCell } from '../lib/content/summarize'
+import { mergeOptions, useCustomOptions } from '../lib/customOptions'
 import type { Entry, Genre } from '../lib/types'
+import type { SelectOption } from '../schema/types'
 
 /**
  * 2b: Choose a genre — the staged funnel. (1) Say what the passage is doing.
@@ -67,6 +69,7 @@ export function ChooseGenre() {
   )
   const lockedEntry = useEntry(ctx, 'choose.locked', 'focusText')
   const shortlistEntry = useEntry(ctx, 'choose.shortlist', 'focusText')
+  const customPurposes = useCustomOptions(ctx?.projectId ?? '', 's1b.purpose_families')
   const [showSetAside, setShowSetAside] = useState(false)
   const [guardFor, setGuardFor] = useState<Genre | null>(null)
 
@@ -219,6 +222,7 @@ export function ChooseGenre() {
               key={g.id}
               genre={g}
               entries={entries}
+              customPurposes={customPurposes}
               passageBroad={passageBroad}
               kept={shortlist.includes(g.id)}
               anyKept={shortlist.length > 0}
@@ -244,6 +248,7 @@ export function ChooseGenre() {
                     key={g.id}
                     genre={g}
                     entries={entries}
+                    customPurposes={customPurposes}
                     passageBroad={passageBroad}
                     kept={false}
                     anyKept
@@ -428,6 +433,7 @@ function StepHeading({ n, title, hint }: { n: number; title: string; hint?: stri
 function PurposeRow({
   genre,
   entries,
+  customPurposes,
   passageBroad,
   kept,
   anyKept,
@@ -437,6 +443,7 @@ function PurposeRow({
 }: {
   genre: Genre
   entries: Entry[]
+  customPurposes: SelectOption[]
   passageBroad?: string
   kept: boolean
   anyKept: boolean
@@ -445,6 +452,7 @@ function PurposeRow({
   onSetAside: () => void
 }) {
   const familiesNode = findNode('s1b.purpose_families')?.node
+  const purposeOptions = familiesNode ? mergeOptions(familiesNode, customPurposes) : customPurposes
   const familyIds = parseIds(
     entries.find(
       (e) => e.node_id === 's1b.purpose_families' && e.genre_id === genre.id && !e.cell_key,
@@ -470,7 +478,8 @@ function PurposeRow({
             </span>
           ) : (
             familyIds.map((id) => {
-              const label = familiesNode?.options?.find((o) => o.id === id)?.label ?? id
+              const label =
+                purposeOptions.find((o) => o.id === id)?.label ?? (id === 'other' ? 'Other' : id)
               const match = passageBroad != null && id === passageBroad
               return (
                 <span
