@@ -132,6 +132,61 @@ function promptLabel(node: GuideNode): string {
 }
 
 /**
+ * The 2c big-picture decisions, grouped by area: each row's "idea for the
+ * translation" (the last column of every macro table), headed by the row's own
+ * headline. Feeds the 2e decisions summary.
+ */
+export interface DecisionGroup {
+  group: string
+  fields: SummaryField[]
+}
+
+export function macroDecisions(entries: Entry[], worksheetId: string): DecisionGroup[] {
+  const groupNode = findNode('s0.macro_notes')?.node
+  const out: DecisionGroup[] = []
+  for (const area of groupNode?.children ?? []) {
+    const cols = area.columns ?? []
+    if (cols.length < 2) continue
+    const ideaCol = cols[cols.length - 1]
+    const headCol = cols[0]
+    const rowIds =
+      area.type === 'fixed_grid'
+        ? (area.rows ?? []).map((r) => ({ id: r.id, label: r.label }))
+        : parseIdArray(
+            entries.find(
+              (e) => e.node_id === area.id && e.worksheet_id === worksheetId && e.cell_key === ROWS_KEY,
+            )?.value,
+          ).map((id) => ({ id, label: '' }))
+    const fields: SummaryField[] = []
+    for (const row of rowIds) {
+      const idea = trimmed(
+        entries.find(
+          (e) =>
+            e.node_id === area.id &&
+            e.worksheet_id === worksheetId &&
+            e.cell_key === `${row.id}__${ideaCol.id}`,
+        )?.text,
+      )
+      if (!idea) continue
+      const head =
+        row.label ||
+        trimmed(
+          entries.find(
+            (e) =>
+              e.node_id === area.id &&
+              e.worksheet_id === worksheetId &&
+              e.cell_key === `${row.id}__${headCol.id}`,
+          )?.text,
+        ) ||
+        '•'
+      fields.push({ label: head, value: idea })
+    }
+    if (fields.length) out.push({ group: promptLabel(area), fields })
+  }
+  return out
+}
+
+/**
  * The drafting-step recap (#23): the psalm purpose, the chosen genre, and the
  * stylistic priorities the team starred, so everything identified is in view
  * while writing the translation.

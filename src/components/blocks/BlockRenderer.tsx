@@ -17,8 +17,13 @@ import {
   useEntry,
   useRowIds,
 } from '../../lib/storage/entries'
-import { deriveSectionRecall, translationSummary } from '../../lib/content/sectionRecall'
-import { needsSummary, SUMMARY_KEY } from '../../lib/content/summarize'
+import { deriveSectionRecall, macroDecisions, translationSummary } from '../../lib/content/sectionRecall'
+import {
+  needsSummary,
+  requiredFeatureRefs,
+  STYLE_IDEA_NODE,
+  SUMMARY_KEY,
+} from '../../lib/content/summarize'
 import { resolveGenreTokens, useGenreName } from '../GenreNameProvider'
 import {
   depthVisible,
@@ -440,16 +445,35 @@ function SectionRecall({ ctx, sourceSubId }: { ctx: ActiveContext; sourceSubId: 
   )
 }
 
-/** The drafting-step recap (#23): purpose, chosen genre, starred priorities. */
+/**
+ * The 2e decisions recap: purpose, chosen genre, the big-picture decisions from
+ * 2c, the Required features with the team's plans from 2d, and any starred
+ * priorities — everything decided so far, in view while drafting.
+ */
 function TranslationSummaryBlock({ ctx }: { ctx: ActiveContext }) {
   const entries = useAllEntries(ctx)
   if (entries === undefined) return null
   const s = translationSummary(entries, ctx.focusTextId, ctx.worksheetId)
-  const empty = s.purpose.length === 0 && !s.chosenGenre && s.priorities.length === 0
+  const macro = macroDecisions(entries, ctx.worksheetId)
+  const required = requiredFeatureRefs(entries, ctx.genreId).map((f) => {
+    const idea = entries.find(
+      (e) =>
+        e.node_id === STYLE_IDEA_NODE &&
+        e.worksheet_id === ctx.worksheetId &&
+        e.cell_key === `${f.tableId}__${f.rowId}`,
+    )
+    return { ...f, idea: (idea?.text ?? '').trim() }
+  })
+  const empty =
+    s.purpose.length === 0 &&
+    !s.chosenGenre &&
+    s.priorities.length === 0 &&
+    macro.length === 0 &&
+    required.length === 0
   if (empty) return null
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm">
-      <div className="mb-2 font-semibold text-gray-700">What you have found so far</div>
+      <div className="mb-2 font-semibold text-gray-700">What you have decided so far</div>
       {s.chosenGenre && (
         <p className="mb-1 text-gray-700">
           <span className="text-gray-400">Chosen genre:</span> {s.chosenGenre}
@@ -463,6 +487,40 @@ function TranslationSummaryBlock({ ctx }: { ctx: ActiveContext }) {
             </li>
           ))}
         </ul>
+      )}
+      {macro.length > 0 && (
+        <>
+          <div className="mt-2 text-xs font-medium text-gray-500">
+            Big-picture decisions (from 2c)
+          </div>
+          {macro.map((g, gi) => (
+            <div key={gi} className="mb-1">
+              <div className="text-[11px] text-gray-400">{g.group}</div>
+              <ul className="flex flex-col gap-0.5">
+                {g.fields.map((f, i) => (
+                  <li key={i} className="text-gray-700">
+                    <span className="text-gray-400">{f.label}:</span> {f.value}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </>
+      )}
+      {required.length > 0 && (
+        <>
+          <div className="mt-2 text-xs font-medium text-gray-500">
+            Required features &amp; your plans (from 2d)
+          </div>
+          <ul className="flex flex-col gap-0.5">
+            {required.map((f, i) => (
+              <li key={i} className="text-gray-700">
+                <span className="text-gray-400">{f.areaLabel}:</span>{' '}
+                {f.idea ? `${f.text} → ${f.idea}` : `${f.text} (no plan yet)`}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {s.priorities.length > 0 && (
         <>

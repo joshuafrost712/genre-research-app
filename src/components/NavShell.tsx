@@ -152,7 +152,7 @@ function StageNav({
 
   // Single page (or a dedicated app page): one direct link.
   if (subs.length <= 1) {
-    const to = stage.route ?? `/worksheet/${subs[0].id}`
+    const to = stageRoute(stage)
     const count = subs[0] ? progress?.bySubsection[subs[0].id] : undefined
     return (
       <li>

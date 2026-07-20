@@ -281,7 +281,24 @@ export function workspaces(): Workspace[] {
 
 /** The route a journey stage opens: its page route, or its first subsection. */
 export function stageRoute(stage: JourneyStage): string {
-  return stage.route ?? `/worksheet/${stage.subIds[0]}`
+  const first = stage.subIds[0]
+  return stage.route ?? (first && SUB_PAGE_ROUTES[first]) ?? `/worksheet/${first}`
+}
+
+/**
+ * Subsections whose worksheet route is superseded by a dedicated page (the
+ * Workspace 2 chooser and compare pages). WorksheetView redirects these, so
+ * every old link, xref, and Next button lands on the right page.
+ */
+export const SUB_PAGE_ROUTES: Record<string, string> = {
+  's0.genre_choice': '/choose',
+  's0.macro_notes': '/macro',
+  's0.stylistic_notes': '/style',
+}
+
+/** The route that opens a subsection: its dedicated page, or the generic view. */
+export function routeForSub(subId: string): string {
+  return SUB_PAGE_ROUTES[subId] ?? `/worksheet/${subId}`
 }
 
 /** Flat subsection ids in journey (recommended-path) order. */

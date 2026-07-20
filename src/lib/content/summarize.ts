@@ -26,6 +26,9 @@ const SCALAR_TYPES = new Set(['short_text', 'long_text', 'single_select', 'multi
 /** The computed "Required features" column (from the 1e feature tables). */
 export const REQUIRED_COL = '__required'
 
+/** Synthesis node holding the per-feature translation plans (2d left column). */
+export const STYLE_IDEA_NODE = 'style.idea'
+
 /** Default table columns: content, who participates, and what types of events. */
 export const DEFAULT_COLUMNS = ['s1b.content', 's2eth.who', 's2eth.when']
 

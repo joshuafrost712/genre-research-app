@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { findNode, nextNavId } from '../lib/content/loader'
+import { Link, Navigate, useParams } from 'react-router-dom'
+import { findNode, nextNavId, routeForSub, SUB_PAGE_ROUTES } from '../lib/content/loader'
 import { setLastNode } from '../lib/storage/appState'
 import { visibleAtDepth } from '../schema/types'
 import { useDepthMode } from '../components/DepthModeContext'
@@ -26,6 +26,12 @@ export function WorksheetView() {
   useEffect(() => {
     if (ctx && nodeId) setLastNode(ctx.projectId, nodeId)
   }, [ctx, nodeId])
+
+  // Subsections with a dedicated page (the 2b/2c/2d workspaces) redirect there,
+  // so old links, xrefs, and Next buttons all land on the right experience.
+  if (nodeId && SUB_PAGE_ROUTES[nodeId]) {
+    return <Navigate to={SUB_PAGE_ROUTES[nodeId]} replace />
+  }
 
   if (!ref) {
     return (
@@ -92,7 +98,7 @@ export function WorksheetView() {
         </div>
         {next ? (
           <Link
-            to={`/worksheet/${next.node.id}`}
+            to={routeForSub(next.node.id)}
             className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
           >
             Next: {next.node.label} →

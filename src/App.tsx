@@ -14,7 +14,9 @@ import { Capture } from './pages/Capture'
 import { GenreBank } from './pages/GenreBank'
 import { GenreSummary } from './pages/GenreSummary'
 import { PrintChart } from './pages/PrintChart'
-import { Compare } from './pages/Compare'
+import { ChooseGenre } from './pages/ChooseGenre'
+import { MacroCompare } from './pages/MacroCompare'
+import { StyleCompare } from './pages/StyleCompare'
 import { ExportView } from './pages/ExportView'
 import { Routing } from './pages/Routing'
 import { Review } from './pages/Review'
@@ -37,7 +39,9 @@ const router = createBrowserRouter(
         { path: 'genres', element: <GenreBank /> },
         { path: 'summary', element: <GenreSummary /> },
         { path: 'chart', element: <PrintChart /> },
-        { path: 'compare', element: <Compare /> },
+        { path: 'choose', element: <ChooseGenre /> },
+        { path: 'macro', element: <MacroCompare /> },
+        { path: 'style', element: <StyleCompare /> },
         { path: 'routing', element: <Routing /> },
         { path: 'review', element: <Review /> },
         { path: 'export', element: <ExportView /> },

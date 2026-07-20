@@ -136,6 +136,39 @@ export async function upsertEntry(
   return created
 }
 
+/**
+ * Upsert that first records the entry's prior value into the history store, so
+ * the change is recoverable. Used by the click-through genre edits on the
+ * Create / Translate compare pages (2c/2d), and by history restores themselves
+ * (so a restore is also undoable). Only a real change to a non-empty value is
+ * recorded; flag-only patches and first writes add no history rows.
+ */
+export async function upsertEntryWithHistory(
+  ctx: ActiveContext,
+  nodeId: string,
+  layer: Layer,
+  patch: EntryPatch,
+  cellKey?: string,
+  source = 'compare-edit',
+): Promise<Entry> {
+  const existing = await findEntry(ctx, nodeId, layer, cellKey)
+  const textChanges = patch.text !== undefined && patch.text !== existing?.text
+  const valueChanges = patch.value !== undefined && patch.value !== existing?.value
+  if (existing && (textChanges || valueChanges) && (existing.text?.trim() || existing.value)) {
+    await db.history.add({
+      entry_id: existing.id,
+      project_id: existing.project_id,
+      node_id: nodeId,
+      cell_key: cellKey,
+      prev_text: existing.text,
+      prev_value: existing.value,
+      changed_at: now(),
+      source,
+    })
+  }
+  return upsertEntry(ctx, nodeId, layer, patch, cellKey)
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   const existing = await db.entries.get(id)
   await db.entries.delete(id)
