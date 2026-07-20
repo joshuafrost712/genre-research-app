@@ -35,6 +35,8 @@ import {
   SUMMARY_KEY,
 } from '../../lib/content/summarize'
 import { resolveGenreTokens, useGenreName } from '../GenreNameProvider'
+import { useDepthMode } from '../DepthModeContext'
+import { genreProgress } from '../../lib/progress'
 import {
   depthVisible,
   visibleAtDepth,
@@ -331,13 +333,27 @@ function CollectionInput({
  * #7/#12 added: a "Describe" jump to 1b, deletion (confirmed, with an
  * explanation), unique names, and near-duplicate detection with a merge offer.
  */
+type BankSort = 'az' | 'za' | 'described'
+
+const BANK_SORTS: { id: BankSort; label: string }[] = [
+  { id: 'az', label: 'A→Z' },
+  { id: 'za', label: 'Z→A' },
+  { id: 'described', label: 'Most described' },
+]
+
 function GenreBankInline({ ctx }: { ctx: ActiveContext }) {
   const navigate = useNavigate()
   const { reload } = useActiveContext()
+  const { mode } = useDepthMode()
+  const entries = useAllEntries(ctx)
   const genres = useLiveQuery(
     () => db.genres.where('project_id').equals(ctx.projectId).sortBy('created_at'),
     [ctx.projectId],
   )
+  // Sort preference persists per project (feedback 2026-07-20 evening #6).
+  const sortMeta = useLiveQuery(() => db.meta.get(`bankSort:${ctx.projectId}`), [ctx.projectId])
+  const sort = (sortMeta?.value as BankSort) || 'az'
+  const setSort = (s: BankSort) => void db.meta.put({ key: `bankSort:${ctx.projectId}`, value: s })
   const dismissed = useLiveQuery(
     () => db.meta.where('key').startsWith('dupDismiss:').toArray(),
     [],
@@ -370,6 +386,17 @@ function GenreBankInline({ ctx }: { ctx: ActiveContext }) {
     (pair) => !(dismissed ?? []).some((m) => m.key === dismissKey(pair[0], pair[1])),
   )
 
+  const describedCount = (genreId: string) =>
+    genreProgress(entries ?? [], ctx.projectId, genreId, mode).overall.done
+  const sorted = [...(genres ?? [])].sort((a, b) => {
+    if (sort === 'described') {
+      const d = describedCount(b.id) - describedCount(a.id)
+      if (d !== 0) return d
+    }
+    const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    return sort === 'za' ? -cmp : cmp
+  })
+
   return (
     <div className="flex flex-col gap-2">
       {openPair && (
@@ -395,21 +422,6 @@ function GenreBankInline({ ctx }: { ctx: ActiveContext }) {
           </div>
         </div>
       )}
-      {(genres ?? []).map((g) => (
-        <GenreBankRow
-          key={g.id}
-          ctx={ctx}
-          genre={g}
-          others={(genres ?? []).filter((o) => o.id !== g.id)}
-          onNotice={setNotice}
-          onChanged={reload}
-          onDescribe={async () => {
-            await setActiveGenre(ctx.projectId, g.id)
-            reload()
-            navigate('/worksheet/s1b')
-          }}
-        />
-      ))}
       <div className="flex gap-2">
         <input
           type="text"
@@ -429,6 +441,40 @@ function GenreBankInline({ ctx }: { ctx: ActiveContext }) {
           Add
         </button>
       </div>
+      {(genres?.length ?? 0) > 1 && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-gray-500">Sort:</span>
+          {BANK_SORTS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setSort(s.id)}
+              className={`rounded-full border px-2 py-0.5 text-[11px] ${
+                sort === s.id
+                  ? 'border-gray-800 bg-gray-800 text-white'
+                  : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {sorted.map((g) => (
+        <GenreBankRow
+          key={g.id}
+          ctx={ctx}
+          genre={g}
+          others={(genres ?? []).filter((o) => o.id !== g.id)}
+          onNotice={setNotice}
+          onChanged={reload}
+          onDescribe={async () => {
+            await setActiveGenre(ctx.projectId, g.id)
+            reload()
+            navigate('/worksheet/s1b')
+          }}
+        />
+      ))}
       <p className="text-[11px] text-gray-400">
         These genres appear on the All Psalms &amp; Genres page and wherever you choose a genre.
       </p>
