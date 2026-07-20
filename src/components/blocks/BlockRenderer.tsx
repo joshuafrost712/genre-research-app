@@ -142,6 +142,7 @@ function FieldLabel({ node }: { node: GuideNode }) {
           {resolveGenreTokens(node.footnote, genre)}
         </p>
       )}
+      {node.help && <ColumnHelp text={resolveGenreTokens(node.help, genre)} />}
       <ExampleToggle node={node} genre={genre} />
       <XrefLinks node={node} />
     </div>

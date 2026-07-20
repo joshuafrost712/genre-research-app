@@ -40,7 +40,7 @@ export interface Genre {
   project_id: string
   name: string
   name_meaning?: string
-  vitality_rating?: 'weak' | 'neutral' | 'strong'
+  vitality_rating?: 'extinct' | 'locked' | 'fading' | 'stable' | 'thriving'
   is_sensitive: boolean
   created_at: string
   updated_at: string

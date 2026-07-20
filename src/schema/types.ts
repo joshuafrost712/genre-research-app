@@ -91,6 +91,12 @@ export interface GuideNode {
   layer?: Layer
   guidance?: string // contextual helper; Katie still to author most of these
   footnote?: string
+  /**
+   * Explainer behind a "What do these mean?" toggle beside the field, for
+   * select inputs whose option labels need definitions (e.g. 1c vitality).
+   * Lives in the content config (not code) so translations can localize it.
+   */
+  help?: string
   example?: string // concrete worked example, shown behind a "Show example" toggle
   minDepth?: DepthMode // node visible when mode rank >= this rank (default quick)
   optional?: boolean // defaults true

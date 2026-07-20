@@ -74,6 +74,24 @@ class GenreResearchDB extends Dexie {
             }
           })
       })
+    // v4: data migration for the vitality scale — the old 3-way
+    // Fading/Steady/Strong became the 5-way Extinct/Locked/Fading/Stable/
+    // Thriving (Katie's 2026-07-20 categories). Old values map onto the
+    // nearest new rung.
+    this.version(4).upgrade(async (tx) => {
+      const vitalityMap: Record<string, string> = {
+        weak: 'fading',
+        neutral: 'stable',
+        strong: 'thriving',
+      }
+      await tx
+        .table('entries')
+        .where('node_id')
+        .equals('s1b.vitality')
+        .modify((e: Entry) => {
+          if (e.value && vitalityMap[e.value]) e.value = vitalityMap[e.value]
+        })
+    })
   }
 }
 

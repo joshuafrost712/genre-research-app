@@ -207,18 +207,27 @@
               "layer": "genre",
               "minDepth": "quick",
               "label": "How popular and loved is {genre}? (Do people still use it and make new ones?)",
+              "help": "Extinct: no one performs it anymore, and no one makes new pieces; it survives only in memory or recordings. Locked: a fixed set of old pieces is performed only for special occasions (festivals, cultural shows); no one performs it for everyday enjoyment, and no new pieces are made. Fading: fewer people perform it than before, and fewer new pieces are being made. Stable: people still perform it regularly, and new pieces keep being made at a steady rate. Thriving: more and more people perform it, and new pieces are being made all the time.",
               "options": [
                 {
-                  "id": "weak",
+                  "id": "extinct",
+                  "label": "Extinct"
+                },
+                {
+                  "id": "locked",
+                  "label": "Locked"
+                },
+                {
+                  "id": "fading",
                   "label": "Fading"
                 },
                 {
-                  "id": "neutral",
-                  "label": "Steady"
+                  "id": "stable",
+                  "label": "Stable"
                 },
                 {
-                  "id": "strong",
-                  "label": "Strong"
+                  "id": "thriving",
+                  "label": "Thriving"
                 }
               ]
             },
