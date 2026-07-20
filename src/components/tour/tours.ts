@@ -17,11 +17,11 @@ export const SORT_AI_TOUR = 'sort-ai'
 export const APP_TOUR_STEPS: TourStep[] = [
   {
     title: 'Welcome',
-    body: 'This app helps you study the songs and poems your own people use, and use them to translate a Psalm so it sounds natural and strong to them.',
+    body: 'This app helps you study the songs and poems your own people use, and use them to translate a passage of Scripture so it sounds natural and strong to them.',
   },
   {
-    title: 'How the work goes',
-    body: 'First say what your psalm is doing. Then find your local song types. Then pick one and study it. Then match the psalm to it and translate. The home page guides you step by step.',
+    title: 'Two workspaces',
+    body: 'Workspace 1: find and describe your local genres — this stands on its own and is reusable. Workspace 2: take one passage through choosing a genre, comparing, and drafting. The home page is the chart of both; you can print it too.',
   },
   {
     title: 'Go back and forth freely',
@@ -39,8 +39,8 @@ export const APP_TOUR_STEPS: TourStep[] = [
 
 export const GENRES_TOUR_STEPS: TourStep[] = [
   {
-    title: 'All Psalms & Genres',
-    body: 'A "genre" is a type of song or poem your people use. Add each one you want to study. Add the psalm you are translating in the psalms list.',
+    title: 'Passages & Genres',
+    body: 'A "genre" is a type of song or poem your people use. Add each one you want to study. Add the passage you are translating in the passages list.',
   },
   {
     title: 'Each genre shows its progress',

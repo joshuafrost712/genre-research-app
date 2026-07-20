@@ -61,23 +61,23 @@ export function GenreBank() {
           ← Home
         </Link>
         <div className="mt-1 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">All Psalms &amp; Genres</h1>
+          <h1 className="text-2xl font-semibold">Passages &amp; Genres</h1>
           <ReplayTourButton id={GENRES_TOUR} />
         </div>
         <p className="mt-1 text-sm text-gray-600">
           A genre is a type of song or poem your people use. Add the ones you want
-          to study, and add the psalm you are translating. Tap a genre to work on it.
-          If needed, you can begin the process of identifying local genres by using{' '}
+          to study, and add the passage you are translating. Tap a genre to work on it.
+          If needed, you can begin the process of identifying local genres in{' '}
           <Link to="/worksheet/s1a" className="text-sky-700 hover:underline">
-            Finding and Describing Local Art Forms
+            Workspace 1: Find Local Genres
           </Link>
           .
         </p>
       </div>
 
       <EntityList
-        title="Psalms (the text you are translating)"
-        addLabel="Add a psalm (e.g. Psalm 13)"
+        title="Passages (the text you are translating)"
+        addLabel="Add a passage (e.g. Psalm 13)"
         items={(focusTexts ?? []).map((f) => ({ id: f.id, label: f.reference }))}
         activeId={ctx.focusTextId}
         onSelect={async (id) => {
@@ -115,7 +115,7 @@ export function GenreBank() {
       </section>
 
       <p className="text-sm text-gray-500">
-        Genre study is reusable: the same genre can be paired with several psalms,
+        Genre study is reusable: the same genre can be paired with several passages,
         and editing it updates information about it everywhere.
       </p>
     </div>
@@ -124,9 +124,9 @@ export function GenreBank() {
 
 /** Short names for the per-genre stage chips, keyed by top-level section id. */
 const SHORT_STAGE: Record<string, string> = {
-  s1: 'Details',
+  s1: 'Basics & social',
   s2: 'Big picture',
-  s3: 'Style & detail',
+  s3: 'Style & details',
 }
 
 function GenreCard({

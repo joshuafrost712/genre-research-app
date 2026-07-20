@@ -18,8 +18,8 @@ export function Help() {
         <h2 className="text-base font-semibold text-gray-800">What this app is for</h2>
         <p className="text-sm text-gray-700">
           This app helps you study the songs and poems your own people already use,
-          and then use what you learn to translate a Psalm in a way that sounds
-          natural and powerful to them. Right now it is built for the Psalms.
+          and then use what you learn to translate a passage of Scripture — a psalm
+          or another text — in a way that sounds natural and powerful to them.
         </p>
         <button
           type="button"
@@ -31,17 +31,39 @@ export function Help() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-base font-semibold text-gray-800">The order of work</h2>
-        <ol className="ml-5 list-decimal text-sm text-gray-700">
-          <li>Say what your psalm is about and what it is doing.</li>
-          <li>Find the local song and poem types your people use.</li>
-          <li>Choose one type and study it: first the big picture, then the details.</li>
-          <li>Match the psalm to that type and write your translation.</li>
-        </ol>
+        <h2 className="text-base font-semibold text-gray-800">The two workspaces</h2>
         <p className="text-sm text-gray-700">
-          You do not have to do this in a straight line. It is normal and expected
+          <span className="font-medium text-emerald-700">Workspace 1 — Find &amp; Describe
+          Local Genres</span> stands on its own: list the kinds of songs and poems your
+          people use (1a), describe each one (1b–1e), and see them side by side in the
+          summary table (1f). Everything here is reusable for every passage you ever
+          translate.
+        </p>
+        <p className="text-sm text-gray-700">
+          <span className="font-medium text-sky-700">Workspace 2 — Create / Translate</span>{' '}
+          takes one passage through the process: name it (2a), choose the best-fitting
+          genre with the comparison tool (2b), work the big picture (2c) and the style
+          (2d), and finish at the decisions summary with a first draft in text or voice
+          (2e). The home page is the chart of all of this — you can also print it.
+        </p>
+        <p className="text-sm text-gray-700">
+          You do not have to work in a straight line. It is normal and expected
           to go back and forth, to leave things unanswered, and to come back after
           you talk with a singer or an elder. Nothing is lost when you move around.
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-base font-semibold text-gray-800">The fit flags and the safety check</h2>
+        <p className="text-sm text-gray-700">
+          While choosing a genre (2b), you can flag each factor for the passage you
+          are translating: <span className="font-medium text-emerald-700">green</span>{' '}
+          = good fit, <span className="font-medium text-amber-600">yellow</span> = a
+          question to settle, <span className="font-medium text-red-600">red</span> = a
+          warning. The flags are about this passage, not the genre itself — a genre can
+          be green for one psalm and red for another. If you choose a genre that has
+          yellow or red flags, the app shows them once more and asks you to confirm.
+          It never blocks your choice; it only helps you be honest with yourselves.
         </p>
       </section>
 

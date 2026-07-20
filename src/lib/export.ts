@@ -6,6 +6,7 @@
  */
 import { findNode } from './content/loader'
 import { ROWS_KEY } from './storage/entries'
+import { STYLE_IDEA_NODE, SUMMARY_KEY } from './content/summarize'
 import type { Entry } from './types'
 import type { GuideNode, Layer } from '../schema/types'
 
@@ -91,6 +92,32 @@ export function buildRows(entries: Entry[], names: ExportNames): ExportRow[] {
   const rows: ExportRow[] = []
   for (const e of entries) {
     if (e.cell_key === ROWS_KEY) continue
+
+    // 2d plans live on a synthetic node (one per Required feature); export them
+    // with the feature they answer, looked up from the genre-layer table row.
+    if (e.node_id === STYLE_IDEA_NODE) {
+      if (!e.text?.trim()) continue
+      const sep = e.cell_key?.indexOf('__') ?? -1
+      const tableId = sep > 0 ? e.cell_key!.slice(0, sep) : ''
+      const rowId = sep > 0 ? e.cell_key!.slice(sep + 2) : ''
+      const feature =
+        entries.find((x) => x.node_id === tableId && x.cell_key === `${rowId}__feature`)?.text ?? ''
+      rows.push({
+        section: 'Create / Translate',
+        subsection: '2d: The Style — Compare & Decide',
+        nodeId: e.node_id,
+        question: feature ? `Plan for: ${feature}` : 'Plan for a Required feature',
+        layer: 'synthesis',
+        container: containerLabel(e, names),
+        row: '',
+        column: '',
+        answer: e.text,
+        priority: '',
+        notApplicable: '',
+      })
+      continue
+    }
+
     const ref = findNode(e.node_id)
     if (!ref) continue
     const { node, parents } = ref
@@ -108,7 +135,12 @@ export function buildRows(entries: Entry[], names: ExportNames): ExportRow[] {
       const idx = order.indexOf(rowId)
       rowLabel = idx >= 0 ? String(idx + 1) : ''
     }
-    const col = colId ? (node.columns?.find((c) => c.id === colId)?.label ?? colId) : ''
+    const col =
+      e.cell_key === SUMMARY_KEY
+        ? 'Table summary'
+        : colId
+          ? (node.columns?.find((c) => c.id === colId)?.label ?? colId)
+          : ''
     const isPriority = (rowId && prioritized.has(rowId)) || e.is_priority
 
     rows.push({
