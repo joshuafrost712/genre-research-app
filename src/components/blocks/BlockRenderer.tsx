@@ -1210,20 +1210,32 @@ function ChipButton({
   onClick: () => void
 }) {
   const entry = useEntry(ctx, node.id, layer, cellKey(rowId, col.id))
-  const filled = !!cellSummary(entry, col)
+  const summary = cellSummary(entry, col)
+  const filled = !!summary
+  // A filled select chip shows the chosen value ("Required"), not the column
+  // name ("Part of the genre"), which says nothing once every row has one
+  // (feedback 2026-07-20 evening #15). Required reads stronger than Common.
+  const showValue = filled && col.cellType === 'single_select'
   return (
     <button
       type="button"
       onClick={onClick}
       title={col.label}
-      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-        filled ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-      }`}
+      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${chipStyle(col, entry?.value, filled)}`}
     >
       {filled ? '● ' : '○ '}
-      {chipLabel(col.label)}
+      {chipLabel(showValue ? summary : col.label)}
     </button>
   )
+}
+
+/** Chip colors: Required/Common get distinct colors; other chips keep filled/empty. */
+function chipStyle(col: Column, value: string | undefined, filled: boolean): string {
+  if (!filled) return 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+  if (col.id === 'modality') {
+    return value === 'required' ? 'bg-emerald-700 text-white' : 'bg-sky-100 text-sky-800'
+  }
+  return 'bg-emerald-100 text-emerald-800'
 }
 
 /**
