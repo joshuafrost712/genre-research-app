@@ -1,5 +1,5 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "title": "Local Genres Research for Scripture Translation",
   "sections": [
     {
@@ -20,8 +20,7 @@
               "type": "genre_bank",
               "label": "Your genre list",
               "layer": "focusText",
-              "minDepth": "quick",
-              "footnote": "These prompts are only a few of many ideas for finding genres; see pages 67-69 of the CLAT Companion for more. For more on why local genres matter, see 'Why Consider Local Genres in Translation?' (Frost 2024)."
+              "minDepth": "quick"
             },
             {
               "id": "s1a.intro",
@@ -51,6 +50,12 @@
               "layer": "focusText",
               "minDepth": "standard",
               "askTracking": true
+            },
+            {
+              "id": "s1a.sources",
+              "type": "prose",
+              "minDepth": "standard",
+              "label": "These prompts are only a few of many ideas for finding genres; see pages 67-69 of the CLAT Companion for more. For more on why local genres matter, see 'Why Consider Local Genres in Translation?' (Frost 2024)."
             }
           ]
         },
@@ -129,6 +134,10 @@
                   "label": "Trust / comfort"
                 },
                 {
+                  "id": "entertaining",
+                  "label": "Entertaining / for fun"
+                },
+                {
                   "id": "other",
                   "label": "Other"
                 }
@@ -139,15 +148,8 @@
               "type": "long_text",
               "layer": "genre",
               "minDepth": "quick",
-              "label": "Say more about the purposes of {genre}: when do people use it, and what does it accomplish? Is it more for fun or for ceremony, or both?",
-              "example": "Sung at funerals to help the family cry together; also sung alone by widows. It is ceremonial, never for entertainment."
-            },
-            {
-              "id": "s1b.other",
-              "type": "long_text",
-              "layer": "genre",
-              "minDepth": "standard",
-              "label": "Other notes about {genre}"
+              "label": "Say more about the purposes of {genre}. What function does it play? What does it help people do?",
+              "example": "Sung at funerals to help the family cry together; also sung alone by widows. It helps people grieve as a group."
             }
           ]
         },
@@ -180,7 +182,7 @@
               "type": "long_text",
               "layer": "genre",
               "minDepth": "standard",
-              "label": "What do people use in {genre}? (instruments, clothing, objects, props)",
+              "label": "What materials/objects do people use in {genre}? (instruments, clothing, objects, props)",
               "example": "A large drum and a bamboo flute; the leader wears a special cloth; a carved staff is raised at the high point."
             },
             {
@@ -196,7 +198,7 @@
               "type": "long_text",
               "layer": "genre",
               "minDepth": "standard",
-              "label": "What does {genre} remind people of? (for example, a religious practice, a musical instrument, a type of dance, a certain topic, a particular kind of clothing, specific objects, politics, or customs)",
+              "label": "What does {genre} remind people of? What associations do they have with it? (for example, a religious practice, a musical instrument, a type of dance, a certain topic, a particular kind of clothing, specific objects, politics, or customs)",
               "example": "It reminds people of old funeral chants, so using it for a joyful psalm could feel strange."
             },
             {
@@ -225,9 +227,16 @@
               "type": "long_text",
               "layer": "genre",
               "minDepth": "standard",
-              "label": "Which parts of {genre} must always stay the same, and which parts can change from one performance to the next? Is it planned ahead, or made up on the spot?",
-              "guidance": "Some features are fixed and are what make it this genre. Others a skilled performer can change freely, or invent in the moment. Knowing which is which shows you where a translation has room to move.",
-              "example": "The drum rhythm and the opening call must stay the same (fixed). The exact words of the middle verses are made up fresh each time (free to change)."
+              "label": "Is {genre} planned ahead, or made up on the spot?",
+              "guidance": "Some genres are composed in advance and repeated; others are invented in the moment. Knowing which shows you where a translation has room to move.",
+              "example": "The opening call is fixed and rehearsed; the middle verses are made up fresh each time."
+            },
+            {
+              "id": "s2eth.other",
+              "type": "long_text",
+              "layer": "genre",
+              "minDepth": "standard",
+              "label": "Other notes on {genre}"
             }
           ]
         }
@@ -591,7 +600,7 @@
             {
               "id": "s3b.characters",
               "type": "long_text",
-              "label": "How are people named in this genre? The first time someone is mentioned, how are they named? After that, do they use a short name, a word like 'he' or 'she', or no name at all? How does the listener know who is being talked about? (For example: first 'the old chief came'; after that, just 'he said'.)",
+              "label": "How are people named or referenced in this genre? The first time someone is mentioned, how are they named? After that, do they use a short name, a word like 'he' or 'she', or no name at all? How does the listener know who is being talked about? (For example: first 'the old chief came'; after that, just 'he said'.)",
               "layer": "genre",
               "minDepth": "standard"
             },
@@ -605,7 +614,14 @@
             {
               "id": "s3b.speech",
               "type": "long_text",
-              "label": "Does the genre quote people's exact words, or report them? Are there small words used again and again (for example, a word that means 'thus' or 'look!')?",
+              "label": "Describe the use of people's exact words (direct speech), and/or people's reported speech (indirect speech).",
+              "layer": "genre",
+              "minDepth": "standard"
+            },
+            {
+              "id": "s3b.particles",
+              "type": "long_text",
+              "label": "What, if any, small words (particles) appear again and again (for example, a word that means 'thus' or 'look!')?",
               "layer": "genre",
               "minDepth": "standard"
             },
@@ -1010,12 +1026,12 @@
           "label": "2a: Focus on {passage}",
           "layer": "focusText",
           "minDepth": "quick",
-          "guidance": "Name the passage you want to translate or turn into Scripture-art (for example, Psalm 13). Use the passage picker at the top of the screen, or the Passages & Genres page, to add or switch passages. This workspace works for any passage, not only psalms.",
+          "guidance": "Name the passage you want to translate or turn into Scripture-art (for example, Psalm 13). Pick the passage to focus on below, or add a new one. This workspace works for any passage, not only psalms.",
           "children": [
             {
               "id": "s0.purpose.intended_use",
               "type": "long_text",
-              "label": "How will people use this translation? Will they sing it, listen to it, read it, or join in? Where will they use it? (Example: sung together in church.)",
+              "label": "How will people use this translation / Scripture-inspired artistic creation? Will they sing it, listen to it, read it, or join in? Where will they use it? (Example: sung together in church.)",
               "layer": "focusText",
               "minDepth": "quick"
             }
@@ -1130,13 +1146,6 @@
                   "minDepth": "standard"
                 }
               ]
-            },
-            {
-              "id": "s1c.notes",
-              "type": "long_text",
-              "label": "Discussion notes: which genres fit this passage's message and purpose? What works well, and what problems might there be?",
-              "layer": "focusText",
-              "minDepth": "standard"
             },
             {
               "id": "s0.genre_choice.chosen",
