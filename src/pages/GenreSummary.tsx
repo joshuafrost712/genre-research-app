@@ -5,7 +5,7 @@ import { db } from '../lib/storage/db'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import { useAllEntries } from '../lib/storage/entries'
 import { getMetaValue, setActiveGenre, setMetaValue } from '../lib/storage/appState'
-import { navSubsectionOf } from '../lib/content/loader'
+import { findNode, navSubsectionOf } from '../lib/content/loader'
 import { useCustomOptions } from '../lib/customOptions'
 import {
   columnCatalog,
@@ -94,7 +94,13 @@ export function GenreSummary() {
         <Link to="/" className="text-sm text-sky-700 hover:underline">
           ← Home
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">1f: Genre Summary Table</h1>
+        <h1
+          className="mt-1 text-2xl font-semibold"
+          data-dfb-node="chrome.summary"
+          data-dfb-field="label"
+        >
+          {findNode('chrome.summary')?.node.label ?? '1f: Genre Summary Table'}
+        </h1>
         <p className="mt-1 text-sm text-gray-600">
           All your genres side by side. Tap a cell to open that genre's page. Cells marked{' '}
           <span className="font-medium text-amber-600">▲</span> have a long answer that still

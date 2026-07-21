@@ -131,6 +131,13 @@ export interface GuideContent {
   version: string
   title: string
   sections: GuideNode[]
+  /**
+   * App-chrome strings that have no owning worksheet section but still need a
+   * single editable source of truth (e.g. the "Describe a Genre" stage group
+   * header and the 1f summary-table heading). Kept OUT of `sections` so nav,
+   * progress, and routing never walk them; reached only via `findNode`.
+   */
+  chrome?: GuideNode[]
 }
 
 /** True if something tagged at `minDepth` is visible at the current mode. */

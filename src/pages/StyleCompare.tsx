@@ -7,6 +7,7 @@ import { useDepthMode } from '../components/DepthModeContext'
 import { BlockRenderer } from '../components/blocks/BlockRenderer'
 import { AutosaveText } from '../components/blocks/AutosaveText'
 import { findNode, nextNavId, routeForSub } from '../lib/content/loader'
+import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 import { setLastNode } from '../lib/storage/appState'
 import { upsertEntry, useAllEntries, useEntry } from '../lib/storage/entries'
 import { requiredFeatureRefs, STYLE_IDEA_NODE } from '../lib/content/summarize'
@@ -22,6 +23,7 @@ import type { ActiveContext } from '../lib/storage/appState'
 export function StyleCompare() {
   const { ctx } = useActiveContext()
   const { mode } = useDepthMode()
+  const tokens = useNameTokens()
   const entries = useAllEntries(ctx)
   const genre = useLiveQuery(
     async () => (ctx ? await db.genres.get(ctx.genreId) : undefined),
@@ -44,11 +46,22 @@ export function StyleCompare() {
     genre && !genre.name.startsWith('Untitled') ? genre.name : 'the genre'
   const legacyGroup = findNode('s0.stylistic_notes')?.node
   const nextId = nextNavId('s0.stylistic_notes')
+  const title = resolveGenreTokens(
+    legacyGroup?.label ?? '2d: The Style — Compare & Decide',
+    tokens,
+  )
+  const backLabel = resolveGenreTokens(
+    findNode('s0.macro_notes')?.node.label ?? '2c: The Big Picture — Compare & Decide',
+    tokens,
+  )
+  const nextLabel = nextId ? resolveGenreTokens(findNode(nextId)?.node.label ?? '', tokens) : ''
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold">2d: The Style — Compare &amp; Decide</h1>
+        <h1 className="text-2xl font-semibold" data-dfb-node="s0.stylistic_notes" data-dfb-field="label">
+          {title}
+        </h1>
         <p className="mt-1 text-sm text-gray-600">
           {genreName}'s <span className="font-medium">Required</span> features, and your plan for
           achieving each one with <span className="font-medium text-sky-700">{passage}</span>.
@@ -104,14 +117,14 @@ export function StyleCompare() {
 
       <div className="flex items-center justify-between border-t border-gray-200 pt-4">
         <Link to="/macro" className="text-sm text-gray-500 hover:underline">
-          ← 2c The Big Picture
+          ← {backLabel}
         </Link>
         {nextId && (
           <Link
             to={routeForSub(nextId)}
             className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
           >
-            Next: 2e Decisions &amp; First Draft →
+            Next: {nextLabel} →
           </Link>
         )}
       </div>

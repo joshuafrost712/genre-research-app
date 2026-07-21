@@ -1,6 +1,18 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "title": "Local Genres Research for Scripture Translation",
+  "chrome": [
+    {
+      "id": "chrome.describe",
+      "type": "prose",
+      "label": "1b–1e: Describe a Genre"
+    },
+    {
+      "id": "chrome.summary",
+      "type": "prose",
+      "label": "1f: Genre Summary Table"
+    }
+  ],
   "sections": [
     {
       "id": "s1",

@@ -43,6 +43,7 @@ const WORKSPACE_ACCENT: Record<string, string> = {
 export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
   const { mode, setMode } = useDepthMode()
   const progress = useProgress()
+  const tokens = useNameTokens()
 
   const pct =
     progress && progress.overall.total > 0
@@ -111,7 +112,13 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
               <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                 Workspace {i + 1}
               </div>
-              <div className={`text-sm font-semibold ${WORKSPACE_ACCENT[ws.id]}`}>{ws.title}</div>
+              <div
+                className={`text-sm font-semibold ${WORKSPACE_ACCENT[ws.id]}`}
+                data-dfb-node={ws.titleNodeId}
+                data-dfb-field="label"
+              >
+                {resolveGenreTokens(ws.title, tokens)}
+              </div>
             </div>
             <ul className="flex flex-col gap-1">
               {ws.stages.map((stage) => (
@@ -167,7 +174,9 @@ function StageNav({
             }`
           }
         >
-          <span className="truncate">{stage.title}</span>
+          <span className="truncate" data-dfb-node={stage.titleNodeId} data-dfb-field="label">
+            {resolveGenreTokens(stage.title, genre)}
+          </span>
           {count && count.total > 0 && (
             <span className="ml-2 shrink-0 text-[10px] text-gray-400">
               {count.done}/{count.total}
@@ -188,7 +197,9 @@ function StageNav({
         className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left font-medium text-gray-700 hover:bg-gray-100"
         aria-expanded={!collapsed && !containsActive ? false : undefined}
       >
-        <span className="truncate">{stage.title}</span>
+        <span className="truncate" data-dfb-node={stage.titleNodeId} data-dfb-field="label">
+          {resolveGenreTokens(stage.title, genre)}
+        </span>
         <span className="text-gray-400">{collapsed && !containsActive ? '+' : '−'}</span>
       </button>
       {(!collapsed || containsActive) && (

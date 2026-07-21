@@ -5,12 +5,14 @@ import { db } from '../lib/storage/db'
 import {
   findNode,
   journeyOrder,
+  splitStageTitle,
   stageRoute,
   workspaces,
   type JourneyStage,
   type Workspace,
 } from '../lib/content/loader'
 import { useActiveContext } from '../components/ActiveContextProvider'
+import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 import { useProgress } from '../components/useProgress'
 import type { ProgressReport } from '../lib/progress'
 
@@ -129,6 +131,7 @@ function WorkspacePanel({
   progress: ProgressReport | null
 }) {
   const a = ACCENTS[accent]
+  const tokens = useNameTokens()
   // The current stage: the first with work remaining (stages without countable
   // work, like the summary table, are skipped by the counter).
   const currentId =
@@ -143,7 +146,13 @@ function WorkspacePanel({
         <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
           Workspace {number}
         </div>
-        <h2 className={`text-lg font-semibold ${a.title}`}>{ws.title}</h2>
+        <h2
+          className={`text-lg font-semibold ${a.title}`}
+          data-dfb-node={ws.titleNodeId}
+          data-dfb-field="label"
+        >
+          {resolveGenreTokens(ws.title, tokens)}
+        </h2>
         <p className="mt-0.5 text-xs text-gray-500">{ws.blurb}</p>
       </div>
       <ol className="flex flex-col gap-2">
@@ -173,8 +182,9 @@ function StageRow({
   isCurrent: boolean
 }) {
   const { done, total } = stageCount(stage, progress)
+  const tokens = useNameTokens()
   const complete = total > 0 && done >= total
-  const [letters, title] = splitTitle(stage.title)
+  const [letters, title] = splitStageTitle(resolveGenreTokens(stage.title, tokens))
   return (
     <li>
       <Link
@@ -190,7 +200,13 @@ function StageRow({
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium text-gray-800">{title}</span>
+            <span
+              className="truncate text-sm font-medium text-gray-800"
+              data-dfb-node={stage.titleNodeId}
+              data-dfb-field="label"
+            >
+              {title}
+            </span>
             {complete && <span className="text-emerald-600">✓</span>}
             {isCurrent && !complete && (
               <span className="shrink-0 rounded-full bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-white">
@@ -208,13 +224,6 @@ function StageRow({
       </Link>
     </li>
   )
-}
-
-/** Splits "1a–1c — Find & describe genres" into its letter chip and title. */
-function splitTitle(title: string): [string, string] {
-  const i = title.indexOf(' — ')
-  if (i === -1) return ['•', title]
-  return [title.slice(0, i), title.slice(i + 3)]
 }
 
 /** Sums a stage's subsection progress. */

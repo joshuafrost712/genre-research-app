@@ -40,6 +40,9 @@ export function nodeIndex(): Map<string, NodeRef> {
   if (indexCache) return indexCache
   const map = new Map<string, NodeRef>()
   walk(content.sections, (node, parents) => map.set(node.id, { node, parents }))
+  // Chrome nodes are indexed for findNode/edit-in-place, but never appear in
+  // navTree/navOrder/progress (those walk content.sections directly).
+  walk(content.chrome ?? [], (node, parents) => map.set(node.id, { node, parents }))
   indexCache = map
   return map
 }
@@ -175,27 +178,38 @@ export interface JourneyStage {
   subIds: string[]
   /** Route for stages that are an app page rather than worksheet subsections. */
   route?: string
+  /**
+   * The content node id this stage's title is derived from, so the UI can tag
+   * the rendered title for edit-in-place. Set by `journey()`; undefined only
+   * if no source node resolved (title then falls back to the literal below).
+   */
+  titleNodeId?: string
 }
 
+// Fallback titles only. The live title for each stage is derived in journey()
+// from its source content node (a single subsection, or a chrome node for the
+// multi-page / route-only stages), so editing a page heading propagates here.
+// These literals mirror the current content labels so the fallback path renders
+// identically if a node is ever missing.
 const JOURNEY: JourneyStage[] = [
   {
     id: 'find',
     workspace: 'w1',
-    title: '1a — Find Genres',
+    title: '1a: Find Local Genres',
     blurb: 'List the genres your people use — the songs, poems, stories, and chants people still enjoy and make.',
     subIds: ['s1a'],
   },
   {
     id: 'describe',
     workspace: 'w1',
-    title: '1b–1e — Describe a Genre',
+    title: '1b–1e: Describe a Genre',
     blurb: 'For each genre: its purposes, its social side, its big picture, and its style details.',
     subIds: ['s1b', 's2eth', 's2b', 's2a', 's2c', 's2d', 's3a', 's3b', 's3c', 's3d', 's3e', 's3f'],
   },
   {
     id: 'summary',
     workspace: 'w1',
-    title: '1f — Genre summary table',
+    title: '1f: Genre Summary Table',
     blurb: 'All your genres side by side, with purpose coverage at a glance.',
     subIds: [],
     route: '/summary',
@@ -203,47 +217,58 @@ const JOURNEY: JourneyStage[] = [
   {
     id: 'setup',
     workspace: 'w2',
-    title: '2a — Your passage',
+    title: '2a: Focus on {passage}',
     blurb: 'Name the passage and say how people will use the translation.',
     subIds: ['s0.setup'],
   },
   {
     id: 'choose',
     workspace: 'w2',
-    title: '2b — Choose a genre',
+    title: '2b: Choose a Genre',
     blurb: 'Compare purposes first, shortlist the top 3, weigh the social factors, and lock one in.',
     subIds: ['s0.genre_choice'],
   },
   {
     id: 'macro',
     workspace: 'w2',
-    title: '2c — The big picture',
+    title: '2c: The Big Picture — Compare & Decide',
     blurb: 'Compare the passage with the genre across the four big-picture areas and decide.',
     subIds: ['s0.macro_notes'],
   },
   {
     id: 'style',
     workspace: 'w2',
-    title: '2d — The style',
+    title: '2d: The Style — Compare & Decide',
     blurb: "Plan how to achieve the genre's Required features with this passage.",
     subIds: ['s0.stylistic_notes'],
   },
   {
     id: 'draft',
     workspace: 'w2',
-    title: '2e — Decisions & first draft',
+    title: '2e: Decisions & First Draft',
     blurb: 'See every decision in one place and make a first draft, in text or voice.',
     subIds: ['s0.translation'],
   },
 ]
 
-/** The journey stages, filtered to subsections that actually exist in the content. */
+/**
+ * Stages whose title has no single owning subsection (a multi-page group, or a
+ * route-only page) take their title from a `chrome` node instead.
+ */
+const STAGE_TITLE_NODE: Partial<Record<string, string>> = {
+  describe: 'chrome.describe',
+  summary: 'chrome.summary',
+}
+
+/** The journey stages, filtered to subsections that exist, with titles derived from content. */
 export function journey(): JourneyStage[] {
   const known = new Set(navOrder())
-  return JOURNEY.map((stage) => ({
-    ...stage,
-    subIds: stage.subIds.filter((id) => known.has(id)),
-  })).filter((stage) => stage.subIds.length > 0 || stage.route)
+  return JOURNEY.map((stage) => {
+    const subIds = stage.subIds.filter((id) => known.has(id))
+    const titleNodeId = STAGE_TITLE_NODE[stage.id] ?? (subIds.length === 1 ? subIds[0] : undefined)
+    const derived = titleNodeId ? findNode(titleNodeId)?.node.label : undefined
+    return { ...stage, subIds, titleNodeId, title: derived ?? stage.title }
+  }).filter((stage) => stage.subIds.length > 0 || stage.route)
 }
 
 export interface Workspace {
@@ -251,6 +276,8 @@ export interface Workspace {
   title: string
   blurb: string
   stages: JourneyStage[]
+  /** The content node id the workspace title derives from (its top-level section). */
+  titleNodeId: string
 }
 
 /** The two workspaces of the process, each with its ordered stages. */
@@ -259,17 +286,38 @@ export function workspaces(): Workspace[] {
   return [
     {
       id: 'w1',
-      title: 'Find & Describe Local Genres',
+      title: findNode('s1')?.node.label ?? 'Find & Describe Local Genres',
+      titleNodeId: 's1',
       blurb: 'The ethnography: learn what genres your people have. Reusable for every passage.',
       stages: stages.filter((s) => s.workspace === 'w1'),
     },
     {
       id: 'w2',
-      title: 'Create / Translate',
+      title: findNode('s0')?.node.label ?? 'Create / Translate',
+      titleNodeId: 's0',
       blurb: "Bring one passage to life in one of your community's genres.",
       stages: stages.filter((s) => s.workspace === 'w2'),
     },
   ]
+}
+
+/**
+ * Splits a stage/section title into its number chip and the rest, e.g.
+ * "2c: The Big Picture — Compare & Decide" -> ["2c", "The Big Picture — Compare & Decide"].
+ * Splits at the FIRST of ": " or " — " (a label may contain both). Returns a
+ * bullet chip when neither separator is present. Resolve `{genre}`/`{passage}`
+ * tokens BEFORE calling — they never appear in the number prefix.
+ */
+export function splitStageTitle(title: string): [string, string] {
+  const colon = title.indexOf(': ')
+  const dash = title.indexOf(' — ')
+  const candidates = [
+    { i: colon, len: 2 },
+    { i: dash, len: 3 },
+  ].filter((c) => c.i !== -1)
+  if (candidates.length === 0) return ['•', title]
+  const first = candidates.reduce((a, b) => (b.i < a.i ? b : a))
+  return [title.slice(0, first.i), title.slice(first.i + first.len)]
 }
 
 /** The route a journey stage opens: its page route, or its first subsection. */

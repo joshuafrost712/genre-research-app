@@ -103,8 +103,8 @@ export function buildRows(entries: Entry[], names: ExportNames): ExportRow[] {
       const feature =
         entries.find((x) => x.node_id === tableId && x.cell_key === `${rowId}__feature`)?.text ?? ''
       rows.push({
-        section: 'Create / Translate',
-        subsection: '2d: The Style — Compare & Decide',
+        section: findNode('s0')?.node.label ?? 'Create / Translate',
+        subsection: findNode('s0.stylistic_notes')?.node.label ?? '2d: The Style — Compare & Decide',
         nodeId: e.node_id,
         question: feature ? `Plan for: ${feature}` : 'Plan for a Required feature',
         layer: 'synthesis',

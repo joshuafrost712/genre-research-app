@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { workspaces } from '../lib/content/loader'
+import { splitStageTitle, workspaces } from '../lib/content/loader'
+import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 
 /**
  * The workflow overview as a clean one-pager for printing or projecting: the
@@ -9,6 +10,7 @@ import { workspaces } from '../lib/content/loader'
  */
 export function PrintChart() {
   const [w1, w2] = workspaces()
+  const tokens = useNameTokens()
 
   return (
     <div className="flex flex-col gap-5">
@@ -37,13 +39,13 @@ export function PrintChart() {
           <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
             Workspace {i + 1}
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">{ws.title}</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {resolveGenreTokens(ws.title, tokens)}
+          </h2>
           <p className="mb-3 mt-0.5 text-xs text-gray-600">{ws.blurb}</p>
           <ol className="flex flex-col gap-1.5">
             {ws.stages.map((stage) => {
-              const sep = stage.title.indexOf(' — ')
-              const letters = sep === -1 ? '•' : stage.title.slice(0, sep)
-              const title = sep === -1 ? stage.title : stage.title.slice(sep + 3)
+              const [letters, title] = splitStageTitle(resolveGenreTokens(stage.title, tokens))
               return (
                 <li key={stage.id} className="flex items-baseline gap-2.5">
                   <span className="w-14 shrink-0 text-right text-xs font-bold text-gray-700">

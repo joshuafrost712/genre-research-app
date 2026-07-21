@@ -73,13 +73,14 @@ function contentEditEndpoint(): Plugin {
             const file = join(process.cwd(), 'src', 'content', 'guide-content.json')
             const content = JSON.parse(readFileSync(file, 'utf8')) as {
               sections: Array<Record<string, unknown>>
+              chrome?: Array<Record<string, unknown>>
             }
             let target: Record<string, unknown> | null = null
             const walk = (n: Record<string, unknown>) => {
               if (n.id === nodeId) target = n
               for (const child of (n.children as Array<Record<string, unknown>> | undefined) ?? []) walk(child)
             }
-            for (const s of content.sections) walk(s)
+            for (const s of [...content.sections, ...(content.chrome ?? [])]) walk(s)
             if (!target) return reply(404, { error: `node ${nodeId} not found` })
             const current = (target as Record<string, unknown>)[field]
             if ((current ?? '') !== (oldText ?? '')) {

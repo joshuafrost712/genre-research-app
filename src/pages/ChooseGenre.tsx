@@ -5,7 +5,8 @@ import { cellKey, db } from '../lib/storage/db'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import { useDepthMode } from '../components/DepthModeContext'
 import { BlockRenderer } from '../components/blocks/BlockRenderer'
-import { findNode, nextNavId, routeForSub } from '../lib/content/loader'
+import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
+import { findNode, nextNavId, routeForSub, splitStageTitle } from '../lib/content/loader'
 import {
   ensureWorksheetFor,
   setActiveGenre,
@@ -66,6 +67,7 @@ const FLAG_ICON: Record<Exclude<FlagLevel, ''>, string> = {
 export function ChooseGenre() {
   const { ctx, reload } = useActiveContext()
   const { mode } = useDepthMode()
+  const tokens = useNameTokens()
   const entries = useAllEntries(ctx)
   const genres = useLiveQuery(
     () => (ctx ? db.genres.where('project_id').equals(ctx.projectId).sortBy('created_at') : []),
@@ -241,6 +243,8 @@ export function ChooseGenre() {
   }
 
   const nextId = nextNavId('s0.genre_choice')
+  const nextLabel = nextId ? resolveGenreTokens(findNode(nextId)?.node.label ?? '', tokens) : ''
+  const nextChip = nextLabel ? splitStageTitle(nextLabel)[0] : ''
 
   return (
     <div className="flex flex-col gap-6">
@@ -267,7 +271,7 @@ export function ChooseGenre() {
                 to={routeForSub(nextId)}
                 className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800"
               >
-                Continue to 2c →
+                Continue to {nextChip} →
               </Link>
             )}
           </div>
@@ -458,7 +462,7 @@ export function ChooseGenre() {
             to={routeForSub(nextId)}
             className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
           >
-            Next: 2c The Big Picture →
+            Next: {nextLabel} →
           </Link>
         )}
       </div>
@@ -476,9 +480,14 @@ export function ChooseGenre() {
 }
 
 function Header({ passage }: { passage: string }) {
+  const tokens = useNameTokens()
+  const title = findNode('s0.genre_choice')?.node.label ?? '2b: Choose a Genre'
+  const findLabel = findNode('s1a')?.node.label ?? '1a: Find Local Genres'
   return (
     <div>
-      <h1 className="text-2xl font-semibold">2b: Choose a Genre</h1>
+      <h1 className="text-2xl font-semibold" data-dfb-node="s0.genre_choice" data-dfb-field="label">
+        {resolveGenreTokens(title, tokens)}
+      </h1>
       <p className="mt-1 text-sm text-gray-600">
         For <span className="font-medium text-sky-700">{passage}</span>: compare purposes first,
         keep the top 3, weigh the social factors, then choose.
@@ -487,7 +496,7 @@ function Header({ passage }: { passage: string }) {
         This step draws on the local genres you found and described in Workspace 1. The more
         complete your answers in 1b and 1c are, the better this comparison works.{' '}
         <Link to="/worksheet/s1a" className="font-medium underline">
-          Go to 1a: Find Local Genres
+          Go to {resolveGenreTokens(findLabel, tokens)}
         </Link>
       </p>
     </div>
