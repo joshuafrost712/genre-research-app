@@ -135,7 +135,7 @@ export function genreWords(entries: Entry[], genreId: string): SummaryField[] {
   return out
 }
 
-/** Rows of the s3a.features table, starred first, with the "how fixed" label. */
+/** Rows of the s3a.features table, with the "how fixed" (Required/Common) label. */
 function featureRows(entries: Entry[], genreId: string): SummaryField[] {
   const node = findNode('s3a.features')?.node
   const modalityOpts = node?.columns?.find((c) => c.id === 'modality')?.options
@@ -149,17 +149,12 @@ function featureRows(entries: Entry[], genreId: string): SummaryField[] {
     const modVal = entries.find(
       (e) => e.node_id === 's3a.features' && e.genre_id === genreId && e.cell_key === `${rowId}__modality`,
     )?.value
-    const starred =
-      entries.find(
-        (e) => e.node_id === 's3a.features' && e.genre_id === genreId && e.cell_key === rowId,
-      )?.is_priority === true
-    return { feature, modality: modVal ? optionLabel(modalityOpts, modVal) : '', starred }
+    return { feature, modality: modVal ? optionLabel(modalityOpts, modVal) : '' }
   })
   return rows
     .filter((r) => r.feature)
-    .sort((a, b) => Number(b.starred) - Number(a.starred))
     .map((r) => ({
-      label: r.starred ? '★ Key feature' : 'Feature',
+      label: 'Feature',
       value: r.modality ? `${r.feature} (how fixed: ${r.modality})` : r.feature,
     }))
 }

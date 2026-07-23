@@ -112,10 +112,6 @@ export interface GuideNode {
   minDepth?: DepthMode // node visible when mode rank >= this rank (default quick)
   optional?: boolean // defaults true
 
-  // priority: honors "mark your top 1 to 2" in the 3A-3F feature tables
-  priorityEligible?: boolean
-  priorityMax?: number
-
   // ask-tracking: shows a per-item "asked" checkbox on a repeatable_list, so a
   // researcher can separate "idea of whom/where/what to ask" from "already asked"
   askTracking?: boolean

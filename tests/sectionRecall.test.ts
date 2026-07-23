@@ -19,13 +19,12 @@ function entry(p: Partial<Entry>): Entry {
 }
 
 describe('deriveSectionRecall', () => {
-  it('surfaces a section 3 subsection for the active genre, starred rows first', () => {
+  it('surfaces a section 3 subsection for the active genre, in row order', () => {
     const entries = [
       entry({ node_id: 's3a.expected', genre_id: 'g1', text: 'opening call' }),
       entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: '__rows', value: JSON.stringify(['r1', 'r2']) }),
-      entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r1__feature', text: 'plain feature' }),
-      entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r2__feature', text: 'key feature' }),
-      entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r2', is_priority: true }),
+      entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r1__feature', text: 'first feature' }),
+      entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r2__feature', text: 'second feature' }),
       // a different genre's work must not leak in
       entry({ node_id: 's3a.expected', genre_id: 'g2', text: 'other genre' }),
     ]
@@ -33,10 +32,9 @@ describe('deriveSectionRecall', () => {
     const values = fields.map((f) => f.value)
     expect(values).toContain('opening call')
     expect(values).not.toContain('other genre')
-    // Among the table rows, the starred one is marked and sorted first.
-    const rowFields = fields.filter((f) => f.value === 'key feature' || f.value === 'plain feature')
-    expect(rowFields[0].value).toBe('key feature')
-    expect(rowFields[0].starred).toBe(true)
+    // Table rows follow their stored order (the star/priority feature was removed).
+    const rowFields = fields.filter((f) => f.value === 'first feature' || f.value === 'second feature')
+    expect(rowFields.map((f) => f.value)).toEqual(['first feature', 'second feature'])
   })
 
   it('returns nothing when the source subsection is empty for the genre', () => {
@@ -45,23 +43,14 @@ describe('deriveSectionRecall', () => {
 })
 
 describe('translationSummary', () => {
-  it('gathers purpose, chosen genre, and starred stylistic priorities', () => {
+  it('gathers purpose and the chosen genre', () => {
     const entries = [
       entry({ node_id: 's0.purpose.specific', focus_text_id: 'f1', text: 'A cry for rescue' }),
       entry({ node_id: 's0.purpose.broad_genre', focus_text_id: 'f1', value: 'lament' }),
       entry({ node_id: 's0.genre_choice.chosen', worksheet_id: 'w1', text: 'Sung lament' }),
-      entry({ node_id: 's0.sn.words', worksheet_id: 'w1', cell_key: '__rows', value: JSON.stringify(['a', 'b']) }),
-      entry({ node_id: 's0.sn.words', worksheet_id: 'w1', cell_key: 'a__feature', text: 'refrain' }),
-      entry({ node_id: 's0.sn.words', worksheet_id: 'w1', cell_key: 'a__idea', text: 'keep the refrain' }),
-      entry({ node_id: 's0.sn.words', worksheet_id: 'w1', cell_key: 'a', is_priority: true }),
-      // an unstarred row is not a priority
-      entry({ node_id: 's0.sn.words', worksheet_id: 'w1', cell_key: 'b__feature', text: 'not starred' }),
     ]
     const s = translationSummary(entries, 'f1', 'w1')
     expect(s.chosenGenre).toBe('Sung lament')
     expect(s.purpose.find((f) => f.label === 'What it is about')?.value).toBe('A cry for rescue')
-    expect(s.priorities).toHaveLength(1)
-    expect(s.priorities[0].value).toContain('refrain')
-    expect(s.priorities[0].value).toContain('keep the refrain')
   })
 })

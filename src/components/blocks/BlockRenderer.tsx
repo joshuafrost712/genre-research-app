@@ -32,7 +32,6 @@ import {
   setBlockNotApplicable,
   setRowAsked,
   setRowFollowUp,
-  setRowPriority,
   upsertEntry,
   useAllEntries,
   useEntry,
@@ -1063,7 +1062,7 @@ function SectionRecall({ ctx, sourceSubId }: { ctx: ActiveContext; sourceSubId: 
       </div>
       <ul className="flex flex-col gap-0.5">
         {fields.map((f, i) => (
-          <li key={i} className={f.starred ? 'text-gray-800' : 'text-gray-600'}>
+          <li key={i} className="text-gray-600">
             <span className="text-gray-400">{f.label}:</span> {f.value}
           </li>
         ))}
@@ -1074,8 +1073,8 @@ function SectionRecall({ ctx, sourceSubId }: { ctx: ActiveContext; sourceSubId: 
 
 /**
  * The 2e decisions recap: purpose, chosen genre, the big-picture decisions from
- * 2c, the Required features with the team's plans from 2d, and any starred
- * priorities — everything decided so far, in view while drafting.
+ * 2c, and the Required features with the team's plans from 2d — everything
+ * decided so far, in view while drafting.
  */
 function TranslationSummaryBlock({ ctx }: { ctx: ActiveContext }) {
   const entries = useAllEntries(ctx)
@@ -1094,7 +1093,6 @@ function TranslationSummaryBlock({ ctx }: { ctx: ActiveContext }) {
   const empty =
     s.purpose.length === 0 &&
     !s.chosenGenre &&
-    s.priorities.length === 0 &&
     macro.length === 0 &&
     required.length === 0
   if (empty) return null
@@ -1144,19 +1142,6 @@ function TranslationSummaryBlock({ ctx }: { ctx: ActiveContext }) {
               <li key={i} className="text-gray-700">
                 <span className="text-gray-400">{f.areaLabel}:</span>{' '}
                 {f.idea ? `${f.text} → ${f.idea}` : `${f.text} (no plan yet)`}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {s.priorities.length > 0 && (
-        <>
-          <div className="mt-2 text-xs font-medium text-gray-500">Your starred priorities</div>
-          <ul className="flex flex-col gap-0.5">
-            {s.priorities.map((f, i) => (
-              <li key={i} className="text-gray-700">
-                <span className="text-amber-500">★</span>{' '}
-                <span className="text-gray-400">{f.label}:</span> {f.value}
               </li>
             ))}
           </ul>
@@ -1310,9 +1295,6 @@ function RepeatableList({ ctx, node, layer }: BlockProps) {
     <div className="flex flex-col gap-2">
       {rowIds.map((rowId) => (
         <div key={rowId} className="flex items-start gap-2">
-          {node.priorityEligible && (
-            <PriorityStar ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
-          )}
           {node.askTracking && (
             <AskedToggle ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
           )}
@@ -1332,7 +1314,6 @@ function RepeatableList({ ctx, node, layer }: BlockProps) {
       {rowIds.length > 0 && (
         <p className="text-[11px] text-gray-400">
           <span className="text-violet-500">⚑</span> Flag one to come back to it later.
-          {node.priorityEligible && <> <span className="text-amber-500">★</span> marks your most important.</>}
         </p>
       )}
       <AddButton label="Add item" onClick={() => addRow(ctx, node.id, layer)} />
@@ -1389,9 +1370,6 @@ function RepeatableTable({ ctx, node, layer, mode }: BlockProps & { mode: DepthM
             onOpen={(idx) => setOpen({ rowId, idx })}
           />
         ),
-      )}
-      {node.priorityEligible && node.priorityMax != null && (
-        <p className="text-[11px] text-gray-400">Mark your top {node.priorityMax} with the star.</p>
       )}
       <AddButton label="Add row" onClick={addAndOpen} />
     </div>
@@ -1462,9 +1440,6 @@ function RowSummary({
     <div className="rounded-lg border border-gray-200 bg-white p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          {node.priorityEligible && (
-            <PriorityStar ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
-          )}
           {!fixedTitle && <RowFollowUp ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />}
         </div>
         {!fixedTitle && <RemoveButton onClick={() => removeRow(ctx, node.id, layer, rowId)} />}
@@ -1597,11 +1572,6 @@ function RowEditor({
     <div className="rounded-lg border-2 border-gray-800 bg-white p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          {/* Star is reachable while the row is open, so the last/new entry can be
-              starred without adding another row (feedback #26). */}
-          {node.priorityEligible && (
-            <PriorityStar ctx={ctx} nodeId={node.id} layer={layer} rowId={rowId} />
-          )}
           <span className="min-w-0 truncate text-sm font-medium text-gray-800">{header}</span>
         </div>
         <button type="button" onClick={onClose} className="shrink-0 text-xs text-gray-500 hover:underline">
@@ -1729,31 +1699,6 @@ function cellSummary(entry: ReturnType<typeof useEntry>, col: Column): string {
       .join(', ')
   }
   return (entry.text ?? '').trim()
-}
-
-function PriorityStar({
-  ctx,
-  nodeId,
-  layer,
-  rowId,
-}: {
-  ctx: ActiveContext
-  nodeId: string
-  layer: Layer
-  rowId: string
-}) {
-  const entry = useEntry(ctx, nodeId, layer, rowId)
-  const on = !!entry?.is_priority
-  return (
-    <button
-      type="button"
-      aria-label={on ? 'Unmark priority' : 'Mark priority'}
-      onClick={() => setRowPriority(ctx, nodeId, layer, rowId, !on)}
-      className={`text-lg leading-none ${on ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
-    >
-      {on ? '★' : '☆'}
-    </button>
-  )
 }
 
 function AskedToggle({

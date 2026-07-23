@@ -1,6 +1,12 @@
 import { useState } from 'react'
-import { NavLink, useParams } from 'react-router-dom'
-import { findNode, stageRoute, workspaces, type JourneyStage } from '../lib/content/loader'
+import { NavLink, useLocation, useParams } from 'react-router-dom'
+import {
+  findNode,
+  stageRoute,
+  workspaces,
+  type JourneyStage,
+  type StageGroup,
+} from '../lib/content/loader'
 import { visibleAtDepth, type DepthMode, type GuideNode } from '../schema/types'
 import { useDepthMode } from './DepthModeContext'
 import { useProgress } from './useProgress'
@@ -27,7 +33,6 @@ const QUICK_LINKS: { to: string; label: string; end?: boolean }[] = [
   { to: '/routing', label: 'Sort notes with AI' },
   { to: '/review', label: 'Review AI suggestions' },
   { to: '/genres', label: 'Passages & Genres' },
-  { to: '/priorities', label: 'Your priorities' },
   { to: '/follow-up', label: 'Follow up' },
   { to: '/export', label: 'Export' },
   { to: '/help', label: 'Help' },
@@ -150,6 +155,12 @@ function StageNav({
   const genre = useNameTokens()
   const [collapsed, setCollapsed] = useState(true)
 
+  // A multi-group stage (describe: 1b/1c/1d/1e) renders as a nested tree with a
+  // landing link, its 1d/1e groups nesting their sub-pages one level deeper.
+  if (stage.groups && stage.groups.length > 0) {
+    return <NestedStageNav stage={stage} mode={mode} onNavigate={onNavigate} />
+  }
+
   const subs = stage.subIds
     .map((id) => findNode(id)?.node)
     .filter((n): n is GuideNode => !!n)
@@ -229,6 +240,163 @@ function StageNav({
               </li>
             )
           })}
+        </ul>
+      )}
+    </li>
+  )
+}
+
+/**
+ * The describe stage's two-level menu: a collapsible whose label opens the
+ * landing page, holding leaf pages (1b, 1c) and further-nested groups (1d, 1e)
+ * whose sub-pages indent one more level. Mirrors feedback #5's request that the
+ * side menu reflect the process structure at a glance.
+ */
+function NestedStageNav({
+  stage,
+  mode,
+  onNavigate,
+}: {
+  stage: JourneyStage
+  mode: DepthMode
+  onNavigate?: () => void
+}) {
+  const { nodeId } = useParams()
+  const { pathname } = useLocation()
+  const genre = useNameTokens()
+  const landing = stage.route ?? stageRoute(stage)
+  const active = pathname.startsWith('/describe') || (!!nodeId && stage.subIds.includes(nodeId))
+  const [collapsed, setCollapsed] = useState(true)
+  const open = !collapsed || active
+
+  return (
+    <li>
+      <div className="flex items-stretch">
+        <NavLink
+          to={landing}
+          onClick={onNavigate}
+          end
+          className={({ isActive }) =>
+            `flex flex-1 items-center truncate rounded px-2 py-1.5 font-medium ${
+              isActive ? 'bg-gray-800 text-white' : 'text-gray-700 hover:bg-gray-100'
+            }`
+          }
+        >
+          <span className="truncate" data-dfb-node={stage.titleNodeId} data-dfb-field="label">
+            {resolveGenreTokens(stage.title, genre)}
+          </span>
+        </NavLink>
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          aria-label={open ? 'Collapse' : 'Expand'}
+          className="ml-1 rounded px-2 text-gray-400 hover:bg-gray-100"
+        >
+          {open ? '−' : '+'}
+        </button>
+      </div>
+      {open && (
+        <ul className="mt-0.5 flex flex-col gap-0.5 pl-3">
+          {stage.groups!.map((group) => (
+            <GroupNav key={group.nodeId} group={group} mode={mode} onNavigate={onNavigate} />
+          ))}
+        </ul>
+      )}
+    </li>
+  )
+}
+
+/** One entry inside the describe menu: a leaf page link, or a nested sub-group. */
+function GroupNav({
+  group,
+  mode,
+  onNavigate,
+}: {
+  group: StageGroup
+  mode: DepthMode
+  onNavigate?: () => void
+}) {
+  const { nodeId } = useParams()
+  const { pathname } = useLocation()
+  const genre = useNameTokens()
+  // Declared before any early return so hook order stays stable (rules-of-hooks);
+  // only the nested-group branch below actually uses it.
+  const [collapsed, setCollapsed] = useState(true)
+  const node = findNode(group.nodeId)?.node
+  if (!node) return null
+
+  // A leaf page (1b, 1c): a single link.
+  if (!group.childIds || group.childIds.length === 0) {
+    return (
+      <li>
+        <NavLink
+          to={group.route}
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            `block truncate rounded px-2 py-1.5 ${
+              isActive || nodeId === group.nodeId
+                ? 'bg-gray-800 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`
+          }
+        >
+          {resolveGenreTokens(node.label, genre)}
+        </NavLink>
+      </li>
+    )
+  }
+
+  // A nested group (1d, 1e): landing link + collapsible sub-pages.
+  const children = group.childIds
+    .map((id) => findNode(id)?.node)
+    .filter((n): n is GuideNode => !!n)
+    .filter((n) => visibleAtDepth(n, mode))
+  const containsActive = pathname === group.route || (nodeId ? group.childIds.includes(nodeId) : false)
+  const open = !collapsed || containsActive
+
+  return (
+    <li>
+      <div className="flex items-stretch">
+        <NavLink
+          to={group.route}
+          onClick={onNavigate}
+          end
+          className={({ isActive }) =>
+            `flex flex-1 items-center truncate rounded px-2 py-1.5 ${
+              isActive ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`
+          }
+        >
+          <span className="truncate">{resolveGenreTokens(node.label, genre)}</span>
+        </NavLink>
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          aria-label={open ? 'Collapse' : 'Expand'}
+          className="ml-1 rounded px-2 text-gray-400 hover:bg-gray-100"
+        >
+          {open ? '−' : '+'}
+        </button>
+      </div>
+      {open && (
+        <ul className="mt-0.5 flex flex-col gap-0.5 pl-3">
+          {children.map((sub) => (
+            <li key={sub.id}>
+              <NavLink
+                to={`/worksheet/${sub.id}`}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `block truncate rounded px-2 py-1.5 ${
+                    isActive || nodeId === sub.id
+                      ? 'bg-gray-800 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`
+                }
+              >
+                {resolveGenreTokens(sub.label, genre)}
+              </NavLink>
+            </li>
+          ))}
         </ul>
       )}
     </li>

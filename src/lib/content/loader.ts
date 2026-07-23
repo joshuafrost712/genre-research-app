@@ -170,6 +170,20 @@ export function navSubsectionOf(id: string): string | null {
  */
 export type WorkspaceId = 'w1' | 'w2'
 
+/**
+ * A navigable entry inside a stage's landing page and its nested sidebar group.
+ * A leaf (no `childIds`) links straight to a worksheet page; a group with
+ * `childIds` links to its own landing page and nests its sub-pages one level in.
+ */
+export interface StageGroup {
+  /** Content node the entry's title comes from (a page or a container group). */
+  nodeId: string
+  /** Where this entry's link / card goes (a worksheet page or a landing route). */
+  route: string
+  /** Sub-pages shown on the entry's landing and nested under it in the sidebar. */
+  childIds?: string[]
+}
+
 export interface JourneyStage {
   id: string
   workspace: WorkspaceId
@@ -178,6 +192,13 @@ export interface JourneyStage {
   subIds: string[]
   /** Route for stages that are an app page rather than worksheet subsections. */
   route?: string
+  /**
+   * Two-level navigation for a multi-group stage (the describe stage: 1b, 1c,
+   * and the 1d/1e groups that each open a landing page of their sub-pages).
+   * When present, the sidebar and the stage's landing page use this instead of
+   * the flat `subIds` list.
+   */
+  groups?: StageGroup[]
   /**
    * The content node id this stage's title is derived from, so the UI can tag
    * the rendered title for edit-in-place. Set by `journey()`; undefined only
@@ -205,6 +226,13 @@ const JOURNEY: JourneyStage[] = [
     title: '1b–1e: Describe a Genre',
     blurb: 'For each genre: its purposes, its social side, its big picture, and its style details.',
     subIds: ['s1b', 's2eth', 's2b', 's2a', 's2c', 's2d', 's3a', 's3b', 's3c', 's3d', 's3e', 's3f'],
+    route: '/describe',
+    groups: [
+      { nodeId: 's1b', route: '/worksheet/s1b' },
+      { nodeId: 's2eth', route: '/worksheet/s2eth' },
+      { nodeId: 's2', route: '/describe/big-picture', childIds: ['s2b', 's2a', 's2c', 's2d'] },
+      { nodeId: 's3', route: '/describe/style', childIds: ['s3a', 's3b', 's3c', 's3d', 's3e', 's3f'] },
+    ],
   },
   {
     id: 'summary',

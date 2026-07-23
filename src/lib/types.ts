@@ -102,7 +102,6 @@ export interface Entry {
   proposed_text?: string
   proposed_note_id?: string
   is_concern_flag?: boolean
-  is_priority?: boolean
   is_not_applicable?: boolean
   is_asked?: boolean // ask-tracking: the researcher has asked this person/at this place/this question
   schema_version: string

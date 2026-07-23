@@ -170,6 +170,7 @@ export function ChooseGenre() {
 
   const passage = focusText?.reference?.trim() || 'this passage'
   const purposeNode = findNode('s0.purpose')?.node
+  const intendedUseNode = findNode('s0.purpose.intended_use')?.node
   const candidatesNode = findNode('s0.genre_choice.candidates')?.node
 
   if (genres.length === 0) {
@@ -352,12 +353,22 @@ export function ChooseGenre() {
         )}
       </section>
 
-      {/* Step 3: the social comb with fit flags */}
+      {/* Step 3: how the translation will be used (moved here from 2a, feedback #12) */}
       <section className="rounded-xl border border-gray-200 bg-white p-4">
         <StepHeading
           n={3}
+          title="Say how people will use it"
+          hint="Knowing how and where people will use this translation helps you weigh the social factors and choose the best genre."
+        />
+        {intendedUseNode && <BlockRenderer ctx={ctx} node={intendedUseNode} mode={mode} />}
+      </section>
+
+      {/* Step 4: the social comb with fit flags */}
+      <section className="rounded-xl border border-gray-200 bg-white p-4">
+        <StepHeading
+          n={4}
           title="Weigh the social factors"
-          hint="Tap a flag to mark how each factor fits THIS passage: green = good fit (1 tap), yellow = a question to settle (2 taps), red = a warning (3 taps); a 4th tap clears it. The colors are for seeing at a glance — they never decide for you."
+          hint="Tap a flag to mark how each factor fits THIS passage: green = good fit (1 tap), yellow = a question to settle (2 taps), red = a warning (3 taps); a 4th tap clears it. The colors are for seeing at a glance — they never decide for you. See the Note Taking Space below for a place to record more of your thoughts on these factors."
         />
         {kept.length === 0 ? (
           <p className="text-sm text-gray-500">Keep at least one genre in step 2 first.</p>
@@ -404,10 +415,10 @@ export function ChooseGenre() {
         )}
       </section>
 
-      {/* Step 4: choose */}
+      {/* Step 5: choose */}
       <section className="rounded-xl border border-gray-200 bg-white p-4">
         <StepHeading
-          n={4}
+          n={5}
           title="Choose the genre for this passage"
           hint="Your choice stays locked in until you change it. Anything you flagged yellow or red will be shown once more before you commit."
         />

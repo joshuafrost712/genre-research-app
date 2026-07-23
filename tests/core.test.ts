@@ -7,7 +7,6 @@ import {
   findEntry,
   getRowIds,
   setBlockNotApplicable,
-  setRowPriority,
   upsertEntry,
 } from '../src/lib/storage/entries'
 import { createCapturedNote, routeNoteToNode } from '../src/lib/storage/notes'
@@ -56,14 +55,10 @@ describe('Entry CRUD + container resolution', () => {
     expect(cell).toBeUndefined()
   })
 
-  it('priority and not-applicable flags persist', async () => {
+  it('not-applicable flag persists', async () => {
     const ctx = await ensureActiveContext()
     await setBlockNotApplicable(ctx, 's2a.how', 'genre', true)
     expect((await findEntry(ctx, 's2a.how', 'genre'))?.is_not_applicable).toBe(true)
-
-    const rowId = await addRow(ctx, 's3a.features', 'genre')
-    await setRowPriority(ctx, 's3a.features', 'genre', rowId, true)
-    expect((await findEntry(ctx, 's3a.features', 'genre', rowId))?.is_priority).toBe(true)
   })
 })
 

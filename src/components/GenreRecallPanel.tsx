@@ -22,12 +22,15 @@ export function GenreRecallPanel({
   sourceSubId,
   genreName,
   detailed = false,
+  tablesLabel,
 }: {
   ctx: ActiveContext
   sourceSubId: string
   genreName: string
   /** Show each table row's other columns in parentheses (2c emotions conveyance). */
   detailed?: boolean
+  /** Names what this section's tables/charts are for, e.g. "for showing specific emotions". */
+  tablesLabel?: string
 }) {
   const entries = useAllEntries(ctx)
   const [mode, setMode] = useState<'view' | 'confirm' | 'edit'>('view')
@@ -99,7 +102,7 @@ export function GenreRecallPanel({
       )}
 
       {mode === 'edit' ? (
-        <EditFields ctx={ctx} sub={ref.node} />
+        <EditFields ctx={ctx} sub={ref.node} tablesLabel={tablesLabel} />
       ) : fields.length === 0 ? (
         <p className="text-xs text-gray-500">
           Nothing recorded there yet.{' '}
@@ -122,7 +125,15 @@ export function GenreRecallPanel({
 }
 
 /** Inline editors for the subsection's text prompts, with history per field. */
-function EditFields({ ctx, sub }: { ctx: ActiveContext; sub: GuideNode }) {
+function EditFields({
+  ctx,
+  sub,
+  tablesLabel,
+}: {
+  ctx: ActiveContext
+  sub: GuideNode
+  tablesLabel?: string
+}) {
   const genre = useGenreName()
   const leaves = answerableLeaves(sub, 'comprehensive')
   const textLeaves = leaves.filter((l) => l.type === 'short_text' || l.type === 'long_text')
@@ -134,7 +145,7 @@ function EditFields({ ctx, sub }: { ctx: ActiveContext; sub: GuideNode }) {
       ))}
       {hasOther && (
         <p className="text-[11px] text-gray-500">
-          Tables and charts are edited on the{' '}
+          Tables and charts{tablesLabel ? ` ${tablesLabel}` : ''} are edited on the{' '}
           <Link to={`/worksheet/${sub.id}`} className="text-sky-700 hover:underline">
             full page →
           </Link>

@@ -74,7 +74,7 @@
         {
           "id": "s1b",
           "type": "group",
-          "label": "1b: Genre Purpose",
+          "label": "1b: Purpose of {genre}",
           "layer": "genre",
           "guidance": "Three basic things about {genre}: a short description, the topics it usually covers, and the purposes it serves in the community. This is the information you will use later to match genres with passages.",
           "children": [
@@ -268,7 +268,7 @@
         {
           "id": "s2b",
           "type": "group",
-          "label": "1d.1: The Parts (Sections) of {genre}",
+          "label": "1d.1: Sections -- Parts of {genre}",
           "layer": "genre",
           "children": [
             {
@@ -328,7 +328,7 @@
         {
           "id": "s2a",
           "type": "group",
-          "label": "1d.2: How {genre} Makes Things Stand Out (prominence)",
+          "label": "1d.2: Prominence -- How {genre} Makes Things Stand Out",
           "layer": "genre",
           "children": [
             {
@@ -368,7 +368,7 @@
         {
           "id": "s2c",
           "type": "group",
-          "label": "1d.3: How {genre} Shows Feelings (Emotions)",
+          "label": "1d.3: Emotions -- How {genre} Shows Feelings",
           "layer": "genre",
           "children": [
             {
@@ -381,7 +381,7 @@
             {
               "id": "s2c.chart",
               "type": "repeatable_row_table",
-              "label": "How does {genre} show each feeling? (Use one row per feeling.)",
+              "label": "How does {genre} show each type of feeling it can communicate? (Use one row per feeling.)",
               "layer": "genre",
               "minDepth": "standard",
               "footnote": "You can add to these answers using the detailed style features (1e). For example, a certain instrument may stand for sadness.",
@@ -448,7 +448,7 @@
         {
           "id": "s2d",
           "type": "group",
-          "label": "1d.4: How {genre} Links Related Ideas (connections)",
+          "label": "1d.4: Connections -- How {genre} Links Related Ideas",
           "layer": "genre",
           "children": [
             {
@@ -488,31 +488,37 @@
               "columns": [
                 {
                   "id": "sounds",
-                  "label": "Sounds (instruments, the voice, matching sounds)",
+                  "label": "Sounds (similar or matching instruments, voices, or sounds)",
                   "cellType": "long_text",
                   "minDepth": "standard"
                 },
                 {
                   "id": "structural",
-                  "label": "Position (for example, lines that are built the same way)",
+                  "label": "Position (similar or matching structure, for example, lines that are built the same way)",
                   "cellType": "long_text",
                   "minDepth": "standard"
                 },
                 {
                   "id": "visual",
-                  "label": "Things to look at (colors, flags, objects)",
+                  "label": "Things to look at (similar or matching colors, flags, or objects)",
                   "cellType": "long_text",
                   "minDepth": "standard"
                 },
                 {
                   "id": "physical",
-                  "label": "Body (gestures, facial expressions)",
+                  "label": "Body (similar or matching movements, gestures, or facial expressions)",
                   "cellType": "long_text",
                   "minDepth": "standard"
                 },
                 {
                   "id": "linguistic",
-                  "label": "Word tricks (for example, words built from the same root, like 'sing / singer / song')",
+                  "label": "Word tricks (similar or matching word-building, like 'sing / singer / song')",
+                  "cellType": "long_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "other",
+                  "label": "Other (another way {genre} connects related material)",
                   "cellType": "long_text",
                   "minDepth": "standard"
                 }
@@ -534,13 +540,13 @@
         {
           "id": "s3a",
           "type": "group",
-          "label": "1e.1: How {genre} Uses Words",
+          "label": "1e.1: Words of {genre}",
           "layer": "genre",
           "children": [
             {
               "id": "s3a.expected",
               "type": "long_text",
-              "label": "Does this genre use set phrases or sayings? Where in the piece do they come? (For example, a saying like 'better to be poor and honest than rich and cruel.') Are some words repeated at the start of lines? Are names, or words like 'no' and 'not', used in special ways?",
+              "label": "Does this genre use set phrases or sayings? Where in the piece do they come? (For example, a formula that always opens a poem.) Are some words repeated at the start of lines?",
               "layer": "genre",
               "minDepth": "quick"
             },
@@ -561,7 +567,7 @@
             {
               "id": "s3a.constructions",
               "type": "long_text",
-              "label": "Does this genre build its lines in special ways? (For example: saying the same thing twice in different words; a sentence that runs over into the next line; a question that does not need an answer; or leaving out a word that the listener already understands.)",
+              "label": "Does this genre build its lines in special ways? (For example: saying the same thing twice in different words (parallelism); a sentence that runs over into the next line (enjambment); a question that does not need an answer (rhetorical question); or leaving out a word that the listener already understands (ellipsis).)",
               "layer": "genre",
               "minDepth": "standard"
             },
@@ -572,8 +578,6 @@
               "guidance": "Pull out the 3 to 5 word features that stand out most from your answers above, and mark each one Required or Common.",
               "layer": "genre",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -605,7 +609,7 @@
         {
           "id": "s3b",
           "type": "group",
-          "label": "1e.2: How {genre} Is Put Together (Discourse)",
+          "label": "1e.2: Flow (discourse) of {genre}",
           "layer": "genre",
           "children": [
             {
@@ -618,14 +622,14 @@
             {
               "id": "s3b.characters",
               "type": "long_text",
-              "label": "How are people named or referenced in this genre? The first time someone is mentioned, how are they named? After that, do they use a short name, a word like 'he' or 'she', or no name at all? How does the listener know who is being talked about? (For example: first 'the old chief came'; after that, just 'he said'.)",
+              "label": "How are people named or referenced in this genre? The first time someone is mentioned, how are they named? After that, are they mentioned with a shorter name, a pronoun like 'he' or 'she', or no name at all? How does the listener know who is being talked about? (For example: first 'the old chief' came; after that, just 'he' spoke to the people.)",
               "layer": "genre",
               "minDepth": "standard"
             },
             {
               "id": "s3b.verbs",
               "type": "long_text",
-              "label": "How are action words (verbs) used? Do some carry the main story while others give background detail? Are some verb forms used only in certain parts (for example, one form for the main events and another for side comments)?",
+              "label": "How are action words (verbs) used? Do some carry the main story while others give background detail? Are some verb forms used only in certain parts of {genre} (for example, one form for the main events and another for side comments)?",
               "layer": "genre",
               "minDepth": "standard"
             },
@@ -639,7 +643,7 @@
             {
               "id": "s3b.particles",
               "type": "long_text",
-              "label": "What, if any, small words (particles) appear again and again (for example, a word that means 'thus' or 'look!')?",
+              "label": "What, if any, small words (particles) appear again and again (for example, a word that means 'thus' or 'look!')? Any special use of negatives (words like 'no' or 'not')?",
               "layer": "genre",
               "minDepth": "standard"
             },
@@ -650,8 +654,6 @@
               "guidance": "Pull out the 3 to 5 features that stand out most from your answers above, and mark each one Required or Common.",
               "layer": "genre",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -683,48 +685,48 @@
         {
           "id": "s3c",
           "type": "group",
-          "label": "1e.3: The Sounds of {genre}",
+          "label": "1e.3: Sounds of {genre}",
           "layer": "genre",
           "children": [
             {
               "id": "s3c.rhythm",
               "type": "long_text",
-              "label": "How is the rhythm made? (For example: the number of beats or syllables in each line; a steady pulse you can feel; chanting.)",
+              "label": "How is the rhythm made? (For example: the number of beats or syllables in each line or other unit; a steady pulse you can feel; a predictable pattern of strong and weak beats (meter).)",
               "layer": "genre",
               "minDepth": "quick"
             },
             {
               "id": "s3c.rhyme",
               "type": "long_text",
-              "label": "Does it use rhyme at the ends? (between words, between lines, or between verses?)",
+              "label": "In what ways, if at all, does {genre} use rhyme at the ends of words, lines, or verses? Note any patterns. (For example, A-A-B-B for two lines that end with the same sounds, followed by two more lines that end with a different same sound.)",
               "layer": "genre",
               "minDepth": "standard"
             },
             {
               "id": "s3c.other_rhyme",
               "type": "long_text",
-              "label": "Are there other matching sounds? (For example: words that start with the same sound; the same vowel sound repeated; the same consonant sound repeated.) Where do they come, and how?",
+              "label": "How, if at all, does {genre} use matching sounds? (For example: words that start with the same sound (alliteration); the same vowel sound repeated (assonance); the same consonant sound repeated (consonance).) Where do they appear?",
               "layer": "genre",
               "minDepth": "standard"
             },
             {
               "id": "s3c.vocables",
               "type": "long_text",
-              "label": "Does it use sounds that carry no meaning, like 'la-la-la' or 'hey'? Where do they appear, and what are they for?",
+              "label": "How, if at all, does {genre} feature vocables, which are sounds that carry no meaning, like 'la-la-la' or 'hey'? Where do they appear, and what are they for?",
               "layer": "genre",
               "minDepth": "standard"
             },
             {
               "id": "s3c.senses",
               "type": "long_text",
-              "label": "Does it use words that imitate sounds or actions? (For example: 'boom' or 'splash', or a word that paints how something moves.)",
+              "label": "How, if at all, does {genre} use ideophones or onomatopoeia, words that imitate sounds or actions? (For example: 'boom' or 'splash', or a word that paints how something moves.)",
               "layer": "genre",
               "minDepth": "standard"
             },
             {
               "id": "s3c.tonal",
               "type": "long_text",
-              "label": "If your language uses tones, how do the tones work together with the rhythm and the matching sounds above?",
+              "label": "If your language uses tones, how do the tones work together with the rhythm and sound features mentioned above? Do the tones appear in predictable patterns throughout the genre? What else might be important to know about how tones are used in this genre?",
               "layer": "genre",
               "minDepth": "standard"
             },
@@ -735,8 +737,6 @@
               "guidance": "Pull out the 3 to 5 features that stand out most from your answers above, and mark each one Required or Common.",
               "layer": "genre",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -774,7 +774,7 @@
             {
               "id": "s3d.types",
               "type": "repeatable_row_table",
-              "label": "What picture-language does this genre use? Note whether it is used, and how (where in the piece, about what topics, alone or in groups).",
+              "label": "What picture-language does this genre use? Add rows and choose features from the drop-down menu under \"new item.\" For each item you select, you can also note HOW it is used (where in the piece, about what topics, alone or in groups).",
               "layer": "genre",
               "minDepth": "quick",
               "columns": [
@@ -832,7 +832,7 @@
                 },
                 {
                   "id": "usage",
-                  "label": "Is it used, and how?",
+                  "label": "How is this type of picture language used?",
                   "cellType": "long_text",
                   "minDepth": "quick"
                 }
@@ -852,8 +852,6 @@
               "guidance": "Pull out the 3 to 5 features that stand out most from your answers above, and mark each one Required or Common.",
               "layer": "genre",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -885,7 +883,7 @@
         {
           "id": "s3e",
           "type": "group",
-          "label": "1e.5: How {genre} Is Performed",
+          "label": "1e.5: Performance of {genre}",
           "layer": "genre",
           "children": [
             {
@@ -898,7 +896,7 @@
             {
               "id": "s3e.movement",
               "type": "long_text",
-              "label": "How does movement add to it? (body positions, gestures, facial expressions)",
+              "label": "How does movement add to {genre}? (body positions, movements, gestures, facial expressions)",
               "layer": "genre",
               "minDepth": "standard"
             },
@@ -916,8 +914,6 @@
               "guidance": "Pull out the 3 to 5 features that stand out most from your answers above, and mark each one Required or Common.",
               "layer": "genre",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -949,13 +945,13 @@
         {
           "id": "s3f",
           "type": "group",
-          "label": "1e.6: Other Things You Notice in {genre}",
+          "label": "1e.6: Other Style features of {genre}",
           "layer": "genre",
           "children": [
             {
               "id": "s3f.word_order",
               "type": "long_text",
-              "label": "Word order: is the order of the doer, the action, and the thing fixed? When does it change? Where in the line does a new idea (something the listener has not heard yet) usually appear?",
+              "label": "Word order: is the order of the doer, the action, and the thing fixed (S-V-O)? When does it change? Where in the line does a new idea (something the listener has not heard yet) usually appear?",
               "layer": "genre",
               "minDepth": "standard"
             },
@@ -983,26 +979,24 @@
             {
               "id": "s3f.density",
               "type": "long_text",
-              "label": "How packed is it? (How much repetition? How much new information in each line? How fast do new ideas come?)",
+              "label": "How packed/dense is {genre}? (How much repetition? How much new information in each line? How fast do new ideas come?)",
               "layer": "genre",
               "minDepth": "standard"
             },
             {
               "id": "s3f.other",
               "type": "long_text",
-              "label": "Anything else about this genre that does not fit the groups above?",
+              "label": "Is there anything else important about {genre} that does not fit into any other category in describing the genre?",
               "layer": "genre",
               "minDepth": "standard"
             },
             {
               "id": "s3f.features",
               "type": "repeatable_row_table",
-              "label": "Other special features of {genre} to remember",
+              "label": "Other style features of {genre} to remember",
               "guidance": "Pull out the features that stand out most from your answers above, and mark each one Required or Common.",
               "layer": "genre",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -1050,13 +1044,6 @@
               "id": "s0.setup.passages",
               "type": "passage_bank",
               "label": "Your passages",
-              "layer": "focusText",
-              "minDepth": "quick"
-            },
-            {
-              "id": "s0.purpose.intended_use",
-              "type": "long_text",
-              "label": "How will people use this translation / Scripture-inspired artistic creation? Will they sing it, listen to it, read it, or join in? Where will they use it? (Example: sung together in church.)",
               "layer": "focusText",
               "minDepth": "quick"
             }
@@ -1130,6 +1117,13 @@
                   ]
                 }
               ]
+            },
+            {
+              "id": "s0.purpose.intended_use",
+              "type": "long_text",
+              "label": "How will people use this translation / Scripture-inspired artistic creation? Will they sing it, listen to it, read it, or join in? Where will they use it? (Example: sung together in church.)",
+              "layer": "focusText",
+              "minDepth": "quick"
             },
             {
               "id": "s0.genre_choice.candidates",
@@ -1345,8 +1339,6 @@
               "rowSource": "s3a",
               "layer": "synthesis",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -1369,8 +1361,6 @@
               "rowSource": "s3b",
               "layer": "synthesis",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -1393,8 +1383,6 @@
               "rowSource": "s3c",
               "layer": "synthesis",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -1417,8 +1405,6 @@
               "rowSource": "s3d",
               "layer": "synthesis",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -1441,8 +1427,6 @@
               "rowSource": "s3e",
               "layer": "synthesis",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",
@@ -1465,8 +1449,6 @@
               "rowSource": "s3f",
               "layer": "synthesis",
               "minDepth": "standard",
-              "priorityEligible": true,
-              "priorityMax": 2,
               "columns": [
                 {
                   "id": "feature",

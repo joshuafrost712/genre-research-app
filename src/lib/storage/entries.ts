@@ -83,7 +83,6 @@ export async function findEntry(
 export interface EntryPatch {
   text?: string
   value?: string
-  is_priority?: boolean
   is_not_applicable?: boolean
   is_asked?: boolean
   is_concern_flag?: boolean
@@ -117,7 +116,6 @@ export async function upsertEntry(
     cell_key: cellKey,
     text: patch.text ?? '',
     value: patch.value,
-    is_priority: patch.is_priority,
     is_not_applicable: patch.is_not_applicable,
     is_asked: patch.is_asked,
     is_concern_flag: patch.is_concern_flag,
@@ -255,21 +253,6 @@ export async function setBlockNotApplicable(
   value: boolean,
 ): Promise<void> {
   await upsertEntry(ctx, nodeId, layer, { is_not_applicable: value })
-}
-
-/**
- * Toggle a row-level priority flag for a repeatable table/list row, stored on the
- * row-level entry (cell_key = rowId). Table cells live at rowId__colId, so the
- * rowId entry is free to carry row flags.
- */
-export async function setRowPriority(
-  ctx: ActiveContext,
-  nodeId: string,
-  layer: Layer,
-  rowId: string,
-  value: boolean,
-): Promise<void> {
-  await upsertEntry(ctx, nodeId, layer, { is_priority: value }, rowId)
 }
 
 /**

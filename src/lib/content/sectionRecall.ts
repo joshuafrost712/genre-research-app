@@ -17,7 +17,6 @@ import type { GuideNode, SelectOption } from '../../schema/types'
 export interface SummaryField {
   label: string
   value: string
-  starred?: boolean
 }
 
 const ROWS_KEY = '__rows'
@@ -137,15 +136,11 @@ function tableRows(
             .map((d) => `${d.label}: ${d.value}`)
             .join('; ')
         : ''
-    const starred =
-      entries.find((e) => e.node_id === node.id && e.genre_id === genreId && e.cell_key === rowId)
-        ?.is_priority === true
-    return { headline: detail ? `${headline} (${detail})` : headline, starred }
+    return { headline: detail ? `${headline} (${detail})` : headline }
   })
   return rows
     .filter((r) => r.headline)
-    .sort((a, b) => Number(b.starred) - Number(a.starred))
-    .map((r) => ({ label: r.starred ? '★ Key' : '•', value: r.headline, starred: r.starred }))
+    .map((r) => ({ label: '•', value: r.headline }))
 }
 
 /** A short label for a column, first clause before "(" or "?", capped. */
@@ -218,24 +213,13 @@ export function macroDecisions(entries: Entry[], worksheetId: string): DecisionG
 }
 
 /**
- * The drafting-step recap (#23): the psalm purpose, the chosen genre, and the
- * stylistic priorities the team starred, so everything identified is in view
- * while writing the translation.
+ * The drafting-step recap (#23): the psalm purpose and the chosen genre, so
+ * everything identified is in view while writing the translation.
  */
 export interface TranslationSummary {
   purpose: SummaryField[]
   chosenGenre: string
-  priorities: SummaryField[]
 }
-
-const SN_GROUPS: Array<[string, string]> = [
-  ['s0.sn.words', 'Words'],
-  ['s0.sn.discourse', 'How it is put together'],
-  ['s0.sn.sounds', 'Sounds'],
-  ['s0.sn.figurative', 'Picture-language'],
-  ['s0.sn.performance', 'Performance'],
-  ['s0.sn.additional', 'Other'],
-]
 
 export function translationSummary(
   entries: Entry[],
@@ -262,32 +246,5 @@ export function translationSummary(
       ?.text,
   )
 
-  const priorities: SummaryField[] = []
-  for (const [nodeId, label] of SN_GROUPS) {
-    const order = parseIdArray(
-      entries.find((e) => e.node_id === nodeId && e.worksheet_id === worksheetId && e.cell_key === ROWS_KEY)
-        ?.value,
-    )
-    for (const rowId of order) {
-      const starred =
-        entries.find((e) => e.node_id === nodeId && e.worksheet_id === worksheetId && e.cell_key === rowId)
-          ?.is_priority === true
-      if (!starred) continue
-      const feature = trimmed(
-        entries.find(
-          (e) => e.node_id === nodeId && e.worksheet_id === worksheetId && e.cell_key === `${rowId}__feature`,
-        )?.text,
-      )
-      const idea = trimmed(
-        entries.find(
-          (e) => e.node_id === nodeId && e.worksheet_id === worksheetId && e.cell_key === `${rowId}__idea`,
-        )?.text,
-      )
-      if (feature || idea) {
-        priorities.push({ label, value: idea ? `${feature} → ${idea}` : feature })
-      }
-    }
-  }
-
-  return { purpose, chosenGenre, priorities }
+  return { purpose, chosenGenre }
 }

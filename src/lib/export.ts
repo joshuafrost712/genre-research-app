@@ -26,7 +26,6 @@ export interface ExportRow {
   row: string
   column: string
   answer: string
-  priority: string
   notApplicable: string
 }
 
@@ -79,14 +78,12 @@ function parseArray(value?: string): string[] {
 
 /** Build the long-format rows from the entries of one project. */
 export function buildRows(entries: Entry[], names: ExportNames): ExportRow[] {
-  // Row order per (node, container) from the ROWS sidecars, plus the priority set.
+  // Row order per (node, container) from the ROWS sidecars.
   const rowOrder = new Map<string, string[]>()
-  const prioritized = new Set<string>()
   for (const e of entries) {
     if (e.cell_key === ROWS_KEY) {
       rowOrder.set(`${e.node_id}|${containerIdOf(e)}`, parseArray(e.value))
     }
-    if (e.is_priority && e.cell_key) prioritized.add(e.cell_key)
   }
 
   const rows: ExportRow[] = []
@@ -112,7 +109,6 @@ export function buildRows(entries: Entry[], names: ExportNames): ExportRow[] {
         row: '',
         column: '',
         answer: e.text,
-        priority: '',
         notApplicable: '',
       })
       continue
@@ -141,7 +137,6 @@ export function buildRows(entries: Entry[], names: ExportNames): ExportRow[] {
         : colId
           ? (node.columns?.find((c) => c.id === colId)?.label ?? colId)
           : ''
-    const isPriority = (rowId && prioritized.has(rowId)) || e.is_priority
 
     rows.push({
       section: parents[0]?.label ?? '',
@@ -153,7 +148,6 @@ export function buildRows(entries: Entry[], names: ExportNames): ExportRow[] {
       row: rowLabel,
       column: col,
       answer,
-      priority: isPriority ? 'yes' : '',
       notApplicable: na ? 'yes' : '',
     })
   }
@@ -181,7 +175,6 @@ const CSV_HEADERS: [keyof ExportRow, string][] = [
   ['subsection', 'Subsection'],
   ['question', 'Question'],
   ['answer', 'Answer'],
-  ['priority', 'Priority'],
   ['notApplicable', 'Not applicable'],
   ['layer', 'Layer'],
   ['container', 'Container'],
@@ -215,11 +208,11 @@ function sheetTitle(label: string): string {
 }
 
 /**
- * Workbook tabs reproducing Katie's worksheet layout: one tab per section plus a
- * Priorities tab. Pure, so it is testable and shared by the Google Sheets export.
+ * Workbook tabs reproducing Katie's worksheet layout: one tab per section. Pure,
+ * so it is testable and shared by the Google Sheets export.
  */
 export function buildSheetTabs(rows: ExportRow[], names: ExportNames): SheetTab[] {
-  const header = ['Subsection', 'Question', 'Row', 'Column', 'Answer', 'Priority', 'Not applicable']
+  const header = ['Subsection', 'Question', 'Row', 'Column', 'Answer', 'Not applicable']
   const sections = dedupe(rows.map((r) => r.section)).sort()
 
   const tabs: SheetTab[] = sections.map((section) => ({
@@ -230,20 +223,10 @@ export function buildSheetTabs(rows: ExportRow[], names: ExportNames): SheetTab[
       header,
       ...rows
         .filter((r) => r.section === section)
-        .map((r) => [r.subsection, r.question, r.row, r.column, r.answer, r.priority, r.notApplicable]),
+        .map((r) => [r.subsection, r.question, r.row, r.column, r.answer, r.notApplicable]),
     ],
   }))
 
-  const starred = rows.filter((r) => r.priority === 'yes')
-  if (starred.length) {
-    tabs.push({
-      title: 'Priorities',
-      values: [
-        ['Section', 'Subsection', 'Question', 'Answer'],
-        ...starred.map((r) => [r.section, r.subsection, r.question, r.answer]),
-      ],
-    })
-  }
   return tabs
 }
 
@@ -280,8 +263,7 @@ export function buildAiPrompt(rows: ExportRow[], names: ExportNames): string {
       currentSub = sub
     }
     const where = [r.row && `row ${r.row}`, r.column].filter(Boolean).join(', ')
-    const star = r.priority === 'yes' ? ' [PRIORITY]' : ''
-    lines.push(`- ${r.question}${where ? ` (${where})` : ''}: ${r.answer}${star}`)
+    lines.push(`- ${r.question}${where ? ` (${where})` : ''}: ${r.answer}`)
   }
 
   lines.push(

@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../src/lib/storage/db'
 import { ensureActiveContext } from '../src/lib/storage/appState'
-import { addRow, setRowPriority, setBlockNotApplicable, upsertEntry } from '../src/lib/storage/entries'
+import { addRow, setBlockNotApplicable, upsertEntry } from '../src/lib/storage/entries'
 import { buildRows, type ExportNames } from '../src/lib/export'
 import { buildReportModel } from '../src/lib/report/model'
 import { buildDocx } from '../src/lib/report/docx'
@@ -46,17 +46,14 @@ describe('buildReportModel', () => {
     expect(q?.isGrid).toBe(false)
   })
 
-  it('rolls up priorities and marks not-applicable questions', async () => {
+  it('marks not-applicable questions', async () => {
     const ctx = await ensureActiveContext()
     await setBlockNotApplicable(ctx, 's2a.how', 'genre', true)
     const rowId = await addRow(ctx, 's3a.features', 'genre')
     await upsertEntry(ctx, 's3a.features', 'genre', { text: 'Refrain repetition' }, `${rowId}__featureName`)
-    await setRowPriority(ctx, 's3a.features', 'genre', rowId, true)
 
     const entries = await db.entries.where('project_id').equals(ctx.projectId).toArray()
     const model = buildReportModel(buildRows(entries, names), names, meta)
-
-    expect(model.priorities.some((p) => p.answer === 'Refrain repetition')).toBe(true)
 
     const na = model.sections
       .flatMap((s) => s.subsections)

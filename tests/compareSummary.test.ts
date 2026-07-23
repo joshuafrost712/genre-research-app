@@ -58,22 +58,23 @@ describe('compareSummary', () => {
     expect(fields[0].value).not.toContain('other genre')
   })
 
-  it('lists word features starred-first with the how-fixed label', () => {
+  it('lists word features in row order with the how-fixed (Required/Common) label', () => {
     const entries = [
       entry({ node_id: 's3a.expected', genre_id: 'g1', text: 'opening call' }),
       entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: '__rows', value: JSON.stringify(['r1', 'r2']) }),
-      entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r1__feature', text: 'plain feature' }),
-      entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r2__feature', text: 'key feature' }),
+      entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r1__feature', text: 'first feature' }),
+      entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r2__feature', text: 'second feature' }),
       entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r2__modality', value: 'required' }),
-      entry({ node_id: 's3a.features', genre_id: 'g1', cell_key: 'r2', is_priority: true }),
     ]
     const fields = genreWords(entries, 'g1')
     expect(fields[0].value).toBe('opening call')
-    // Among feature rows, the starred one comes before the plain one.
-    const featureFields = fields.filter((f) => f.label.includes('feature') || f.label.includes('Feature'))
-    expect(featureFields[0].label).toBe('★ Key feature')
-    expect(featureFields[0].value).toContain('key feature')
-    expect(featureFields[0].value).toContain('Required')
-    expect(featureFields[1].label).toBe('Feature')
+    // Feature rows follow their stored order (the star/priority feature was removed);
+    // the "how fixed" Required/Common label still rides along.
+    const featureFields = fields.filter((f) => f.label === 'Feature')
+    expect(featureFields).toHaveLength(2)
+    expect(featureFields[0].value).toBe('first feature')
+    expect(featureFields[1].value).toContain('second feature')
+    expect(featureFields[1].value).toContain('how fixed:')
+    expect(featureFields[1].value).toContain('Required')
   })
 })

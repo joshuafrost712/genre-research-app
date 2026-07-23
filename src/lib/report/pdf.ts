@@ -13,7 +13,6 @@ import {
   COLORS,
   FOOTER_LABEL,
   NA_LABEL,
-  PRIORITY_BADGE,
   REPORT_TITLE,
   SIZES,
   hash,
@@ -50,10 +49,7 @@ const tableLayout = {
   paddingRight: () => 6,
 }
 
-function answerCell(answer: string, priority: boolean): Content {
-  if (priority) {
-    return { text: [{ text: answer, style: 'tableCell' }, { text: '  ★', style: 'badge' }] }
-  }
+function answerCell(answer: string): Content {
   return { text: answer, style: 'tableCell' }
 }
 
@@ -73,7 +69,7 @@ function gridContent(q: ReportQuestion): Content[] {
         { text: rl, style: 'tableRowHead' },
         ...q.columns.map((col): Content => {
           const match = q.cells.find((c) => c.row === rl && c.column === col)
-          return answerCell(match?.answer ?? '', !!match?.priority)
+          return answerCell(match?.answer ?? '')
         }),
       ])
     }
@@ -84,7 +80,7 @@ function gridContent(q: ReportQuestion): Content[] {
       { text: 'Answer', style: 'tableHeader' },
     ])
     for (const c of q.cells) {
-      body.push([{ text: c.row || '•', style: 'tableRowHead' }, answerCell(c.answer, c.priority)])
+      body.push([{ text: c.row || '•', style: 'tableRowHead' }, answerCell(c.answer)])
     }
   }
 
@@ -98,7 +94,6 @@ function scalarContent(q: ReportQuestion): Content[] {
     return [label, { text: NA_LABEL, style: 'na' }]
   }
   const runs: Content[] = [{ text: cell?.answer ?? '', style: 'answer' }]
-  if (cell?.priority) runs.push({ text: `  ${PRIORITY_BADGE}`, style: 'badge' })
   return [label, { text: runs }]
 }
 
@@ -124,19 +119,6 @@ export function buildPdf(model: ReportModel): Promise<Blob> {
       margin: [0, 6, 0, 10],
     },
   ]
-
-  if (model.priorities.length) {
-    content.push({ text: 'Priorities', style: 'section', color: hash(COLORS.amber), margin: [0, 4, 0, 4] })
-    for (const p of model.priorities) {
-      content.push({
-        text: [
-          { text: `${p.section} — ${p.subsection}: `, style: 'question' },
-          { text: p.answer, style: 'answer' },
-        ],
-        margin: [0, 0, 0, 2],
-      })
-    }
-  }
 
   for (const section of model.sections) {
     content.push({ text: section.title, style: 'section' })
@@ -170,7 +152,6 @@ export function buildPdf(model: ReportModel): Promise<Blob> {
       subsection: { fontSize: SIZES.subsection, bold: true, color: hash(COLORS.sky), margin: [0, 8, 0, 3] },
       question: { fontSize: SIZES.question, color: hash(COLORS.question) },
       answer: { fontSize: SIZES.answer, color: hash(COLORS.answer) },
-      badge: { fontSize: SIZES.badge, bold: true, color: hash(COLORS.amber) },
       na: { fontSize: SIZES.na, italics: true, color: hash(COLORS.na) },
       tableHeader: { fontSize: SIZES.tableHeader, bold: true, color: hash(COLORS.sky) },
       tableRowHead: { fontSize: SIZES.tableHeader, bold: true, color: hash(COLORS.question) },

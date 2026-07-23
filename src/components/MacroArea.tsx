@@ -79,6 +79,7 @@ export function MacroArea({
               sourceSubId={sourceSubId}
               genreName={resolveGenreTokens('{genre}', genreToken)}
               detailed={isEmotions}
+              tablesLabel={isEmotions ? 'for showing specific emotions' : undefined}
             />
           </div>
         )}

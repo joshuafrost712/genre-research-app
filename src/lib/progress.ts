@@ -196,21 +196,6 @@ export interface PriorityItem {
   node: GuideNode
 }
 
-/** Priority-starred rows across the worksheet, for the "Your priorities" panel. */
-export function collectPriorities(
-  entries: Entry[],
-  ctx: ActiveContext,
-  nodeOf: (id: string) => GuideNode | undefined,
-): PriorityItem[] {
-  return entries
-    .filter((e) => e.is_priority && e.project_id === ctx.projectId)
-    .map((e) => {
-      const node = nodeOf(e.node_id)
-      return node ? { entry: e, node } : null
-    })
-    .filter((x): x is PriorityItem => x !== null)
-}
-
 /**
  * Blocks/rows flagged "follow up / want more info" across the worksheet, for the
  * /follow-up hit-list. Same shape as priorities; keys on `is_concern_flag`.

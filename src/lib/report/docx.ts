@@ -23,7 +23,6 @@ import {
   COLORS,
   FOOTER_LABEL,
   NA_LABEL,
-  PRIORITY_BADGE,
   SIZES,
   halfPt,
 } from './style'
@@ -33,10 +32,6 @@ function heading(text: string, size: number, color: string, opts: { before?: num
     spacing: { before: opts.before ?? 0, after: 60 },
     children: [new TextRun({ text, bold: true, size: halfPt(size), color })],
   })
-}
-
-function badgeRun(): TextRun {
-  return new TextRun({ text: `  ${PRIORITY_BADGE}`, bold: true, size: halfPt(SIZES.badge), color: COLORS.amber })
 }
 
 /** A scalar (non-grid) question: muted question label, then the emphasized answer. */
@@ -59,7 +54,6 @@ function scalarParas(q: ReportQuestion): Paragraph[] {
       new Paragraph({
         children: [
           new TextRun({ text: cell?.answer ?? '', size: halfPt(SIZES.answer), color: COLORS.answer }),
-          ...(cell?.priority ? [badgeRun()] : []),
         ],
       }),
     )
@@ -67,7 +61,7 @@ function scalarParas(q: ReportQuestion): Paragraph[] {
   return out
 }
 
-function cellText(text: string, opts: { bold?: boolean; color?: string; size?: number; priority?: boolean } = {}): TableCell {
+function cellText(text: string, opts: { bold?: boolean; color?: string; size?: number } = {}): TableCell {
   return new TableCell({
     margins: { top: 40, bottom: 40, left: 80, right: 80 },
     children: [
@@ -79,7 +73,6 @@ function cellText(text: string, opts: { bold?: boolean; color?: string; size?: n
             size: halfPt(opts.size ?? SIZES.tableCell),
             color: opts.color ?? COLORS.answer,
           }),
-          ...(opts.priority ? [badgeRun()] : []),
         ],
       }),
     ],
@@ -115,7 +108,7 @@ function gridParas(q: ReportQuestion): (Paragraph | Table)[] {
             cellText(rl, { bold: true, color: COLORS.question, size: SIZES.tableHeader }),
             ...q.columns.map((col) => {
               const match = q.cells.find((c) => c.row === rl && c.column === col)
-              return cellText(match?.answer ?? '', { priority: match?.priority })
+              return cellText(match?.answer ?? '')
             }),
           ],
         }),
@@ -134,7 +127,7 @@ function gridParas(q: ReportQuestion): (Paragraph | Table)[] {
     for (const c of q.cells) {
       rows.push(
         new TableRow({
-          children: [cellText(c.row || '•', { bold: true, color: COLORS.question }), cellText(c.answer, { priority: c.priority })],
+          children: [cellText(c.row || '•', { bold: true, color: COLORS.question }), cellText(c.answer)],
         }),
       )
     }
@@ -175,22 +168,6 @@ export async function buildDocx(model: ReportModel): Promise<Blob> {
       ],
     }),
   )
-
-  // Priorities roll-up.
-  if (model.priorities.length) {
-    children.push(heading('Priorities', SIZES.section, COLORS.amber, { before: 120 }))
-    for (const p of model.priorities) {
-      children.push(
-        new Paragraph({
-          spacing: { after: 20 },
-          children: [
-            new TextRun({ text: `${p.section} — ${p.subsection}: `, size: halfPt(SIZES.question), color: COLORS.question }),
-            new TextRun({ text: p.answer, size: halfPt(SIZES.answer), color: COLORS.answer }),
-          ],
-        }),
-      )
-    }
-  }
 
   // Body: sections -> subsections -> questions.
   for (const section of model.sections) {

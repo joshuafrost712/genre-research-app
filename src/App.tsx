@@ -7,7 +7,7 @@ import { TourProvider } from './components/tour/TourProvider'
 import { Dashboard } from './pages/Dashboard'
 import { WorksheetView } from './pages/WorksheetView'
 import { Wizard } from './pages/Wizard'
-import { Priorities } from './pages/Priorities'
+import { DescribeLanding } from './pages/DescribeLanding'
 import { FollowUp } from './pages/FollowUp'
 import { Help } from './pages/Help'
 import { Capture } from './pages/Capture'
@@ -32,7 +32,9 @@ const router = createBrowserRouter(
         { index: true, element: <Dashboard /> },
         { path: 'worksheet/:nodeId', element: <WorksheetView /> },
         { path: 'wizard', element: <Wizard /> },
-        { path: 'priorities', element: <Priorities /> },
+        { path: 'describe', element: <DescribeLanding groupId="top" /> },
+        { path: 'describe/big-picture', element: <DescribeLanding groupId="s2" /> },
+        { path: 'describe/style', element: <DescribeLanding groupId="s3" /> },
         { path: 'follow-up', element: <FollowUp /> },
         { path: 'help', element: <Help /> },
         { path: 'capture', element: <Capture /> },
