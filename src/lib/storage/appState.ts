@@ -7,6 +7,7 @@ import { db } from './db'
 import { getContentVersion } from '../content/loader'
 import { now, uid } from '../util'
 import { trackDelete, trackUpsert } from '../sync/outbox'
+import { parseReference } from '../bibleBooks'
 import type { FocusText, Genre, Project, TranslationWorksheet } from '../types'
 
 const ACTIVE_PROJECT = 'activeProjectId'
@@ -234,10 +235,13 @@ export async function setActiveGenre(projectId: string, id: string): Promise<voi
 }
 
 export async function createFocusText(projectId: string, reference: string): Promise<FocusText> {
+  const ref = reference.trim() || 'Untitled focus text'
   const focusText: FocusText = {
     id: uid(),
     project_id: projectId,
-    reference: reference.trim() || 'Untitled focus text',
+    reference: ref,
+    ...parseReference(ref),
+    status: 'active',
     created_at: now(),
     updated_at: now(),
   }
@@ -263,10 +267,28 @@ export async function createGenre(projectId: string, name: string): Promise<Genr
 }
 
 export async function renameFocusText(id: string, reference: string): Promise<void> {
+  const ref = reference.trim() || 'Untitled focus text'
+  const parsed = parseReference(ref)
   await db.focusTexts.update(id, {
-    reference: reference.trim() || 'Untitled focus text',
+    reference: ref,
+    // Re-derive the structured fields from the new text; clear them when the new
+    // reference no longer resolves so stale book/chapter never lingers.
+    book: parsed.book,
+    chapter: parsed.chapter,
+    verse_start: parsed.verse_start,
+    verse_end: parsed.verse_end,
     updated_at: now(),
   })
+  const updated = await db.focusTexts.get(id)
+  if (updated) await trackUpsert('focusTexts', updated)
+}
+
+/** Move a passage between the working set and the completed folder. */
+export async function setFocusTextStatus(
+  id: string,
+  status: 'active' | 'completed',
+): Promise<void> {
+  await db.focusTexts.update(id, { status, updated_at: now() })
   const updated = await db.focusTexts.get(id)
   if (updated) await trackUpsert('focusTexts', updated)
 }
@@ -315,6 +337,49 @@ export async function deleteGenre(projectId: string, genreId: string): Promise<v
   if ((await getMeta(activeGenreKey(projectId))) === genreId) {
     const fallback = await db.genres.where('project_id').equals(projectId).first()
     if (fallback) await setMeta(activeGenreKey(projectId), fallback.id)
+  }
+}
+
+/**
+ * Delete a passage and everything scoped to it: its focusText-layer entries
+ * (purpose/1a/1c answers), the worksheets pairing it with any genre (with their
+ * synthesis entries and recordings), then the passage itself (feedback
+ * 2026-07-22 #1). The UI confirms with an explanation first. If the deleted
+ * passage was the active one, the cursor moves to another passage in the project.
+ */
+export async function deleteFocusText(projectId: string, focusTextId: string): Promise<void> {
+  const worksheets = await db.worksheets
+    .where('project_id')
+    .equals(projectId)
+    .filter((w) => w.focus_text_id === focusTextId)
+    .toArray()
+  const worksheetIds = new Set(worksheets.map((w) => w.id))
+
+  const entries = await db.entries
+    .where('project_id')
+    .equals(projectId)
+    .filter(
+      (e) =>
+        e.focus_text_id === focusTextId ||
+        (!!e.worksheet_id && worksheetIds.has(e.worksheet_id)),
+    )
+    .toArray()
+
+  for (const e of entries) {
+    await db.entries.delete(e.id)
+    await trackDelete('entries', e.id, projectId)
+  }
+  for (const w of worksheets) {
+    await db.recordings.where('worksheet_id').equals(w.id).delete()
+    await db.worksheets.delete(w.id)
+    await trackDelete('worksheets', w.id, projectId)
+  }
+  await db.focusTexts.delete(focusTextId)
+  await trackDelete('focusTexts', focusTextId, projectId)
+
+  if ((await getMeta(activeFocusTextKey(projectId))) === focusTextId) {
+    const fallback = await db.focusTexts.where('project_id').equals(projectId).first()
+    if (fallback) await setMeta(activeFocusTextKey(projectId), fallback.id)
   }
 }
 

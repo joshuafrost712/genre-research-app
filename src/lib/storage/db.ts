@@ -12,6 +12,7 @@ import type {
   TranslationWorksheet,
 } from '../types'
 import type { OutboxRow } from '../sync/types'
+import { parseReference } from '../bibleBooks'
 
 /**
  * On-device store (IndexedDB via Dexie). Source of truth for the MVP: project
@@ -92,6 +93,27 @@ class GenreResearchDB extends Dexie {
           if (e.value && vitalityMap[e.value]) e.value = vitalityMap[e.value]
         })
     })
+    // v5: passage management (feedback 2026-07-22 #1). Index focusTexts by
+    // status so the completed folder can be queried, and backfill the new
+    // structured book/chapter/verse fields by parsing each passage's existing
+    // free-text reference. Old passages become 'active'.
+    this.version(5)
+      .stores({
+        focusTexts: 'id, project_id, status',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('focusTexts')
+          .toCollection()
+          .modify((f: FocusText) => {
+            if (!f.status) f.status = 'active'
+            const parsed = parseReference(f.reference ?? '')
+            if (parsed.book && !f.book) f.book = parsed.book
+            if (parsed.chapter != null && f.chapter == null) f.chapter = parsed.chapter
+            if (parsed.verse_start != null && f.verse_start == null) f.verse_start = parsed.verse_start
+            if (parsed.verse_end != null && f.verse_end == null) f.verse_end = parsed.verse_end
+          })
+      })
   }
 }
 

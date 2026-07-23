@@ -26,6 +26,17 @@ export interface FocusText {
   id: string
   project_id: string
   reference: string
+  // Structured Bible reference (added v5) so passages sort in canonical order
+  // and are searchable by book. Best-effort: parsed from `reference` on
+  // create/rename and backfilled for legacy rows; `reference` stays the source
+  // of truth for display. Unparseable references leave these undefined.
+  book?: string
+  chapter?: number
+  verse_start?: number
+  verse_end?: number
+  // 'active' (the working set) or 'completed' (retired to the completed folder).
+  // Absent on legacy rows is treated as 'active'.
+  status?: 'active' | 'completed'
   specific_purpose?: string
   general_purpose?: string
   broad_genre?: string

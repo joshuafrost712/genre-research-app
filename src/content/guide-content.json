@@ -1,5 +1,5 @@
 {
-  "version": "2.3.0",
+  "version": "2.4.0",
   "title": "Local Genres Research for Scripture Translation",
   "chrome": [
     {
@@ -281,11 +281,11 @@
             {
               "id": "s2b.major_sections",
               "type": "long_text",
-              "label": "What are the main parts of a full performance of {genre}? (How many parts, and what is each part for?)",
+              "label": "What are the main parts (sections) of a full performance of {genre}? (How many parts, and what is each part for?)",
               "layer": "genre",
               "minDepth": "standard",
               "footnote": "Some genres flow straight through from start to finish and do not have clear separate parts.",
-              "example": "A praise song might have an opening call, three verses, and a closing blessing — four parts."
+              "example": "A praise song might have an opening call, three verses, and a closing blessing — five parts."
             },
             {
               "id": "s2b.relationships",
@@ -342,7 +342,7 @@
             {
               "id": "s2a.secondary",
               "type": "long_text",
-              "label": "How does {genre} make the second-most important ideas stand out?",
+              "label": "How does {genre} make other important ideas stand out?",
               "layer": "genre",
               "minDepth": "standard"
             },
@@ -352,7 +352,7 @@
               "label": "What tells the listener that the high point of {genre} has arrived?",
               "layer": "genre",
               "minDepth": "standard",
-              "footnote": "This may overlap with the most important material above. If you have not done the detailed style study (1e) yet, make a note to come back and add to this answer later."
+              "footnote": "This may overlap with the \"most important\" material above. If you have not done the detailed style study (1e) yet, make a note to come back and add to this answer later."
             },
             {
               "id": "s2a.peak",
@@ -439,7 +439,7 @@
             {
               "id": "s2c.dependence",
               "type": "long_text",
-              "label": "In {genre}, how much does understanding the feelings depend on the words themselves, and how much on other things like the tone of voice?",
+              "label": "In {genre}, how much does understanding the feelings depend on the words themselves, and how much on other things (like instruments, objects, movements, melody types, rhythms, tone of voice)?",
               "layer": "genre",
               "minDepth": "standard"
             }
@@ -1192,7 +1192,7 @@
             {
               "id": "s0.macro_notes.prominence",
               "type": "fixed_grid",
-              "label": "The most important parts",
+              "label": "What in the Psalm stands out (prominence)?",
               "layer": "synthesis",
               "minDepth": "standard",
               "xref": [
@@ -1213,19 +1213,13 @@
                 },
                 {
                   "id": "additional",
-                  "label": "Also important"
+                  "label": "Other important"
                 }
               ],
               "columns": [
                 {
                   "id": "psalm",
-                  "label": "What this part of the passage says",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "genre_strategy",
-                  "label": "How this genre makes a part stand out",
+                  "label": "What stands out here",
                   "cellType": "long_text",
                   "minDepth": "standard"
                 },
@@ -1233,6 +1227,7 @@
                   "id": "translation_idea",
                   "label": "Idea for the translation",
                   "cellType": "long_text",
+                  "zone": "translation",
                   "minDepth": "standard"
                 }
               ]
@@ -1243,7 +1238,7 @@
               "label": "Parts (sections)",
               "layer": "synthesis",
               "minDepth": "standard",
-              "footnote": "Sometimes the parts of the passage fit the genre's parts in a different order. For example, in a verse-and-refrain song, the words that work best as the refrain may come earlier in the passage than some of the verse words.",
+              "footnote": "Identify divisions in the passage and note the groups of verses that seem to function together. For translating, sometimes the parts of the passage fit the genre's parts in a different order. For example, in a verse-and-refrain song, the words that work best as the refrain may come earlier in the passage than some of the verse words.",
               "xref": [
                 {
                   "to": "s2b",
@@ -1253,33 +1248,22 @@
               ],
               "columns": [
                 {
-                  "id": "psalm_section",
-                  "label": "Part of the passage",
+                  "id": "verse_range",
+                  "label": "Verse range (e.g. vv. 1–2)",
+                  "cellType": "short_text",
+                  "minDepth": "standard"
+                },
+                {
+                  "id": "section_label",
+                  "label": "Label for this part (optional)",
                   "cellType": "short_text",
                   "minDepth": "standard"
                 },
                 {
                   "id": "genre_section",
-                  "label": "Part of the genre",
-                  "cellType": "short_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "shift_notes",
-                  "label": "Notes on where the passage moves from one part to the next",
+                  "label": "The part(s) of {genre} you map to this",
                   "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "genre_features",
-                  "label": "Special features of this genre's parts",
-                  "cellType": "long_text",
-                  "minDepth": "standard"
-                },
-                {
-                  "id": "psalm_features",
-                  "label": "Special features of this passage, and ideas for translating them",
-                  "cellType": "long_text",
+                  "zone": "translation",
                   "minDepth": "standard"
                 }
               ]
@@ -1290,7 +1274,7 @@
               "label": "Feelings (emotions)",
               "layer": "synthesis",
               "minDepth": "standard",
-              "guidance": "List 3 to 5 feelings, in about the order they appear. If the same feeling comes up more than once, put it in one row.",
+              "guidance": "List 3 to 5 feelings, in about the order they appear. If the same feeling comes up more than once, put it in one row. If you haven't yet thought about/recorded how one or more of these Psalm emotions work in {genre}, be sure to add that before moving forward with translation decisions!",
               "xref": [
                 {
                   "to": "s2c",
@@ -1307,8 +1291,9 @@
                 },
                 {
                   "id": "genre_elements",
-                  "label": "How to show this feeling using the genre's normal tools",
+                  "label": "Your idea for showing this feeling in {genre}",
                   "cellType": "long_text",
+                  "zone": "translation",
                   "minDepth": "standard"
                 }
               ]
@@ -1336,8 +1321,9 @@
                 },
                 {
                   "id": "genre_elements",
-                  "label": "Idea for showing it using the genre's normal tools",
+                  "label": "Your idea for showing it in {genre}",
                   "cellType": "long_text",
+                  "zone": "translation",
                   "minDepth": "standard"
                 }
               ]

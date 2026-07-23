@@ -21,10 +21,13 @@ export function GenreRecallPanel({
   ctx,
   sourceSubId,
   genreName,
+  detailed = false,
 }: {
   ctx: ActiveContext
   sourceSubId: string
   genreName: string
+  /** Show each table row's other columns in parentheses (2c emotions conveyance). */
+  detailed?: boolean
 }) {
   const entries = useAllEntries(ctx)
   const [mode, setMode] = useState<'view' | 'confirm' | 'edit'>('view')
@@ -32,7 +35,7 @@ export function GenreRecallPanel({
   const ref = findNode(sourceSubId)
   if (!ref || entries === undefined) return null
 
-  const fields = deriveSectionRecall(entries, sourceSubId, ctx.genreId)
+  const fields = deriveSectionRecall(entries, sourceSubId, ctx.genreId, detailed)
   const subLabel = resolveGenreTokens(ref.node.label, genre)
 
   return (

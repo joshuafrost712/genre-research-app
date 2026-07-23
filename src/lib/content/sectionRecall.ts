@@ -62,6 +62,7 @@ export function deriveSectionRecall(
   entries: Entry[],
   subId: string,
   genreId: string,
+  detailed = false,
 ): SummaryField[] {
   const ref = findNode(subId)
   if (!ref) return []
@@ -92,7 +93,7 @@ export function deriveSectionRecall(
       }
       case 'repeatable_row_table':
       case 'repeatable_list':
-        out.push(...tableRows(entries, leaf, genreId))
+        out.push(...tableRows(entries, leaf, genreId, detailed))
         break
       default:
         break
@@ -101,28 +102,56 @@ export function deriveSectionRecall(
   return out
 }
 
-/** Rows of a repeatable table/list, starred first and marked. */
-function tableRows(entries: Entry[], node: GuideNode, genreId: string): SummaryField[] {
-  const firstCol = node.columns?.[0]
+/**
+ * Rows of a repeatable table/list, starred first and marked. When `detailed`,
+ * the row's other filled columns are appended after the headline in parentheses
+ * (used on 2c so each named feeling shows how the genre conveys it — feedback
+ * 2026-07-22 #4).
+ */
+function tableRows(
+  entries: Entry[],
+  node: GuideNode,
+  genreId: string,
+  detailed = false,
+): SummaryField[] {
+  const cols = node.columns ?? []
+  const firstCol = cols[0]
+  const cell = (rowId: string, colId: string) =>
+    trimmed(
+      entries.find(
+        (e) => e.node_id === node.id && e.genre_id === genreId && e.cell_key === `${rowId}__${colId}`,
+      )?.text,
+    )
   const rows = rowOrder(entries, node.id, genreId).map((rowId) => {
     const headline = firstCol
-      ? trimmed(
-          entries.find(
-            (e) => e.node_id === node.id && e.genre_id === genreId && e.cell_key === `${rowId}__${firstCol.id}`,
-          )?.text,
-        )
+      ? cell(rowId, firstCol.id)
       : trimmed(
           entries.find((e) => e.node_id === node.id && e.genre_id === genreId && e.cell_key === rowId)?.text,
         )
+    const detail =
+      detailed && firstCol
+        ? cols
+            .slice(1)
+            .map((c) => ({ label: chipLabel(c.label), value: cell(rowId, c.id) }))
+            .filter((d) => d.value)
+            .map((d) => `${d.label}: ${d.value}`)
+            .join('; ')
+        : ''
     const starred =
       entries.find((e) => e.node_id === node.id && e.genre_id === genreId && e.cell_key === rowId)
         ?.is_priority === true
-    return { headline, starred }
+    return { headline: detail ? `${headline} (${detail})` : headline, starred }
   })
   return rows
     .filter((r) => r.headline)
     .sort((a, b) => Number(b.starred) - Number(a.starred))
     .map((r) => ({ label: r.starred ? '★ Key' : '•', value: r.headline, starred: r.starred }))
+}
+
+/** A short label for a column, first clause before "(" or "?", capped. */
+function chipLabel(label: string): string {
+  const head = label.replace('{genre}', 'the genre').split(/[(?]/)[0].trim()
+  return head.length > 24 ? `${head.slice(0, 23)}…` : head || label
 }
 
 /** A compact label for a prompt: first clause before "(" or "?", genre token stripped. */
@@ -147,8 +176,10 @@ export function macroDecisions(entries: Entry[], worksheetId: string): DecisionG
   for (const area of groupNode?.children ?? []) {
     const cols = area.columns ?? []
     if (cols.length < 2) continue
-    const ideaCol = cols[cols.length - 1]
-    const headCol = cols[0]
+    // The translation idea is the column tagged zone 'translation' (the yellow
+    // field on 2c); fall back to the last column for any table not yet tagged.
+    const ideaCol = cols.find((c) => c.zone === 'translation') ?? cols[cols.length - 1]
+    const headCol = cols.find((c) => c.zone !== 'translation') ?? cols[0]
     const rowIds =
       area.type === 'fixed_grid'
         ? (area.rows ?? []).map((r) => ({ id: r.id, label: r.label }))

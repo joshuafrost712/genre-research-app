@@ -6,17 +6,25 @@ import { cellKey, db } from '../../lib/storage/db'
 import {
   createFocusText,
   createGenre,
+  deleteFocusText,
   deleteGenre,
   mergeGenres,
   renameFocusText,
   renameGenre,
   setActiveFocusText,
   setActiveGenre,
+  setFocusTextStatus,
   type ActiveContext,
 } from '../../lib/storage/appState'
 import { duplicatePairs, findDuplicate } from '../../lib/genreNames'
+import {
+  BIBLE_BOOK_NAMES,
+  canonicalIndex,
+  formatReference,
+  passageMatchesQuery,
+} from '../../lib/bibleBooks'
 import { useActiveContext } from '../ActiveContextProvider'
-import type { Genre } from '../../lib/types'
+import type { FocusText, Genre } from '../../lib/types'
 import {
   addRow,
   removeRow,
@@ -609,118 +617,288 @@ function PassageBankInline({ ctx }: { ctx: ActiveContext }) {
     () => db.focusTexts.where('project_id').equals(ctx.projectId).sortBy('created_at'),
     [ctx.projectId],
   )
-  const [draft, setDraft] = useState('')
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editDraft, setEditDraft] = useState('')
+  const [query, setQuery] = useState('')
+
+  const all = passages ?? []
+  const matches = (p: FocusText) => passageMatchesQuery(p.reference, p.book, query)
+  const active = all.filter((p) => p.status !== 'completed' && matches(p))
+  // Completed passages read as a canonical-order "folder": book order, then chapter.
+  const completed = all
+    .filter((p) => p.status === 'completed' && matches(p))
+    .sort((a, b) => {
+      const byBook = canonicalIndex(a.book) - canonicalIndex(b.book)
+      if (byBook !== 0) return byBook
+      return (a.chapter ?? 0) - (b.chapter ?? 0)
+    })
+
+  return (
+    <div className="flex flex-col gap-3">
+      <PassageAdder projectId={ctx.projectId} onAdded={reload} />
+
+      {all.length > 3 && (
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search passages by book (e.g. Psalm, 1 Cor)…"
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+        />
+      )}
+
+      <div className="flex flex-col gap-2">
+        {active.length === 0 && (
+          <p className="text-xs text-gray-400">
+            {query ? 'No active passages match your search.' : 'No passages yet — add one above.'}
+          </p>
+        )}
+        {active.map((p) => (
+          <PassageRow key={p.id} ctx={ctx} passage={p} onChanged={reload} />
+        ))}
+      </div>
+
+      {completed.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h3 className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Completed ({completed.length})
+          </h3>
+          {completed.map((p) => (
+            <PassageRow key={p.id} ctx={ctx} passage={p} onChanged={reload} />
+          ))}
+        </div>
+      )}
+
+      <p className="text-[11px] text-gray-400">
+        Switching the passage re-scopes all of Create / Translate (2a–2e) to it. Your answers for
+        each passage are kept separately. Retire a finished passage to Completed, or delete one to
+        remove it and everything written about it.
+      </p>
+    </div>
+  )
+}
+
+/** Structured book/chapter/verse picker that composes and adds a passage. */
+function PassageAdder({ projectId, onAdded }: { projectId: string; onAdded: () => void }) {
+  const [book, setBook] = useState('')
+  const [chapter, setChapter] = useState('')
+  const [vFrom, setVFrom] = useState('')
+  const [vTo, setVTo] = useState('')
+
+  const toNum = (s: string) => {
+    const n = Number(s.trim())
+    return s.trim() && !Number.isNaN(n) ? n : undefined
+  }
 
   const add = async () => {
-    const ref = draft.trim()
-    if (!ref) return
-    await createFocusText(ctx.projectId, ref) // creates AND activates
-    setDraft('')
-    reload()
-  }
-  const select = async (id: string) => {
-    if (id === ctx.focusTextId) return
-    await setActiveFocusText(ctx.projectId, id)
-    reload()
-  }
-  const saveRename = async (id: string) => {
-    const ref = editDraft.trim()
-    if (ref) {
-      await renameFocusText(id, ref)
-      reload()
-    }
-    setEditingId(null)
+    if (!book) return
+    const reference = formatReference({
+      book,
+      chapter: toNum(chapter),
+      verse_start: toNum(vFrom),
+      verse_end: toNum(vTo),
+    })
+    if (!reference) return
+    await createFocusText(projectId, reference) // creates, parses, AND activates
+    setBook('')
+    setChapter('')
+    setVFrom('')
+    setVTo('')
+    onAdded()
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-2">
+    <div className="flex flex-wrap items-end gap-2">
+      <label className="flex flex-col text-[11px] font-medium text-gray-500">
+        Book
+        <select
+          value={book}
+          onChange={(e) => setBook(e.target.value)}
+          className="mt-0.5 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+        >
+          <option value="">Choose a book…</option>
+          {BIBLE_BOOK_NAMES.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex w-16 flex-col text-[11px] font-medium text-gray-500">
+        Chapter
         <input
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void add()
-          }}
-          placeholder="Add a passage (e.g. Psalm 13)"
-          className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+          type="number"
+          min="1"
+          value={chapter}
+          onChange={(e) => setChapter(e.target.value)}
+          className="mt-0.5 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
         />
+      </label>
+      <label className="flex w-16 flex-col text-[11px] font-medium text-gray-500">
+        Verse
+        <input
+          type="number"
+          min="1"
+          value={vFrom}
+          onChange={(e) => setVFrom(e.target.value)}
+          className="mt-0.5 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+        />
+      </label>
+      <label className="flex w-16 flex-col text-[11px] font-medium text-gray-500">
+        to
+        <input
+          type="number"
+          min="1"
+          value={vTo}
+          onChange={(e) => setVTo(e.target.value)}
+          className="mt-0.5 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+        />
+      </label>
+      <button
+        type="button"
+        onClick={() => void add()}
+        disabled={!book}
+        className="rounded-md bg-gray-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Add
+      </button>
+    </div>
+  )
+}
+
+/** One passage row: focus / rename / complete-or-reopen / delete. */
+function PassageRow({
+  ctx,
+  passage,
+  onChanged,
+}: {
+  ctx: ActiveContext
+  passage: FocusText
+  onChanged: () => void
+}) {
+  const active = passage.id === ctx.focusTextId
+  const completed = passage.status === 'completed'
+  const [editing, setEditing] = useState(false)
+  const [editDraft, setEditDraft] = useState(passage.reference)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const select = async () => {
+    if (active) return
+    await setActiveFocusText(ctx.projectId, passage.id)
+    onChanged()
+  }
+  const saveRename = async () => {
+    const ref = editDraft.trim()
+    if (ref) {
+      await renameFocusText(passage.id, ref)
+      onChanged()
+    }
+    setEditing(false)
+  }
+  const toggleComplete = async () => {
+    await setFocusTextStatus(passage.id, completed ? 'active' : 'completed')
+    onChanged()
+  }
+
+  return (
+    <div
+      className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+        active ? 'border-sky-300 bg-sky-50/60' : 'border-gray-200 bg-white'
+      } ${completed ? 'opacity-70' : ''}`}
+    >
+      {editing ? (
+        <input
+          autoFocus
+          type="text"
+          value={editDraft}
+          onChange={(e) => setEditDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void saveRename()
+            if (e.key === 'Escape') setEditing(false)
+          }}
+          onBlur={() => void saveRename()}
+          className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-gray-500 focus:outline-none"
+        />
+      ) : (
         <button
           type="button"
-          onClick={() => void add()}
-          className="rounded-md bg-gray-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
+          onClick={() => void select()}
+          className="min-w-0 flex-1 text-left text-sm font-medium text-gray-900"
         >
-          Add
+          {passage.reference}
+          {active && (
+            <span className="ml-2 rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-medium text-white">
+              focusing on this
+            </span>
+          )}
         </button>
-      </div>
-      {(passages ?? []).map((p) => {
-        const active = p.id === ctx.focusTextId
-        return (
-          <div
-            key={p.id}
-            className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
-              active ? 'border-sky-300 bg-sky-50/60' : 'border-gray-200 bg-white'
-            }`}
+      )}
+      {!editing && (
+        <div className="flex shrink-0 items-center gap-2">
+          {!active && !completed && (
+            <button
+              type="button"
+              onClick={() => void select()}
+              className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50"
+            >
+              Focus on this
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setEditDraft(passage.reference)
+              setEditing(true)
+            }}
+            className="text-xs text-gray-500 hover:underline"
           >
-            {editingId === p.id ? (
-              <input
-                autoFocus
-                type="text"
-                value={editDraft}
-                onChange={(e) => setEditDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void saveRename(p.id)
-                  if (e.key === 'Escape') setEditingId(null)
-                }}
-                onBlur={() => void saveRename(p.id)}
-                className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-gray-500 focus:outline-none"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => void select(p.id)}
-                className="min-w-0 flex-1 text-left text-sm font-medium text-gray-900"
-              >
-                {p.reference}
-                {active && (
-                  <span className="ml-2 rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-medium text-white">
-                    focusing on this
-                  </span>
-                )}
-              </button>
-            )}
-            <div className="flex items-center gap-2">
-              {!active && editingId !== p.id && (
-                <button
-                  type="button"
-                  onClick={() => void select(p.id)}
-                  className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                >
-                  Focus on this
-                </button>
-              )}
-              {editingId !== p.id && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingId(p.id)
-                    setEditDraft(p.reference)
-                  }}
-                  className="text-xs text-gray-500 hover:underline"
-                >
-                  Rename
-                </button>
-              )}
-            </div>
+            Rename
+          </button>
+          <button
+            type="button"
+            onClick={() => void toggleComplete()}
+            className="text-xs text-gray-500 hover:underline"
+          >
+            {completed ? 'Reopen' : 'Mark complete'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            aria-label={`Delete ${passage.reference}`}
+            className="rounded-md px-1.5 py-1 text-sm text-gray-400 hover:bg-red-50 hover:text-red-600"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      {confirmDelete && (
+        <BankDialog onClose={() => setConfirmDelete(false)}>
+          <h2 className="text-base font-semibold text-gray-900">Delete "{passage.reference}"?</h2>
+          <p className="mt-2 text-sm text-gray-700">
+            This removes the passage and everything written about it: its purpose and background
+            answers, and any Create / Translate work (2a–2e) done for it with any genre. This cannot
+            be undone. To set it aside without losing the work, mark it complete instead.
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                await deleteFocusText(ctx.projectId, passage.id)
+                setConfirmDelete(false)
+                onChanged()
+              }}
+              className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800"
+            >
+              Delete it
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(false)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Keep it
+            </button>
           </div>
-        )
-      })}
-      <p className="text-[11px] text-gray-400">
-        Switching the passage re-scopes all of Create / Translate (2a–2e) to it. Your answers for
-        each passage are kept separately.
-      </p>
+        </BankDialog>
+      )}
     </div>
   )
 }

@@ -102,7 +102,7 @@ describe('macro decisions (2e recap)', () => {
       entry({ node_id: 's0.macro_notes.emotions', worksheet_id: 'w1', cell_key: 'e1__genre_elements', text: 'slow drum, low voice' }),
     ]
     const groups = macroDecisions(entries, 'w1')
-    const prominence = groups.find((g) => g.group.toLowerCase().includes('important'))
+    const prominence = groups.find((g) => g.group.toLowerCase().includes('stands out'))
     expect(prominence?.fields[0]).toEqual({
       label: 'Most important',
       value: 'refrain carries the main line',

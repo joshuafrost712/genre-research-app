@@ -23,7 +23,7 @@ function feedbackInbox(): Plugin {
         req.on('end', () => {
           try {
             const { filename, markdown } = JSON.parse(body) as { filename?: string; markdown?: string }
-            const safe = basename(filename ?? 'feedback.md').replace(/[^\w.\-]/g, '_')
+            const safe = basename(filename ?? 'feedback.md').replace(/[^\w.-]/g, '_')
             const name = safe.endsWith('.md') ? safe : `${safe}.md`
             const dir = join(process.cwd(), 'feedback', 'incoming')
             mkdirSync(dir, { recursive: true })

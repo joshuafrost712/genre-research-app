@@ -65,10 +65,20 @@ export interface SelectOption {
   label: string
 }
 
+/**
+ * Which visual zone a column belongs to on the 2c compare page (feedback
+ * 2026-07-22): 'psalm' columns describe the passage, 'translation' columns hold
+ * the team's idea for the translation and render in the set-apart light-yellow
+ * zone between the passage info and the genre info. Absent defaults to 'psalm'.
+ * Only the 2c macro renderer reads this; other renderers ignore it.
+ */
+export type ColumnZone = 'psalm' | 'translation'
+
 export interface ColumnDef {
   id: string
   label: string
   cellType: CellType
+  zone?: ColumnZone
   minDepth?: DepthMode // columns can appear only at greater depth
   options?: SelectOption[]
   /**

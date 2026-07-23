@@ -4,9 +4,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/storage/db'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import { useDepthMode } from '../components/DepthModeContext'
-import { BlockRenderer } from '../components/blocks/BlockRenderer'
-import { GenreRecallPanel } from '../components/GenreRecallPanel'
-import { resolveGenreTokens, useGenreName, useNameTokens } from '../components/GenreNameProvider'
+import { MacroArea } from '../components/MacroArea'
+import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 import { findNode, nextNavId, routeForSub } from '../lib/content/loader'
 import { setLastNode } from '../lib/storage/appState'
 
@@ -20,7 +19,6 @@ import { setLastNode } from '../lib/storage/appState'
 export function MacroCompare() {
   const { ctx } = useActiveContext()
   const { mode } = useDepthMode()
-  const genreToken = useGenreName()
   const tokens = useNameTokens()
   const genre = useLiveQuery(
     async () => (ctx ? await db.genres.get(ctx.genreId) : undefined),
@@ -75,27 +73,9 @@ export function MacroCompare() {
         )}
       </div>
 
-      {areas.map((area) => {
-        const sourceSubId = area.xref?.find((x) => x.relation === 'derivedFrom')?.to
-        return (
-          <section key={area.id} className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
-              <div>
-                <BlockRenderer ctx={ctx} node={area} mode={mode} />
-              </div>
-              {sourceSubId && (
-                <div>
-                  <GenreRecallPanel
-                    ctx={ctx}
-                    sourceSubId={sourceSubId}
-                    genreName={resolveGenreTokens('{genre}', genreToken)}
-                  />
-                </div>
-              )}
-            </div>
-          </section>
-        )
-      })}
+      {areas.map((area) => (
+        <MacroArea key={area.id} ctx={ctx} area={area} mode={mode} />
+      ))}
 
       <div className="flex items-center justify-between border-t border-gray-200 pt-4">
         <Link to="/choose" className="text-sm text-gray-500 hover:underline">
