@@ -40,6 +40,12 @@ jobs:
           # deployed users can submit comments straight to your Sheet. Leave
           # unset and submissions fall back to downloading a markdown file.
           VITE_FEEDBACK_URL: ${{ vars.VITE_FEEDBACK_URL }}
+          # Supabase project for beta-tester sign-in (?beta=1). The anon key is a
+          # public client identifier (RLS-gated) and ships in the browser bundle,
+          # so both live in repo Actions variables, not secrets. Provision with
+          # scripts/setup-supabase.sh. Leave unset and beta mode runs anonymous.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       # SPA fallback: GitHub Pages serves 404.html for unknown paths; point it at
       # the app shell so deep links / refreshes resolve client-side.
       - run: cp dist/index.html dist/404.html
