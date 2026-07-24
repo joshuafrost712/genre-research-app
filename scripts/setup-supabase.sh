@@ -36,7 +36,9 @@ fi
 # 1. Create the project (or re-attach if PROJECT_REF given).
 if [[ -z "${PROJECT_REF:-}" ]]; then
   ORG_ID="${ORG_ID:-$(curl -fsSL "${auth[@]}" "$API/organizations" | python3 -c 'import sys,json; print(json.load(sys.stdin)[0]["id"])')}"
-  DB_PASS="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24)"
+  # openssl (no pipe) avoids a SIGPIPE that `tr </dev/urandom | head` triggers
+  # under `set -o pipefail`.
+  DB_PASS="$(openssl rand -hex 18)"
   echo "Creating project '$PROJECT_NAME' in org $ORG_ID ($REGION)…"
   PROJECT_REF="$(curl -fsSL "${auth[@]}" -H 'Content-Type: application/json' \
     -X POST "$API/projects" \
