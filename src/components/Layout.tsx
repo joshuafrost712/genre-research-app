@@ -3,7 +3,7 @@ import { Link, Outlet } from 'react-router-dom'
 import { NavShell } from './NavShell'
 import { ContextBar } from './ContextBar'
 import { AccountButton } from './AccountButton'
-import { BetaAccountButton } from './beta/BetaAccountButton'
+import { BetaSignIn } from './beta/BetaSignIn'
 import { BetaWelcome } from './beta/BetaWelcome'
 import { FeedbackHighlight } from './feedback/FeedbackHighlight'
 import { GenreNameProvider } from './GenreNameProvider'
@@ -11,6 +11,7 @@ import { QuickJot } from './QuickJot'
 import { Tour } from './tour/TourProvider'
 import { APP_TOUR, APP_TOUR_STEPS } from './tour/tours'
 import { DevFeedbackRoot } from '../devfeedback/DevFeedbackRoot'
+import { isBetaMode } from '../devfeedback/enabled'
 
 /**
  * App shell: a persistent sidebar on wide screens, a slide-over drawer on mobile.
@@ -41,8 +42,7 @@ export function Layout() {
         </Link>
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <ContextBar />
-          <BetaAccountButton />
-          <AccountButton />
+          {isBetaMode() ? <BetaSignIn /> : <AccountButton />}
         </div>
       </header>
 

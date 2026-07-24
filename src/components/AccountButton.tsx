@@ -4,19 +4,9 @@
  * client id is configured, so the offline/local-only build is unchanged.
  */
 import { useEffect, useState } from 'react'
-import {
-  ensureScope,
-  fetchIdentity,
-  forgetToken,
-  isGoogleConfigured,
-} from '../lib/google/auth'
-import {
-  clearAccount,
-  getAccount,
-  getSyncAuthorId,
-  saveAccount,
-  type Account,
-} from '../lib/google/account'
+import { forgetToken, isGoogleConfigured } from '../lib/google/auth'
+import { clearAccount, getAccount, type Account } from '../lib/google/account'
+import { signInWithGoogle } from '../lib/google/signIn'
 import { syncEngine, useSyncStatus } from '../lib/sync/engine'
 
 export function AccountButton() {
@@ -36,13 +26,7 @@ export function AccountButton() {
     setBusy(true)
     setError(null)
     try {
-      await ensureScope('file')
-      const identity = await fetchIdentity()
-      await getSyncAuthorId() // create the per-device id on first sign-in
-      const next: Account = { email: identity.email, name: identity.name, photo: identity.photo }
-      await saveAccount(next)
-      setAccount(next)
-      void syncEngine.start()
+      setAccount(await signInWithGoogle())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-in failed.')
     } finally {
