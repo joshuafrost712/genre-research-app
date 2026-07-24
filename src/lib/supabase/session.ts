@@ -61,8 +61,30 @@ export interface SignInResult {
 }
 
 /**
- * Send a magic-link / one-time-code email. The link returns the tester to this
- * app origin, where `detectSessionInUrl` completes the sign-in.
+ * Sign in with the email + password from the beta invite. This is the primary
+ * beta path: accounts are pre-created for testers, so no email is sent and the
+ * built-in email rate limit never applies.
+ */
+export async function signInWithPassword(email: string, password: string): Promise<SignInResult> {
+  if (!supabase) return { ok: false, error: 'Sign-in is not available in this build yet.' }
+  const clean = email.trim()
+  if (!clean || !password) return { ok: false, error: 'Enter your email and password.' }
+  const { error } = await supabase.auth.signInWithPassword({ email: clean, password })
+  return error ? { ok: false, error: error.message } : { ok: true }
+}
+
+/** Change the signed-in user's password (from the account menu). */
+export async function updatePassword(newPassword: string): Promise<SignInResult> {
+  if (!supabase) return { ok: false, error: 'Not available in this build.' }
+  if (newPassword.length < 8) return { ok: false, error: 'Use at least 8 characters.' }
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  return error ? { ok: false, error: error.message } : { ok: true }
+}
+
+/**
+ * Send a magic-link / one-time-code email. Secondary fallback (the built-in
+ * email service is rate-limited to a couple per hour). The link returns the
+ * tester to this app origin, where `detectSessionInUrl` completes the sign-in.
  */
 export async function signInWithEmail(email: string): Promise<SignInResult> {
   if (!supabase) return { ok: false, error: 'Sign-in is not available in this build yet.' }
