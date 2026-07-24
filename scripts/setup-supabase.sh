@@ -22,6 +22,14 @@ SITE_URL="${SITE_URL:-https://joshuafrost712.github.io/genre-research-app/}"
 # Redirect allow-list: the deployed app + local dev. Supabase matches these.
 REDIRECTS="${REDIRECTS:-https://joshuafrost712.github.io/genre-research-app/,http://localhost:5173/,http://localhost:4173/}"
 
+# Optional local fallback: on a maintainer's machine the token may be kept in a
+# chmod-600 file outside any repo (nothing secret is committed here — just the
+# path). Env var still wins if already set.
+if [[ -z "${SUPABASE_ACCESS_TOKEN:-}" && -f "$HOME/.claude/secrets/supabase.env" ]]; then
+  # shellcheck disable=SC1091
+  set -a; . "$HOME/.claude/secrets/supabase.env"; set +a
+fi
+
 if [[ -z "${SUPABASE_ACCESS_TOKEN:-}" ]]; then
   echo "ERROR: set SUPABASE_ACCESS_TOKEN (https://supabase.com/dashboard/account/tokens)." >&2
   exit 1
