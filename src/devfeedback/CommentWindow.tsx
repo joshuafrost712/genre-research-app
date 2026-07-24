@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useFeedback } from './feedbackContext'
 import { addComment, type Importance } from './db'
+import { getFeedbackAuthor } from '../lib/feedback/identity'
 
 /**
  * The comment window. Opens anchored to whatever the user highlighted (or as a
@@ -27,12 +28,18 @@ export function CommentWindow() {
     const text = comment.trim()
     if (!text || saving) return
     setSaving(true)
+    const author = getFeedbackAuthor()
     await addComment({
       route: draft.route,
       selectionText: draft.selectionText,
       locationLabel: draft.locationLabel,
       comment: text,
       importance,
+      nodeId: draft.nodeId,
+      field: draft.field,
+      authorEmail: author?.email,
+      authorId: author?.id,
+      authorName: author?.name,
     })
     setComment('')
     setImportance('medium')

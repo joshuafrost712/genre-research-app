@@ -24,6 +24,13 @@ export interface FeedbackComment {
   createdAt: string
   updatedAt: string
 
+  // Who left the comment (beta mode). Stamped from the signed-in Supabase user
+  // at save time so a batch can be attributed to the person who submitted it.
+  // Absent for anonymous/dev feedback.
+  authorEmail?: string
+  authorId?: string
+  authorName?: string
+
   // Text-edit records (spec 10 WP9). kind 'edit' carries a structured
   // old→new change to one guide-content field; absent kind means 'comment'.
   kind?: 'comment' | 'edit'
@@ -61,7 +68,8 @@ function uid(): string {
 }
 
 export async function addComment(
-  draft: Pick<FeedbackComment, 'route' | 'selectionText' | 'locationLabel' | 'comment' | 'importance'>,
+  draft: Pick<FeedbackComment, 'route' | 'selectionText' | 'locationLabel' | 'comment' | 'importance'> &
+    Partial<Pick<FeedbackComment, 'nodeId' | 'field' | 'authorEmail' | 'authorId' | 'authorName'>>,
 ): Promise<void> {
   const now = new Date().toISOString()
   await fdb.comments.add({

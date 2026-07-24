@@ -35,9 +35,11 @@ function downloadText(filename: string, text: string): void {
   URL.revokeObjectURL(url)
 }
 
-export async function sendBatch(markdown: string): Promise<SendResult> {
+export async function sendBatch(markdown: string, author?: string): Promise<SendResult> {
   const filename = `feedback-${new Date().toISOString().replace(/[:.]/g, '-')}.md`
-  const payload = JSON.stringify({ filename, markdown })
+  // `author` is carried as a discrete field so the Sheet sink can populate its
+  // own Author column; the markdown already embeds it too, for the file path.
+  const payload = JSON.stringify({ filename, markdown, author: author ?? '' })
 
   // 1. Local dev inbox (writes straight into the repo).
   if (import.meta.env.DEV) {

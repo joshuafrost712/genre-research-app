@@ -36,5 +36,10 @@ feedback/processed/*
 !feedback/incoming/.gitkeep
 !feedback/processed/.gitkeep
 
+# Triage reports may quote external testers by name/email — never commit them
+# to this public repo. Keep the folder, ignore its contents.
+feedback/reports/*
+!feedback/reports/.gitkeep
+
 # Pull config holds the live web-app URL + token — local only.
 feedback/.pull.json

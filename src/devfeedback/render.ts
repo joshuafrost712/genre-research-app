@@ -50,6 +50,20 @@ export function renderBatchMarkdown(comments: FeedbackComment[], generatedAt: st
   )
   lines.push('')
 
+  // Attribution: in beta mode every comment carries the signed-in tester. Show
+  // who submitted the batch so triage can be grouped and weighted by person.
+  const authors = Array.from(
+    new Set(
+      [...sorted, ...edits]
+        .map((c) => (c.authorName ? `${c.authorName} <${c.authorEmail}>` : c.authorEmail))
+        .filter((a): a is string => Boolean(a)),
+    ),
+  )
+  if (authors.length > 0) {
+    lines.push(`**Submitted by:** ${authors.join(', ')}`)
+    lines.push('')
+  }
+
   let lastImportance: Importance | null = null
   let n = 0
   for (const c of sorted) {
@@ -63,6 +77,8 @@ export function renderBatchMarkdown(comments: FeedbackComment[], generatedAt: st
     lines.push('')
     lines.push(`- **Route:** \`${c.route}\``)
     lines.push(`- **Location:** ${c.locationLabel || '(page level)'}`)
+    if (c.nodeId) lines.push(`- **Node:** \`${c.nodeId}\`${c.field ? ` · ${c.field}` : ''}`)
+    if (c.authorEmail) lines.push(`- **By:** ${c.authorName ? `${c.authorName} <${c.authorEmail}>` : c.authorEmail}`)
     lines.push('')
     if (c.selectionText) {
       lines.push('Highlighted:')
@@ -111,7 +127,7 @@ export function renderBatchMarkdown(comments: FeedbackComment[], generatedAt: st
   lines.push('```json')
   lines.push(
     JSON.stringify(
-      { schema: 'genre.feedback-batch/v2', generatedAt, comments: sorted, edits },
+      { schema: 'genre.feedback-batch/v3', generatedAt, comments: sorted, edits },
       null,
       2,
     ),

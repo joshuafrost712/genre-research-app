@@ -40,7 +40,13 @@ export function FeedbackManager() {
     setSending(true)
     setStatus('Sending…')
     const md = renderBatchMarkdown(batch, new Date().toISOString())
-    const result = await sendBatch(md)
+    const attributed = batch.find((c) => c.authorEmail)
+    const author = attributed
+      ? attributed.authorName
+        ? `${attributed.authorName} <${attributed.authorEmail}>`
+        : (attributed.authorEmail ?? '')
+      : ''
+    const result = await sendBatch(md, author)
     if (!result.ok) {
       setSending(false)
       setStatus("Couldn't send the batch — nothing was marked done, so nothing is lost. Please try again.")

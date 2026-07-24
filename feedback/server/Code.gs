@@ -12,7 +12,9 @@
  *               sync new feedback into the repo automatically. Add ?peek=1 to
  *               read without marking (for debugging).
  *
- * Row shape: [Received, Filename, Comment (markdown), Pulled].
+ * Row shape: [Received, Filename, Comment (markdown), Pulled, Author].
+ * NOTE: Author was added as the LAST column on purpose, so the Pulled column
+ * keeps its original index and existing rows are never mistaken for un-pulled.
  */
 
 var SHEET_NAME = 'Feedback'
@@ -28,8 +30,12 @@ function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet()
   var sh = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME)
   if (sh.getLastRow() === 0) {
-    sh.appendRow(['Received', 'Filename', 'Comment (markdown)', 'Pulled'])
+    sh.appendRow(['Received', 'Filename', 'Comment (markdown)', 'Pulled', 'Author'])
     sh.setFrozenRows(1)
+  } else if (!sh.getRange(1, 5).getValue()) {
+    // Existing sheet from before the Author column: label E1 without disturbing
+    // the first four columns or any prior rows.
+    sh.getRange(1, 5).setValue('Author')
   }
   return sh
 }
@@ -37,7 +43,7 @@ function sheet_() {
 function doPost(e) {
   try {
     var data = JSON.parse((e && e.postData && e.postData.contents) || '{}')
-    sheet_().appendRow([new Date(), data.filename || '', data.markdown || '', ''])
+    sheet_().appendRow([new Date(), data.filename || '', data.markdown || '', '', data.author || ''])
     return json_({ ok: true })
   } catch (err) {
     return json_({ ok: false, error: String(err) })
@@ -58,14 +64,15 @@ function doGet(e) {
   var last = sh.getLastRow()
   var rows = []
   if (last > 1) {
-    var values = sh.getRange(2, 1, last - 1, 4).getValues()
+    var values = sh.getRange(2, 1, last - 1, 5).getValues()
     for (var i = 0; i < values.length; i++) {
-      if (values[i][3]) continue // already pulled
+      if (values[i][3]) continue // already pulled (Pulled = column 4)
       rows.push({
         row: i + 2,
         received: values[i][0],
         filename: values[i][1],
         markdown: values[i][2],
+        author: values[i][4] || '',
       })
     }
   }

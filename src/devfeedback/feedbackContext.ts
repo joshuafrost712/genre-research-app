@@ -5,6 +5,10 @@ export interface Draft {
   route: string
   selectionText: string
   locationLabel: string
+  /** Stable guide-content node + field under the selection, when tagged. Lets a
+   *  comment be re-opened later as a live highlight (deep-link) in the app. */
+  nodeId?: string
+  field?: string
 }
 
 /** A text-edit-in-progress: which guide-content node + field to change. */

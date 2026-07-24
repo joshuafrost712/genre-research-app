@@ -1,11 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { isFeedbackEnabled } from './enabled'
+import { isFeedbackEnabled, isBetaMode } from './enabled'
 import { FeedbackProvider } from './FeedbackProvider'
 import { useFeedback } from './feedbackContext'
 import { SelectionLayer } from './SelectionLayer'
 import { CommentWindow } from './CommentWindow'
 import { EditWindow } from './EditWindow'
 import { FeedbackManager } from './FeedbackManager'
+import { BetaIdentityBridge } from '../components/beta/BetaIdentityBridge'
 import { fdb } from './db'
 import './devfeedback.css'
 
@@ -18,11 +19,14 @@ import './devfeedback.css'
  */
 export function DevFeedbackRoot() {
   if (!isFeedbackEnabled()) return null
+  const beta = isBetaMode()
   return (
     <FeedbackProvider>
+      {beta && <BetaIdentityBridge />}
       <SelectionLayer />
       <CommentWindow />
-      <EditWindow />
+      {/* Edit-in-place is dev-only; beta testers get comment tools only. */}
+      {!beta && <EditWindow />}
       <FeedbackManager />
       <ManagerFab />
     </FeedbackProvider>

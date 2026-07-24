@@ -3,6 +3,9 @@ import { Link, Outlet } from 'react-router-dom'
 import { NavShell } from './NavShell'
 import { ContextBar } from './ContextBar'
 import { AccountButton } from './AccountButton'
+import { BetaAccountButton } from './beta/BetaAccountButton'
+import { BetaWelcome } from './beta/BetaWelcome'
+import { FeedbackHighlight } from './feedback/FeedbackHighlight'
 import { GenreNameProvider } from './GenreNameProvider'
 import { QuickJot } from './QuickJot'
 import { Tour } from './tour/TourProvider'
@@ -19,6 +22,8 @@ export function Layout() {
   return (
     <GenreNameProvider>
     <Tour id={APP_TOUR} steps={APP_TOUR_STEPS} />
+    <BetaWelcome />
+    <FeedbackHighlight />
     <div className="flex h-dvh flex-col bg-gray-50 text-gray-900">
       <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 print:hidden">
         <button
@@ -36,6 +41,7 @@ export function Layout() {
         </Link>
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <ContextBar />
+          <BetaAccountButton />
           <AccountButton />
         </div>
       </header>

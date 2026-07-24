@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useFeedback } from './feedbackContext'
+import { isBetaMode } from './enabled'
 
 /** Where on the page is this selection? Nearest heading, then aria-label, then a snippet. */
 function deriveLocationLabel(range: Range): string {
@@ -115,6 +116,8 @@ export function SelectionLayer() {
           route: pathname,
           selectionText: a?.text ?? '',
           locationLabel: a?.label ?? 'page',
+          nodeId: a?.edit?.nodeId,
+          field: a?.edit?.field,
         })
         setAnchor(null)
       }
@@ -136,13 +139,20 @@ export function SelectionLayer() {
         style={{ position: 'static' }}
         onMouseDown={(e) => e.preventDefault()} // keep the selection alive through the click
         onClick={() => {
-          openComment({ route: pathname, selectionText: anchor.text, locationLabel: anchor.label })
+          openComment({
+            route: pathname,
+            selectionText: anchor.text,
+            locationLabel: anchor.label,
+            nodeId: anchor.edit?.nodeId,
+            field: anchor.edit?.field,
+          })
           setAnchor(null)
         }}
       >
         💬 Comment
       </button>
-      {anchor.edit && (
+      {/* Edit-in-place is a developer-only affordance; beta testers comment only. */}
+      {anchor.edit && !isBetaMode() && (
         <button
           type="button"
           className="dfb-selection-btn"
