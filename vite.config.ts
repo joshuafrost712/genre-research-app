@@ -107,7 +107,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
+      // Auto-update: a new deploy activates on the next load without a manual
+      // "reload to update" prompt. With 'prompt' (and no prompt UI wired) a
+      // returning visitor's service worker stayed in the waiting state forever,
+      // serving a stale cached build — so the live site could look nothing like
+      // the current one. skipWaiting + clientsClaim below make the new worker
+      // take over immediately.
+      registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Local Genres Research',
@@ -128,9 +134,20 @@ export default defineConfig({
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml' },
         ],
       },
-      // pdfmake ships its fonts as one ~2 MB virtual-file-system chunk; raise the
-      // precache ceiling so PDF export still works fully offline once installed.
-      workbox: { maximumFileSizeToCacheInBytes: 4 * 1024 * 1024 },
+      workbox: {
+        // pdfmake ships its fonts as one ~2 MB virtual-file-system chunk; raise
+        // the precache ceiling so PDF export still works fully offline once
+        // installed.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // Self-healing updates: delete previous-revision precaches, and let a
+        // newly deployed worker take over open pages immediately instead of
+        // waiting for every tab to close (the stall that froze users on old
+        // builds). Only touches Cache Storage (static assets) — never the Dexie
+        // IndexedDB where users' entered data lives.
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+      },
       // Let the PWA work while developing so install/offline can be tested early.
       devOptions: { enabled: true },
     }),
