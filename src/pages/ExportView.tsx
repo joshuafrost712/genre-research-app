@@ -8,12 +8,13 @@ import { useActiveContext } from '../components/ActiveContextProvider'
 import { useDepthMode } from '../components/DepthModeContext'
 import { useLocale } from '../lib/i18n/LocaleContext'
 import { LOCALE_LABELS, SOURCE_LOCALE } from '../lib/i18n/locales'
+import { partnerLocale } from '../lib/translate/direction'
 
 /** Offline export: long-format CSV and an AI-synthesis prompt. */
 export function ExportView() {
   const { ctx } = useActiveContext()
   const { mode } = useDepthMode()
-  const { locale, answerTarget } = useLocale()
+  const { locale } = useLocale()
   const entries = useAllEntries(ctx)
   const names = useLiveQuery(async (): Promise<ExportNames | null> => {
     if (!ctx) return null
@@ -37,9 +38,9 @@ export function ExportView() {
     return <p className="text-sm text-gray-400">Loading…</p>
   }
 
-  // The paired language is English when the team is working in another language,
-  // and the answer-translation target when they are working in English.
-  const altLocale = locale === SOURCE_LOCALE ? answerTarget : SOURCE_LOCALE
+  // The paired language is simply the other one, from one shared definition rather
+  // than re-derived here.
+  const altLocale = partnerLocale(locale) ?? SOURCE_LOCALE
   const rows = buildRows(entries, names, bilingual ? { altLocale } : undefined)
   const slug = `${names.focusText}-${names.genre}`.replace(/[^a-z0-9]+/gi, '-').toLowerCase()
 

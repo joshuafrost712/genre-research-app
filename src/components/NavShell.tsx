@@ -12,11 +12,14 @@ import { useDepthMode } from './DepthModeContext'
 import { useProgress } from './useProgress'
 import { resolveGenreTokens, useNameTokens } from './GenreNameProvider'
 import { isGoogleConfigured } from '../lib/google/auth'
+import { LanguageSwitcher } from './LanguageSwitcher'
+import { useLocale } from '../lib/i18n/LocaleContext'
+import type { UiKey } from '../lib/i18n/strings'
 
-const DEPTH_LABELS: Record<DepthMode, string> = {
-  quick: 'Quick',
-  standard: 'Standard',
-  comprehensive: 'Comprehensive',
+const DEPTH_KEYS: Record<DepthMode, UiKey> = {
+  quick: 'depth.quick',
+  standard: 'depth.standard',
+  comprehensive: 'depth.comprehensive',
 }
 
 /**
@@ -26,18 +29,20 @@ const DEPTH_LABELS: Record<DepthMode, string> = {
  * tap a page. Subsections hidden by the current depth mode are not shown, which
  * is the anti-overwhelm mechanism at the navigation level.
  */
-const QUICK_LINKS: { to: string; label: string; end?: boolean }[] = [
-  { to: '/', label: 'Home', end: true },
-  { to: '/wizard', label: 'Step-by-step guide' },
-  { to: '/capture', label: 'Quick note' },
-  { to: '/routing', label: 'Sort notes with AI' },
-  { to: '/review', label: 'Review AI suggestions' },
-  { to: '/genres', label: 'Passages & Genres' },
-  { to: '/follow-up', label: 'Follow up' },
-  { to: '/export', label: 'Export' },
-  { to: '/help', label: 'Help' },
+// Labels are keys, not text: the menu is the most-read surface in the app, so
+// leaving it English would make a translated worksheet feel like a veneer.
+const QUICK_LINKS: { to: string; key: UiKey; end?: boolean }[] = [
+  { to: '/', key: 'nav.home', end: true },
+  { to: '/wizard', key: 'nav.wizard' },
+  { to: '/capture', key: 'nav.capture' },
+  { to: '/routing', key: 'nav.routing' },
+  { to: '/review', key: 'nav.review' },
+  { to: '/genres', key: 'nav.genres' },
+  { to: '/follow-up', key: 'nav.followUp' },
+  { to: '/export', key: 'nav.export' },
+  { to: '/help', key: 'nav.help' },
   // Teams (cloud sharing) only appears when Google sign-in is configured.
-  ...(isGoogleConfigured() ? [{ to: '/teams', label: 'Teams' }] : []),
+  ...(isGoogleConfigured() ? [{ to: '/teams', key: 'nav.teams' as UiKey }] : []),
 ]
 
 const WORKSPACE_ACCENT: Record<string, string> = {
@@ -49,6 +54,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
   const { mode, setMode } = useDepthMode()
   const progress = useProgress()
   const tokens = useNameTokens()
+  const { t } = useLocale()
 
   const pct =
     progress && progress.overall.total > 0
@@ -57,6 +63,14 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <nav className="flex h-full flex-col gap-4 p-4 text-sm short:gap-2 short:p-2">
+      {/* Also here, not just in the header: on a phone the nav lives in a drawer,
+          and someone who opened the menu to move around should be able to change
+          language in the same place rather than closing it again. */}
+      <div className="shrink-0">
+        <div className="mb-1 text-xs font-semibold text-gray-500">{t('lang.label')}</div>
+        <LanguageSwitcher variant="block" />
+      </div>
+
       <ul className="grid grid-cols-1 gap-0.5 shrink-0 short:grid-cols-2 short:gap-x-2">
         {QUICK_LINKS.map((l) => (
           <li key={l.to}>
@@ -70,7 +84,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
                 }`
               }
             >
-              {l.label}
+              {t(l.key)}
             </NavLink>
           </li>
         ))}
@@ -79,7 +93,9 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
       {progress && progress.overall.total > 0 && (
         <div className="shrink-0">
           <div className="mb-1 flex justify-between text-xs text-gray-500">
-            <span>Progress ({mode})</span>
+            <span>
+              {t('nav.progress')} ({t(DEPTH_KEYS[mode])})
+            </span>
             <span>
               {progress.overall.done}/{progress.overall.total} · {pct}%
             </span>
@@ -91,8 +107,8 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
       )}
 
       <div className="shrink-0">
-        <div className="mb-1 font-semibold text-gray-700">Depth</div>
-        <div className="flex gap-1" role="group" aria-label="Depth mode">
+        <div className="mb-1 font-semibold text-gray-700">{t('nav.depth')}</div>
+        <div className="flex gap-1" role="group" aria-label={t('nav.depth')}>
           {(['quick', 'standard'] as DepthMode[]).map((m) => (
             <button
               key={m}
@@ -104,7 +120,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {DEPTH_LABELS[m]}
+              {t(DEPTH_KEYS[m])}
             </button>
           ))}
         </div>
@@ -115,7 +131,7 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
           <div key={ws.id}>
             <div className="px-1 pb-1">
               <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                Workspace {i + 1}
+                {t('nav.workspace', { n: i + 1 })}
               </div>
               <div
                 className={`text-sm font-semibold ${WORKSPACE_ACCENT[ws.id]}`}

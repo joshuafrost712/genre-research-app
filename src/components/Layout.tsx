@@ -21,7 +21,7 @@ import { useLocale } from '../lib/i18n/LocaleContext'
  */
 export function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
 
   // Keying the shell on the locale remounts the page tree when the language
   // changes. The loader reads the active locale from module state (see
@@ -41,7 +41,7 @@ export function Layout() {
           type="button"
           className="rounded p-2 hover:bg-gray-100 lg:hidden"
           onClick={() => setDrawerOpen(true)}
-          aria-label="Open menu"
+          aria-label={t('nav.openMenu')}
         >
           <span className="block h-0.5 w-5 bg-gray-700" />
           <span className="mt-1 block h-0.5 w-5 bg-gray-700" />

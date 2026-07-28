@@ -21,10 +21,19 @@ export const CONTRACT_PATH = 'supabase/functions/translate/contract.generated.js
 export function renderContract(): string {
   const systemPrompts: Record<string, string> = {}
   for (const locale of LOCALES) {
-    if (locale === SOURCE_LOCALE) continue
-    // Only locales with a glossary get a prompt. Translating without terminology
-    // control would produce the inconsistency the glossary exists to prevent, so
-    // the function rejects such a locale rather than guessing.
+    // English is always a valid target, and this line is a bug fix. Translation is
+    // bidirectional (a team working in Indonesian must be able to produce English
+    // for a consultant), but the first cut skipped SOURCE_LOCALE here, so the
+    // deployed function answered every Indonesian-to-English request with
+    // "no translation contract for locale en". The feature would have failed in
+    // Bali on exactly the review case it was built for.
+    if (locale === SOURCE_LOCALE) {
+      systemPrompts[locale] = buildSystemPrompt(locale as Locale)
+      continue
+    }
+    // Other locales need a glossary. Translating into a language without
+    // terminology control would produce the inconsistency the glossary exists to
+    // prevent, so the function rejects such a locale rather than guessing.
     if (glossaryFor(locale as Locale)) systemPrompts[locale] = buildSystemPrompt(locale as Locale)
   }
   return `${JSON.stringify(

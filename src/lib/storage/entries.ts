@@ -226,6 +226,18 @@ export function entryTranslation(entry: Entry | null | undefined, locale: string
   return hit && hit.trim() ? hit : undefined
 }
 
+/**
+ * An answer's text in `locale` where a translation exists, otherwise as written.
+ *
+ * For read-only surfaces (collapsed row previews, summaries) where the point is to
+ * scan quickly. A consultant reading in English should not have to open every row
+ * of a table to find out what it says, and a row must never come up blank merely
+ * because nobody has translated it yet.
+ */
+export function preferredText(entry: Entry | null | undefined, locale: string): string {
+  return (entryTranslation(entry, locale) ?? entry?.text ?? '').trim()
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   const existing = await db.entries.get(id)
   await db.entries.delete(id)

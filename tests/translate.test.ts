@@ -14,6 +14,7 @@ import {
   pruneTranslationQueue,
 } from '../src/lib/translate/queue'
 import { CONTRACT_PATH, renderContract } from '../src/lib/translate/contract'
+import { LOCALES } from '../src/lib/i18n/locales'
 import {
   buildSystemPrompt,
   buildUserMessage,
@@ -44,6 +45,20 @@ describe('the generated Edge Function contract', () => {
     // symptom would be inconsistent Indonesian rather than a broken build.
     const committed = readFileSync(resolve(__dirname, '..', CONTRACT_PATH), 'utf8')
     expect(committed).toBe(renderContract())
+  })
+
+  it('carries a prompt for every language the app can ask for, English included', () => {
+    // The deployment bug this guards. Translation is bidirectional, but the first
+    // cut skipped the source locale when rendering the contract, so the deployed
+    // function rejected every Indonesian-to-English request with "no translation
+    // contract for locale en" — failing on exactly the consultant-review case the
+    // feature exists to serve, and only in production, where the Edge Function
+    // rather than the dev endpoint is answering.
+    const prompts = (JSON.parse(renderContract()) as { systemPrompts: Record<string, string> })
+      .systemPrompts
+    for (const locale of LOCALES) {
+      expect(Object.keys(prompts)).toContain(locale)
+    }
   })
 })
 

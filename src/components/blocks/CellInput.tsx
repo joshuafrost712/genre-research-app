@@ -3,7 +3,7 @@ import type { ActiveContext } from '../../lib/storage/appState'
 import { db } from '../../lib/storage/db'
 import { upsertEntry, useEntry } from '../../lib/storage/entries'
 import type { CellType, Layer, SelectOption } from '../../schema/types'
-import { AutosaveText } from './AutosaveText'
+import { TranslatableCell } from './TranslatableCell'
 
 /** One cell of a repeatable-row table or fixed grid, addressed by cell_key. */
 export function CellInput({
@@ -13,6 +13,7 @@ export function CellInput({
   cellKey,
   cellType,
   options,
+  question,
 }: {
   ctx: ActiveContext
   nodeId: string
@@ -20,6 +21,8 @@ export function CellInput({
   cellKey: string
   cellType: CellType
   options?: SelectOption[]
+  /** Column label, passed to translation as the context for a terse cell answer. */
+  question?: string
 }) {
   const entry = useEntry(ctx, nodeId, layer, cellKey)
 
@@ -72,11 +75,16 @@ export function CellInput({
     )
   }
 
+  // Free-text cells are the team's own words, so these are the ones worth
+  // translating. Select and genre-picker cells store ids or a genre name that is a
+  // proper noun in both languages.
   return (
-    <AutosaveText
-      value={entry?.text ?? ''}
+    <TranslatableCell
+      entry={entry}
+      nodeId={nodeId}
       multiline={cellType === 'long_text'}
-      onSave={(v) => upsertEntry(ctx, nodeId, layer, { text: v }, cellKey)}
+      question={question}
+      onSaveSource={(v) => upsertEntry(ctx, nodeId, layer, { text: v }, cellKey)}
     />
   )
 }

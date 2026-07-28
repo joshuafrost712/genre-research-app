@@ -36,7 +36,9 @@ import {
   useAllEntries,
   useEntry,
   useRowIds,
+  preferredText,
 } from '../../lib/storage/entries'
+import { getActiveLocale } from '../../lib/i18n/activeLocale'
 import { deriveSectionRecall, macroDecisions, translationSummary } from '../../lib/content/sectionRecall'
 import {
   needsSummary,
@@ -1652,6 +1654,7 @@ function FieldRow({
             cellKey={cellKey(rowId, col.id)}
             cellType={col.cellType}
             options={col.options}
+            question={col.label}
           />
         </div>
       )}
@@ -1704,7 +1707,16 @@ function cellSummary(entry: ReturnType<typeof useEntry>, col: Column): string {
       .map((o) => o.label)
       .join(', ')
   }
-  return (entry.text ?? '').trim()
+  // Show the collapsed-row preview in the language being read, when a translation
+  // exists. Without this, a consultant reviewing in English scans a table of
+  // Indonesian previews and has to open every row to find out what it says, which
+  // defeats the point of the summary. Falls back to the original, so a row is never
+  // blank just because it has not been translated.
+  //
+  // Reads the module-level locale rather than the hook because this is a plain
+  // function called from three places; Layout remounts the tree on a language
+  // change, so the value cannot go stale here.
+  return preferredText(entry, getActiveLocale())
 }
 
 function AskedToggle({

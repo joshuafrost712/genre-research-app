@@ -13,9 +13,10 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DEFAULT_TRANSLATION_TARGET } from '../translate/config'
+import { partnerLocale } from '../translate/direction'
 import { setActiveLocale } from './activeLocale'
 import { isLocale, SOURCE_LOCALE, type Locale } from './locales'
-import { t as translateChrome, type UiKey } from './strings'
+import { t as translateChrome, type UiKey, type UiVars } from './strings'
 
 interface LocaleContextValue {
   /** The language the UI is rendered in. */
@@ -24,11 +25,13 @@ interface LocaleContextValue {
   /** True when the UI is showing the untranslated source language. */
   isSource: boolean
   /** Chrome-string lookup bound to the active locale. */
-  t: (key: UiKey) => string
+  t: (key: UiKey, vars?: UiVars) => string
   /**
-   * The locale a team's answers are translated INTO. Equals `locale` while a
-   * translated UI is active; while working in English it is the configured
-   * default target, so a team can still translate answers for a reviewer.
+   * "The other language" from where the reader is standing: the configured target
+   * while working in English, English while working in a translated UI. Used for
+   * the bilingual export's second column and as a default where no specific answer
+   * is in view. A specific answer instead uses `translationTargetFor`, which also
+   * accounts for the language that answer was written in.
    */
   answerTarget: Locale
 }
@@ -57,7 +60,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = locale
   }, [locale])
 
-  const t = useCallback((key: UiKey) => translateChrome(locale, key), [locale])
+  const t = useCallback((key: UiKey, vars?: UiVars) => translateChrome(locale, key, vars), [locale])
 
   const value = useMemo<LocaleContextValue>(
     () => ({
@@ -65,7 +68,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       setLocale,
       isSource: locale === SOURCE_LOCALE,
       t,
-      answerTarget: locale === SOURCE_LOCALE ? DEFAULT_TRANSLATION_TARGET : locale,
+      answerTarget: partnerLocale(locale) ?? DEFAULT_TRANSLATION_TARGET,
     }),
     [locale, t],
   )

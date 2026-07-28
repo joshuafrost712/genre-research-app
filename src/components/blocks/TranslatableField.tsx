@@ -1,13 +1,8 @@
-import { useEffect, useState } from 'react'
 import { AutosaveText } from './AutosaveText'
-import { findSourceNode } from '../../lib/content/loader'
 import { useLocale } from '../../lib/i18n/LocaleContext'
 import { LOCALE_LABELS } from '../../lib/i18n/locales'
-import { entryTranslation, saveEntryTranslation } from '../../lib/storage/entries'
-import { translateText } from '../../lib/translate/client'
+import { useAnswerTranslation } from '../../lib/translate/useAnswerTranslation'
 import type { Entry } from '../../lib/types'
-
-type Phase = 'idle' | 'working' | 'queued' | 'failed'
 
 /**
  * A worksheet answer plus its translation.
@@ -20,8 +15,10 @@ type Phase = 'idle' | 'working' | 'queued' | 'failed'
  * notes will be roughly right and locally wrong, and the team is the only party who
  * can fix it. It saves through the same debounced autosave as any other answer.
  *
- * Storage rule this relies on: editing the source answer clears the cached
- * translation (see upsertEntry), so the two can never drift apart silently.
+ * Two rules it leans on, both tested elsewhere: editing the source answer clears
+ * the cached translation (`upsertEntry`), so the pair cannot drift apart silently;
+ * and the target language follows the reader (`translationTargetFor`), so the
+ * control always offers the language you are not currently looking at.
  */
 export function TranslatableField({
   entry,
@@ -36,63 +33,26 @@ export function TranslatableField({
   placeholder?: string
   onSaveSource: (next: string) => void | Promise<unknown>
 }) {
-  const { answerTarget, t } = useLocale()
-  const [phase, setPhase] = useState<Phase>('idle')
-  const [note, setNote] = useState<string | null>(null)
-
-  const source = entry?.text ?? ''
-  const sourceLanguage = entry?.source_language ?? 'en'
-  const existing = entryTranslation(entry, answerTarget)
-
-  // A new answer means any previous state is about text that no longer exists.
-  useEffect(() => {
-    setPhase('idle')
-    setNote(null)
-  }, [entry?.id, source])
-
-  const alreadyInTarget = sourceLanguage === answerTarget
-  const canTranslate = source.trim().length > 0 && !alreadyInTarget
-
-  async function run() {
-    setPhase('working')
-    setNote(null)
-    const outcome = await translateText({
-      text: source,
-      targetLocale: answerTarget,
-      // The ENGLISH question, deliberately: the contract treats it as context in a
-      // known language, so a localised label would muddle the disambiguation.
-      question: findSourceNode(nodeId)?.node.label,
-      entryId: entry?.id,
-    })
-
-    if (outcome.status === 'translated' || outcome.status === 'unchanged') {
-      if (entry?.id && outcome.text) await saveEntryTranslation(entry.id, answerTarget, outcome.text)
-      setPhase('idle')
-      if (outcome.status === 'unchanged') setNote(t('translate.editHint'))
-      return
-    }
-    if (outcome.status === 'queued') {
-      setPhase('queued')
-      return
-    }
-    setPhase('failed')
-    setNote(outcome.reason ?? null)
-  }
+  const { t } = useLocale()
+  const { target, canTranslate, existing, phase, note, run, saveEdit } = useAnswerTranslation(
+    entry,
+    nodeId,
+  )
 
   return (
     <div className="flex flex-col gap-1.5">
       <AutosaveText
-        value={source}
+        value={entry?.text ?? ''}
         multiline={multiline}
         placeholder={placeholder}
         onSave={onSaveSource}
       />
 
-      {canTranslate && (
-        <div className="rounded-md border border-sky-100 bg-sky-50/60 p-2">
+      {canTranslate && target && (
+        <div className="rounded-md border border-sky-200 bg-sky-50/60 p-2">
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-medium text-gray-600">
-              {t('translate.translationLabel')} · {LOCALE_LABELS[answerTarget] ?? answerTarget}
+              {t('translate.translationLabel')} · {LOCALE_LABELS[target] ?? target}
             </span>
             {phase === 'working' && (
               <span className="text-[10px] text-gray-500">{t('translate.inFlight')}</span>
@@ -115,27 +75,23 @@ export function TranslatableField({
 
           {existing !== undefined ? (
             <>
-              <AutosaveText
-                value={existing}
-                multiline={multiline}
-                onSave={(v) => {
-                  if (entry?.id) return saveEntryTranslation(entry.id, answerTarget, v)
-                }}
-              />
+              <AutosaveText value={existing} multiline={multiline} onSave={saveEdit} />
               <p className="mt-1 text-[10px] text-gray-400">{t('translate.editHint')}</p>
             </>
           ) : (
             phase !== 'working' &&
             phase !== 'queued' && (
               <p className="text-[11px] text-gray-500">
-                {phase === 'failed' ? t('translate.failed') : t('translate.editHint')}
+                {phase === 'failed'
+                  ? t('translate.failed')
+                  : t('translate.offer', { language: LOCALE_LABELS[target] ?? target })}
               </p>
             )
           )}
 
           {note && phase === 'failed' && (
             <p className="mt-1 text-[10px] text-gray-400" title={note}>
-              {note.slice(0, 120)}
+              {note}
             </p>
           )}
         </div>
