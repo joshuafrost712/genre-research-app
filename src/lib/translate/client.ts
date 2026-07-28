@@ -78,6 +78,13 @@ export interface TranslateArgs {
   /** The answer to translate, in its stored (source) language. */
   text: string
   targetLocale: Locale
+  /**
+   * The language the answer is already in. Optional for the Anthropic engine,
+   * which reads it from the prompt's framing, but it matters for Google: a
+   * glossary requires an explicit source language, and auto-detection on a
+   * three-word cell answer is exactly where detection guesses wrong.
+   */
+  sourceLocale?: Locale
   /** English worksheet question this answers; context only, never translated. */
   question?: string
   /** Entry to attach a deferred result to, if this falls through to the queue. */
@@ -133,10 +140,10 @@ async function readOutcome(res: Response, started: number): Promise<TranslateOut
 }
 
 export async function translateText(args: TranslateArgs): Promise<TranslateOutcome> {
-  const { text, targetLocale, question, entryId } = args
+  const { text, targetLocale, sourceLocale, question, entryId } = args
   if (!text.trim()) return { status: 'failed', reason: 'empty text' }
 
-  const payload = { text, targetLocale, question }
+  const payload = { text, targetLocale, sourceLocale, question }
   const started = Date.now()
 
   // Configured for the zero-cost lane: do not attempt an interactive call at all.

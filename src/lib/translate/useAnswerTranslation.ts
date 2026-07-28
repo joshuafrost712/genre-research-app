@@ -13,7 +13,7 @@ import { useLocale } from '../i18n/LocaleContext'
 import { type Locale } from '../i18n/locales'
 import { entryTranslation, saveEntryTranslation } from '../storage/entries'
 import { translateText, type QueuedCause } from './client'
-import { translationTargetFor } from './direction'
+import { answerLocale, translationTargetFor } from './direction'
 import type { UiKey } from '../i18n/strings'
 import type { Entry } from '../types'
 
@@ -85,6 +85,9 @@ export function useAnswerTranslation(
     const outcome = await translateText({
       text: source,
       targetLocale: target,
+      // Stated rather than left to detection: the Google engine needs it, and the
+      // app already knows it from the entry.
+      sourceLocale: answerLocale(entry?.source_language),
       // The ENGLISH question, deliberately: the prompt contract treats it as
       // context in a known language, so a localised label would muddle rather
       // than sharpen the disambiguation of a three-word answer.

@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
-# Turn on instant (Lane A) translation of the answers a team types.
+# Turn on instant (Lane A) translation of the answers a team types, using
+# ANTHROPIC (Claude Haiku 4.5) as the engine.
 #
 #   ./scripts/enable-translation.sh
+#
+# For the GOOGLE engine instead, use `npm run translate:google`. The two are
+# interchangeable at runtime through the TRANSLATE_ENGINE secret; the trade is
+# terminology and context (Anthropic reads the worksheet question and the glossary
+# as instructions) against a little cost and latency (Google is ~$0 inside its
+# 500K-characters-a-month free tier, and ~300ms rather than ~1s).
 #
 # What it does, in order: deploys the `translate` Edge Function, hands it the
 # Anthropic key as a Supabase secret, and proves the key landed. Idempotent —
@@ -90,8 +97,11 @@ fi
 echo "==> Deploying the translate function"
 supabase functions deploy translate --project-ref "$PROJECT_REF" --no-verify-jwt
 
-echo "==> Setting the Anthropic key as a Supabase secret"
-supabase secrets set "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" --project-ref "$PROJECT_REF" >/dev/null
+echo "==> Setting the Anthropic key as a Supabase secret, and selecting the engine"
+# TRANSLATE_ENGINE defaults to google, so setting the key alone would leave the
+# proxy pointed at the other engine and this script apparently doing nothing.
+supabase secrets set "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" TRANSLATE_ENGINE=anthropic \
+  --project-ref "$PROJECT_REF" >/dev/null
 echo "    set (value not echoed)"
 
 # --- Prove it ------------------------------------------------------------------
