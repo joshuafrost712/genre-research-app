@@ -17,6 +17,7 @@ import {
   setRoutingToken,
 } from '../routing/config'
 import { useActiveContext } from '../components/ActiveContextProvider'
+import { TranslationHandoffPanel } from '../components/TranslationHandoffPanel'
 import { Tour, ReplayTourButton } from '../components/tour/TourProvider'
 import { SORT_AI_TOUR, SORT_AI_TOUR_STEPS } from '../components/tour/tours'
 
@@ -127,6 +128,10 @@ export function Routing() {
       </section>
 
       <AutomatedPanel onResult={(r) => setMsg(summarize(r))} onError={setMsg} />
+
+      {/* Same no-metered-API handoff, for translating answers rather than routing
+          notes. Renders nothing when no answers are waiting. */}
+      <TranslationHandoffPanel />
 
       {msg && <p className="rounded-md bg-gray-100 p-3 text-sm text-gray-700">{msg}</p>}
     </div>
