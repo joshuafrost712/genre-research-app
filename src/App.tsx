@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { Layout } from './components/Layout'
+import { LocaleProvider } from './lib/i18n/LocaleContext'
 import { DepthModeProvider } from './components/DepthModeContext'
 import { ActiveContextProvider } from './components/ActiveContextProvider'
 import { SyncEngineProvider } from './components/SyncEngineProvider'
@@ -57,15 +58,20 @@ const router = createBrowserRouter(
 )
 
 export default function App() {
+  // LocaleProvider is outermost: it mirrors the active locale into module state
+  // during render, and the content loader reads that, so it must be set before any
+  // descendant reads worksheet content.
   return (
-    <DepthModeProvider>
-      <ActiveContextProvider>
-        <SyncEngineProvider>
-          <TourProvider>
-            <RouterProvider router={router} />
-          </TourProvider>
-        </SyncEngineProvider>
-      </ActiveContextProvider>
-    </DepthModeProvider>
+    <LocaleProvider>
+      <DepthModeProvider>
+        <ActiveContextProvider>
+          <SyncEngineProvider>
+            <TourProvider>
+              <RouterProvider router={router} />
+            </TourProvider>
+          </SyncEngineProvider>
+        </ActiveContextProvider>
+      </DepthModeProvider>
+    </LocaleProvider>
   )
 }

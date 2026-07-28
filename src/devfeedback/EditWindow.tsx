@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { findNode } from '../lib/content/loader'
+// Source node, not the localised one: the content-edit endpoint compares the
+// submitted `oldText` against the English guide-content.json and 409s on a
+// mismatch, so editing while the UI is in another language must still send English.
+import { findSourceNode } from '../lib/content/loader'
 import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 import type { GuideNode } from '../schema/types'
 import { useFeedback } from './feedbackContext'
@@ -45,7 +48,7 @@ export function EditWindow() {
 
   if (!editDraft) return null
 
-  const node = findNode(editDraft.nodeId)?.node
+  const node = findSourceNode(editDraft.nodeId)?.node
   const field = editDraft.field as keyof GuideNode
   const oldText = typeof node?.[field] === 'string' ? (node[field] as string) : ''
   const value = text ?? oldText

@@ -3,14 +3,55 @@
  * generated from Katie's authoring Google Sheet and fetched as a versioned file.
  * Keep all access to worksheet content behind this module so the source can change
  * without touching the renderer.
+ *
+ * LOCALES: the JSON is the English source; translations are layered on at this
+ * boundary. Every accessor that returns content for DISPLAY returns nodes already
+ * translated into the active locale, so no call site needs to know about languages.
+ * Two escape hatches read the untranslated source: `getSourceContent()` and
+ * `findSourceNode()`. Edit-in-place uses the latter, because the content-edit
+ * endpoint compares the submitted `oldText` against the English file and 409s on a
+ * mismatch — handing it a translated string would make every edit fail.
  */
 import rawContent from '../../content/guide-content.json'
 import type { GuideContent, GuideNode } from '../../schema/types'
+import { getActiveLocale } from '../i18n/activeLocale'
+import { localizedNode } from '../i18n/content'
+import { SOURCE_LOCALE, type Locale } from '../i18n/locales'
 
 const content = rawContent as GuideContent
 
-export function getContent(): GuideContent {
+/** The untranslated English content. */
+export function getSourceContent(): GuideContent {
   return content
+}
+
+// Localised section/chrome trees, memoised per locale. Nodes are stable objects
+// from a module-level import, so this is computed at most once per language.
+const treeCache = new Map<Locale, { sections: GuideNode[]; chrome: GuideNode[] }>()
+
+function tree(locale: Locale): { sections: GuideNode[]; chrome: GuideNode[] } {
+  if (locale === SOURCE_LOCALE) {
+    return { sections: content.sections, chrome: content.chrome ?? [] }
+  }
+  let hit = treeCache.get(locale)
+  if (!hit) {
+    hit = {
+      sections: content.sections.map((s) => localizedNode(s, locale)),
+      chrome: (content.chrome ?? []).map((c) => localizedNode(c, locale)),
+    }
+    treeCache.set(locale, hit)
+  }
+  return hit
+}
+
+/** Display sections for the active locale. */
+function sections(): GuideNode[] {
+  return tree(getActiveLocale()).sections
+}
+
+export function getContent(): GuideContent {
+  const { sections, chrome } = tree(getActiveLocale())
+  return { ...content, sections, chrome }
 }
 
 export function getContentVersion(): string {
@@ -34,21 +75,39 @@ export interface NodeRef {
   parents: GuideNode[]
 }
 
-let indexCache: Map<string, NodeRef> | null = null
+const indexCache = new Map<Locale, Map<string, NodeRef>>()
 
-export function nodeIndex(): Map<string, NodeRef> {
-  if (indexCache) return indexCache
+function indexFor(locale: Locale): Map<string, NodeRef> {
+  const cached = indexCache.get(locale)
+  if (cached) return cached
   const map = new Map<string, NodeRef>()
-  walk(content.sections, (node, parents) => map.set(node.id, { node, parents }))
+  const { sections, chrome } = tree(locale)
+  walk(sections, (node, parents) => map.set(node.id, { node, parents }))
   // Chrome nodes are indexed for findNode/edit-in-place, but never appear in
-  // navTree/navOrder/progress (those walk content.sections directly).
-  walk(content.chrome ?? [], (node, parents) => map.set(node.id, { node, parents }))
-  indexCache = map
+  // navTree/navOrder/progress (those walk the section tree directly).
+  walk(chrome, (node, parents) => map.set(node.id, { node, parents }))
+  indexCache.set(locale, map)
   return map
 }
 
+/** Node index for the active locale. Structural fields are identical across locales. */
+export function nodeIndex(): Map<string, NodeRef> {
+  return indexFor(getActiveLocale())
+}
+
+/** A node with its strings in the active locale — the normal display path. */
 export function findNode(id: string): NodeRef | undefined {
   return nodeIndex().get(id)
+}
+
+/**
+ * A node with its ORIGINAL English strings, whatever the active locale.
+ * Use this wherever the English source text itself is the subject: edit-in-place
+ * (whose endpoint compares `oldText` against the English file), and building a
+ * translation request (whose input must be the source, never a re-translation).
+ */
+export function findSourceNode(id: string): NodeRef | undefined {
+  return indexFor(SOURCE_LOCALE).get(id)
 }
 
 /**
@@ -78,7 +137,7 @@ export interface NavSection {
 }
 
 export function navTree(): NavSection[] {
-  return content.sections.map((section) => ({
+  return sections().map((section) => ({
     section,
     subsections: (section.children ?? []).filter((c) => c.type === 'group'),
   }))

@@ -12,6 +12,8 @@ import { Tour } from './tour/TourProvider'
 import { APP_TOUR, APP_TOUR_STEPS } from './tour/tours'
 import { DevFeedbackRoot } from '../devfeedback/DevFeedbackRoot'
 import { isBetaMode } from '../devfeedback/enabled'
+import { LanguageSwitcher } from './LanguageSwitcher'
+import { useLocale } from '../lib/i18n/LocaleContext'
 
 /**
  * App shell: a persistent sidebar on wide screens, a slide-over drawer on mobile.
@@ -19,13 +21,21 @@ import { isBetaMode } from '../devfeedback/enabled'
  */
 export function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const { locale } = useLocale()
 
+  // Keying the shell on the locale remounts the page tree when the language
+  // changes. The loader reads the active locale from module state (see
+  // lib/i18n/activeLocale.ts), which React cannot subscribe to, so without this a
+  // component that does not itself consume the locale context would keep showing
+  // the previous language until something else re-rendered it. Language switching
+  // is rare and deliberate, so a remount is the cheap, provably-correct option;
+  // focusing the switcher blurs any open field first, which flushes AutosaveText.
   return (
     <GenreNameProvider>
     <Tour id={APP_TOUR} steps={APP_TOUR_STEPS} />
     <BetaWelcome />
     <FeedbackHighlight />
-    <div className="flex h-dvh flex-col bg-gray-50 text-gray-900">
+    <div key={locale} className="flex h-dvh flex-col bg-gray-50 text-gray-900">
       <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 print:hidden">
         <button
           type="button"
@@ -42,6 +52,7 @@ export function Layout() {
         </Link>
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <ContextBar />
+          <LanguageSwitcher />
           {isBetaMode() ? <BetaSignIn /> : <AccountButton />}
         </div>
       </header>
