@@ -9,6 +9,7 @@ import type {
   Person,
   Project,
   Recording,
+  TranslationQueueRow,
   TranslationWorksheet,
 } from '../types'
 import type { OutboxRow } from '../sync/types'
@@ -35,6 +36,13 @@ class GenreResearchDB extends Dexie {
   history!: EntityTable<HistoryRow, 'seq'>
   /** Voice recordings (first-draft takes), stored as blobs (added in v3). */
   recordings!: EntityTable<Recording, 'id'>
+  /**
+   * Answers awaiting translation by the deferred (zero-metered-cost) lane, added
+   * in v6. Local-only working state, deliberately NOT synced: the translation it
+   * produces lands on the Entry, which is synced, so replicating the request as
+   * well would let several devices translate the same answer.
+   */
+  translationQueue!: EntityTable<TranslationQueueRow, 'seq'>
 
   constructor() {
     super('genre-research')
@@ -114,6 +122,11 @@ class GenreResearchDB extends Dexie {
             if (parsed.verse_end != null && f.verse_end == null) f.verse_end = parsed.verse_end
           })
       })
+    // v6: queue for the deferred translation lane. Additive — a new store only,
+    // no data migration, so an existing device keeps every answer untouched.
+    this.version(6).stores({
+      translationQueue: '++seq, entry_id, target_locale, status, created_at',
+    })
   }
 }
 

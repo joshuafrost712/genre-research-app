@@ -56,6 +56,7 @@ import {
   type Layer,
 } from '../../schema/types'
 import { AutosaveText } from './AutosaveText'
+import { TranslatableField } from './TranslatableField'
 import { AudioRecorderBlock } from './AudioRecorder'
 import { CellInput } from './CellInput'
 
@@ -1155,11 +1156,16 @@ function ScalarText({ ctx, node, layer }: BlockProps) {
   const entry = useEntry(ctx, node.id, layer)
   // Editing an AI-sourced answer makes it the human's own: drop the AI mark.
   const clearAI = entry?.ai_confidence != null ? { ai_confidence: undefined } : {}
+  // Free-text answers are what a team writes in their own words, so these are the
+  // blocks worth translating. Selects and scales carry ids whose labels come from
+  // the already-translated worksheet content, and grids/tables are handled by
+  // their own cell renderers.
   return (
-    <AutosaveText
-      value={entry?.text ?? ''}
+    <TranslatableField
+      entry={entry}
+      nodeId={node.id}
       multiline={node.type === 'long_text'}
-      onSave={(v) => upsertEntry(ctx, node.id, layer, { text: v, ...clearAI })}
+      onSaveSource={(v) => upsertEntry(ctx, node.id, layer, { text: v, ...clearAI })}
     />
   )
 }

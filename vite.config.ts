@@ -185,6 +185,114 @@ function translationEditEndpoint(): Plugin {
   }
 }
 
+// Dev-only stand-in for the deployed Supabase Edge Function, so the whole
+// translation feature can be built and demoed without deploying anything.
+//
+// It reads the SAME generated contract the Edge Function uses
+// (supabase/functions/translate/contract.generated.json), so dev and production
+// send an identical prompt and a quality judgement made here still holds there.
+//
+// Returns 501 when ANTHROPIC_API_KEY is absent, which the client treats as "not
+// configured" and degrades to the deferred queue rather than showing an error the
+// developer cannot act on.
+function translateEndpoint(): Plugin {
+  return {
+    name: 'genre-translate-dev',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== 'POST' || !req.url?.split('?')[0].endsWith('/__translate')) return next()
+        let body = ''
+        req.on('data', (c) => (body += c))
+        req.on('end', async () => {
+          const reply = (code: number, payload: object) => {
+            res.statusCode = code
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify(payload))
+          }
+          const key = process.env.ANTHROPIC_API_KEY
+          if (!key) {
+            return reply(501, { error: 'set ANTHROPIC_API_KEY to use the dev translate endpoint' })
+          }
+          try {
+            const { text, targetLocale, question } = JSON.parse(body) as {
+              text?: string
+              targetLocale?: string
+              question?: string
+            }
+            if (!text?.trim()) return reply(400, { error: 'text is required' })
+
+            const contractPath = join(
+              process.cwd(),
+              'supabase',
+              'functions',
+              'translate',
+              'contract.generated.json',
+            )
+            const contract = JSON.parse(readFileSync(contractPath, 'utf8')) as {
+              model: string
+              maxTokens: number
+              outputSchema: object
+              systemPrompts: Record<string, string>
+            }
+            const system = contract.systemPrompts[targetLocale ?? '']
+            if (!system) return reply(400, { error: `no contract for locale ${targetLocale}` })
+
+            const userMessage = question?.trim()
+              ? [
+                  'Context — the worksheet question being answered (do NOT translate this, it is',
+                  'only here to disambiguate the answer):',
+                  question.trim(),
+                  '',
+                  'Translate this answer:',
+                  text,
+                ].join('\n')
+              : ['Translate this answer:', text].join('\n')
+
+            const started = Date.now()
+            const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': key,
+                'anthropic-version': '2023-06-01',
+              },
+              body: JSON.stringify({
+                model: contract.model,
+                max_tokens: contract.maxTokens,
+                system,
+                output_config: { format: { type: 'json_schema', schema: contract.outputSchema } },
+                messages: [{ role: 'user', content: userMessage }],
+              }),
+            })
+            if (!upstream.ok) {
+              const detail = await upstream.text()
+              return reply(502, { error: `anthropic ${upstream.status}: ${detail.slice(0, 300)}` })
+            }
+            const payload = (await upstream.json()) as {
+              content?: { type: string; text?: string }[]
+              usage?: Record<string, number>
+            }
+            const raw = payload.content?.find((b) => b.type === 'text')?.text ?? ''
+            const parsed = JSON.parse(raw) as { translation?: string; unchanged?: boolean }
+            // Latency is the acceptance criterion for this lane, so log every call.
+            server.config.logger.info(
+              `[translate] ${targetLocale} ${Date.now() - started}ms ` +
+                `in=${payload.usage?.input_tokens ?? '?'} out=${payload.usage?.output_tokens ?? '?'}`,
+            )
+            reply(200, {
+              translation: parsed.translation,
+              unchanged: parsed.unchanged === true,
+              usage: payload.usage ?? null,
+            })
+          } catch (err) {
+            reply(502, { error: String(err) })
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base,
@@ -192,6 +300,7 @@ export default defineConfig({
     feedbackInbox(),
     contentEditEndpoint(),
     translationEditEndpoint(),
+    translateEndpoint(),
     react(),
     tailwindcss(),
     VitePWA({

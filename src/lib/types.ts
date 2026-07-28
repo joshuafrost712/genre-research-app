@@ -145,6 +145,27 @@ export interface MetaRecord {
  * shared genre data from the Create / Translate workspace (and cheap enough to
  * write on any edit path that opts in). Lets a team recover lost information.
  */
+/**
+ * One answer awaiting translation by the deferred lane (added in Dexie v6).
+ *
+ * Local working state only, never synced: the translation it produces lands on the
+ * Entry, which IS synced, so replicating the request too would let several devices
+ * translate the same answer and bill the same work more than once.
+ */
+export interface TranslationQueueRow {
+  seq?: number
+  entry_id: string
+  /** The answer text at enqueue time; compared on write-back to detect an edit. */
+  source_text: string
+  target_locale: string
+  /** English worksheet question, carried so the worker has the same context. */
+  question?: string
+  status: 'pending' | 'failed'
+  attempts: number
+  last_error?: string
+  created_at: string
+}
+
 export interface HistoryRow {
   seq?: number // auto-increment
   entry_id: string

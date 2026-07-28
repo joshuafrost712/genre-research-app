@@ -13,7 +13,8 @@
     "pull-feedback": "node scripts/pull-feedback.mjs",
     "i18n:extract": "vite-node scripts/translation-strings.ts extract",
     "i18n:report": "vite-node scripts/translation-strings.ts report",
-    "i18n:apply": "vite-node scripts/translation-strings.ts apply"
+    "i18n:apply": "vite-node scripts/translation-strings.ts apply",
+    "i18n:contract": "vite-node scripts/translate-contract.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",
