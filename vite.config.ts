@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -98,12 +99,99 @@ function contentEditEndpoint(): Plugin {
   }
 }
 
+// Dev-only endpoint for reviewing TRANSLATIONS in place, the counterpart to
+// contentEditEndpoint above. Writes {key: translation} into
+// src/content/translations/<locale>.json.
+//
+// Two guards that the English-side endpoint does not need:
+//  - Interpolation tokens ({genre}, {passage}) present in the English must survive
+//    into the translation, or the user reads a sentence with a hole in it. 70 of
+//    the worksheet's 269 strings carry a token, so this is a live hazard.
+//  - The English source's hash is recorded alongside the translation, so
+//    `npm run i18n:report` can flag translations whose original was later
+//    re-worded. `sourceText` comes from the client (which has it from
+//    findSourceNode) rather than being resolved here, so the key scheme stays
+//    defined in exactly one place: src/lib/i18n/keys.ts.
+function translationEditEndpoint(): Plugin {
+  const TOKENS = ['{genre}', '{passage}']
+  return {
+    name: 'genre-translation-edit',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== 'POST' || !req.url?.split('?')[0].endsWith('/__translation-edit')) {
+          return next()
+        }
+        let body = ''
+        req.on('data', (c) => (body += c))
+        req.on('end', () => {
+          const reply = (code: number, payload: object) => {
+            res.statusCode = code
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify(payload))
+          }
+          try {
+            const { locale, key, sourceText, oldText, newText } = JSON.parse(body) as {
+              locale?: string
+              key?: string
+              sourceText?: string
+              oldText?: string
+              newText?: string
+            }
+            // Whitelist the locale: it becomes a filename.
+            if (!locale || !/^[a-z]{2}(-[A-Z]{2})?$/.test(locale)) {
+              return reply(400, { error: 'a valid locale code is required' })
+            }
+            if (!key || !/^[\w.$-]+$/.test(key)) return reply(400, { error: 'a valid key is required' })
+            if (!newText?.trim()) return reply(400, { error: 'newText must be non-empty' })
+
+            const lost = TOKENS.filter((t) => (sourceText ?? '').includes(t) && !newText.includes(t))
+            if (lost.length) {
+              return reply(400, { error: `translation must keep ${lost.join(' and ')} verbatim` })
+            }
+
+            const file = join(process.cwd(), 'src', 'content', 'translations', `${locale}.json`)
+            let catalogue: Record<string, unknown> = {}
+            try {
+              catalogue = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
+            } catch {
+              catalogue = {} // first translation for this locale
+            }
+            const current = typeof catalogue[key] === 'string' ? (catalogue[key] as string) : ''
+            if (current !== (oldText ?? '')) {
+              return reply(409, { error: 'translation changed since the page loaded — reload and retry' })
+            }
+
+            catalogue[key] = newText.trim()
+            if (typeof sourceText === 'string') {
+              const hashes = (catalogue.$sourceHashes ?? {}) as Record<string, string>
+              hashes[key] = createHash('sha256').update(sourceText.trim()).digest('hex').slice(0, 12)
+              catalogue.$sourceHashes = hashes
+            }
+            // Keep $-prefixed metadata first, then translations sorted, so review
+            // diffs stay readable.
+            const meta = Object.entries(catalogue).filter(([k]) => k.startsWith('$'))
+            const rest = Object.entries(catalogue)
+              .filter(([k]) => !k.startsWith('$'))
+              .sort(([a], [b]) => a.localeCompare(b))
+            mkdirSync(dirname(file), { recursive: true })
+            writeFileSync(file, `${JSON.stringify(Object.fromEntries([...meta, ...rest]), null, 2)}\n`)
+            reply(200, { ok: true })
+          } catch (err) {
+            reply(400, { error: String(err) })
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base,
   plugins: [
     feedbackInbox(),
     contentEditEndpoint(),
+    translationEditEndpoint(),
     react(),
     tailwindcss(),
     VitePWA({

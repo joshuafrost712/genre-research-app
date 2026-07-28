@@ -43,3 +43,6 @@ feedback/reports/*
 
 # Pull config holds the live web-app URL + token — local only.
 feedback/.pull.json
+
+# Derivable translator work files (regenerate with npm run i18n:extract)
+translation-work/

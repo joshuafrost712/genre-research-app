@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview",
-    "pull-feedback": "node scripts/pull-feedback.mjs"
+    "pull-feedback": "node scripts/pull-feedback.mjs",
+    "i18n:extract": "vite-node scripts/translation-strings.ts extract",
+    "i18n:report": "vite-node scripts/translation-strings.ts report",
+    "i18n:apply": "vite-node scripts/translation-strings.ts apply"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",

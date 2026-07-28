@@ -18,15 +18,19 @@ import idCatalogue from '../../content/translations/id.json'
 
 /**
  * Catalogues are bundled, not fetched: the app is offline-first and a facilitator
- * in the field must be able to switch language with no network. `$meta` is
- * documentation inside the JSON, not a translation key, so it is stripped.
+ * in the field must be able to switch language with no network.
+ *
+ * `$`-prefixed keys are catalogue metadata rather than translations (`$meta` is
+ * documentation; `$sourceHashes` lets the tooling flag a translation whose English
+ * original has since been re-worded) and are stripped here, so metadata can be
+ * added later without leaking a pseudo-translation into the UI.
  */
 type Catalogue = Record<string, string>
 
 function loadCatalogue(raw: unknown): Catalogue {
   const out: Catalogue = {}
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (key === '$meta') continue
+    if (key.startsWith('$')) continue
     if (typeof value === 'string') out[key] = value
   }
   return out
