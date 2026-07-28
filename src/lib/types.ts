@@ -94,6 +94,21 @@ export interface Entry {
   cell_key?: string
   text: string
   value?: string // for select/scale answers
+  /**
+   * The language `text` was entered in. Mirrors CapturedNote.source_language.
+   * Absent on entries written before multi-language support; treat as English.
+   */
+  source_language?: string
+  /**
+   * Translations of `text`, keyed by locale. A cache, never the record of what
+   * the team said: `text` stays authoritative, and this is CLEARED whenever
+   * `text` or `value` changes (see upsertEntry) so a stale translation can never
+   * outlive the answer it was made from.
+   *
+   * Unindexed, so no Dexie version bump is needed, and the shard sync carries it
+   * automatically because it merges whole records.
+   */
+  translations?: Record<string, string>
   routing_status: RoutingStatus
   ai_confidence?: number
   // AI proposed a different answer for a cell that already holds a confirmed one.

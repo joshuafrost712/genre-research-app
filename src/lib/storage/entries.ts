@@ -14,6 +14,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
 import { getContentVersion } from '../content/loader'
+import { getActiveLocale } from '../i18n/activeLocale'
 import { now, uid } from '../util'
 import { trackDelete, trackUpsert } from '../sync/outbox'
 import type { ActiveContext } from './appState'
@@ -83,6 +84,8 @@ export async function findEntry(
 export interface EntryPatch {
   text?: string
   value?: string
+  source_language?: string
+  translations?: Record<string, string>
   is_not_applicable?: boolean
   is_asked?: boolean
   is_concern_flag?: boolean
@@ -103,7 +106,23 @@ export async function upsertEntry(
 ): Promise<Entry> {
   const existing = await findEntry(ctx, nodeId, layer, cellKey)
   if (existing) {
-    const updated: Entry = { ...existing, ...patch, updated_at: now(), sync_status: 'local' }
+    // Editing the answer invalidates any cached translation of it. Enforced here
+    // rather than at the call sites because this is the single write path for
+    // every edit (upsertEntryWithHistory delegates to it), so no future caller
+    // can forget and leave a translation describing text the team has replaced.
+    // A patch that carries `translations` is the translation write itself, and is
+    // exempt.
+    const rewritesAnswer =
+      (patch.text !== undefined && patch.text !== existing.text) ||
+      (patch.value !== undefined && patch.value !== existing.value)
+    const dropTranslations = rewritesAnswer && patch.translations === undefined
+    const updated: Entry = {
+      ...existing,
+      ...patch,
+      ...(dropTranslations ? { translations: undefined } : {}),
+      updated_at: now(),
+      sync_status: 'local',
+    }
     await db.entries.put(updated)
     await trackUpsert('entries', updated)
     return updated
@@ -116,6 +135,10 @@ export async function upsertEntry(
     cell_key: cellKey,
     text: patch.text ?? '',
     value: patch.value,
+    // Record the language the answer was typed in, so a later reader knows
+    // whether to translate it and in which direction.
+    source_language: patch.source_language ?? getActiveLocale(),
+    translations: patch.translations,
     is_not_applicable: patch.is_not_applicable,
     is_asked: patch.is_asked,
     is_concern_flag: patch.is_concern_flag,
@@ -165,6 +188,42 @@ export async function upsertEntryWithHistory(
     })
   }
   return upsertEntry(ctx, nodeId, layer, patch, cellKey)
+}
+
+/**
+ * Store one locale's translation of an existing answer, merging rather than
+ * replacing so translations into different languages do not evict each other.
+ *
+ * Deliberately not routed through upsertEntry: that spreads the patch over the
+ * record, which would clobber the sibling locales.
+ */
+export async function saveEntryTranslation(
+  entryId: string,
+  locale: string,
+  text: string,
+): Promise<Entry | undefined> {
+  const existing = await db.entries.get(entryId)
+  if (!existing) return undefined
+  const trimmed = text.trim()
+  const translations = { ...(existing.translations ?? {}) }
+  // An emptied translation is a removal, not an empty string to render.
+  if (trimmed) translations[locale] = trimmed
+  else delete translations[locale]
+  const updated: Entry = {
+    ...existing,
+    translations: Object.keys(translations).length ? translations : undefined,
+    updated_at: now(),
+    sync_status: 'local',
+  }
+  await db.entries.put(updated)
+  await trackUpsert('entries', updated)
+  return updated
+}
+
+/** The stored translation of an answer for `locale`, if one is cached. */
+export function entryTranslation(entry: Entry | null | undefined, locale: string): string | undefined {
+  const hit = entry?.translations?.[locale]
+  return hit && hit.trim() ? hit : undefined
 }
 
 export async function deleteEntry(id: string): Promise<void> {
