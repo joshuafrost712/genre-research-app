@@ -16,12 +16,37 @@
  * This never throws and never blocks a save. A failed translation leaves the
  * answer in its original language, which is a degraded view rather than lost work.
  */
-import { supabase } from '../supabase/client'
+import { supabase, isSupabaseConfigured } from '../supabase/client'
+import { isBetaMode } from '../../devfeedback/enabled'
 import type { Locale } from '../i18n/locales'
 import { INTERACTIVE_TIMEOUT_MS, TRANSLATE_LANE, TRANSLATE_URL } from './config'
 import { enqueueTranslation } from './queue'
 
 export type TranslateStatus = 'translated' | 'unchanged' | 'queued' | 'failed'
+
+/**
+ * Why a translation was deferred instead of returned, as a stable code.
+ *
+ * The UI has to explain this to a facilitator standing in front of a team, and
+ * "Queued." on its own is not an explanation: being signed out is something they
+ * can fix in ten seconds, while the key not being configured is not. Matching on
+ * the proxy's English error prose would break the moment that prose is reworded,
+ * so the cause is derived from the HTTP status here, once.
+ */
+export type QueuedCause =
+  /** No Supabase session, but a sign-in control is on screen (401). */
+  | 'signed-out'
+  /** No Supabase session and this view offers no way to get one (401). */
+  | 'needs-tester-link'
+  /** No proxy URL in this build, or the proxy has no model key (503). */
+  | 'not-configured'
+  /** Rate limited (429). */
+  | 'busy'
+  /** Network unreachable, or slower than the interactive deadline. */
+  | 'offline'
+  /** This build deliberately prefers the deferred lane. */
+  | 'lane'
+  | 'unknown'
 
 export interface TranslateOutcome {
   status: TranslateStatus
@@ -29,8 +54,24 @@ export interface TranslateOutcome {
   text?: string
   /** Set on 'failed', for logging rather than display. */
   reason?: string
+  /** Set on 'queued': what the UI should tell the person who pressed the button. */
+  cause?: QueuedCause
   /** Round-trip milliseconds, for the latency budget check during the pilot. */
   ms?: number
+}
+
+/** Exported for testing: the status-to-explanation table, in one place. */
+export function queuedCauseForStatus(status: number): QueuedCause {
+  if (status === 401 || status === 403) {
+    // The proxy identifies callers by Supabase JWT, and the only place the app
+    // offers a Supabase sign-in is the beta-tester header control. On the plain
+    // URL there is nothing to press, so telling someone to "sign in" would send
+    // them looking for a button that is not there.
+    return isSupabaseConfigured() && isBetaMode() ? 'signed-out' : 'needs-tester-link'
+  }
+  if (status === 429) return 'busy'
+  if (status === 503) return 'not-configured'
+  return 'unknown'
 }
 
 export interface TranslateArgs {
@@ -101,7 +142,7 @@ export async function translateText(args: TranslateArgs): Promise<TranslateOutco
   // Configured for the zero-cost lane: do not attempt an interactive call at all.
   if (TRANSLATE_LANE === 'deferred') {
     await enqueueTranslation({ ...args })
-    return { status: 'queued' }
+    return { status: 'queued', cause: 'lane' }
   }
 
   if (import.meta.env.DEV) {
@@ -122,17 +163,21 @@ export async function translateText(args: TranslateArgs): Promise<TranslateOutco
       // 401/429/5xx: queue it so the answer still gets translated eventually.
       await enqueueTranslation({ ...args })
       const data = (await res.json().catch(() => ({}))) as { error?: string }
-      return { status: 'queued', reason: data.error ?? `HTTP ${res.status}` }
+      return {
+        status: 'queued',
+        reason: data.error ?? `HTTP ${res.status}`,
+        cause: queuedCauseForStatus(res.status),
+      }
     } catch (err) {
       await enqueueTranslation({ ...args })
-      return { status: 'queued', reason: String(err) }
+      return { status: 'queued', reason: String(err), cause: 'offline' }
     }
   }
 
   // No proxy configured at all.
   if (entryId) {
     await enqueueTranslation({ ...args })
-    return { status: 'queued', reason: 'no translation endpoint configured' }
+    return { status: 'queued', reason: 'no translation endpoint configured', cause: 'not-configured' }
   }
   return { status: 'failed', reason: 'no translation endpoint configured' }
 }

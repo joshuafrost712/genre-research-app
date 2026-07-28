@@ -12,9 +12,25 @@ import { findSourceNode } from '../content/loader'
 import { useLocale } from '../i18n/LocaleContext'
 import { type Locale } from '../i18n/locales'
 import { entryTranslation, saveEntryTranslation } from '../storage/entries'
-import { translateText } from './client'
+import { translateText, type QueuedCause } from './client'
 import { translationTargetFor } from './direction'
+import type { UiKey } from '../i18n/strings'
 import type { Entry } from '../types'
+
+/**
+ * What to tell someone whose translation was deferred.
+ *
+ * 'lane' and 'unknown' fall through to the bare "Queued" line: in the first case
+ * deferral is the configured intent and not worth explaining twice, and in the
+ * second there is nothing honest to add.
+ */
+const QUEUED_NOTE: Partial<Record<QueuedCause, UiKey>> = {
+  'signed-out': 'translate.queuedSignIn',
+  'needs-tester-link': 'translate.queuedNeedsTesterLink',
+  'not-configured': 'translate.queuedNotConfigured',
+  busy: 'translate.queuedBusy',
+  offline: 'translate.queuedOffline',
+}
 
 export type TranslationPhase = 'idle' | 'working' | 'queued' | 'failed'
 
@@ -26,7 +42,11 @@ export interface AnswerTranslation {
   /** The stored translation, or undefined if there is not one yet. */
   existing: string | undefined
   phase: TranslationPhase
-  /** A short explanation for a failure, already truncated for display. */
+  /**
+   * A short explanation to show alongside the phase: a localized sentence when a
+   * request was deferred for a reason worth naming, or the truncated upstream
+   * detail when it failed outright.
+   */
   note: string | null
   /** Request a translation. Never throws; failure lands in `phase`. */
   run: () => Promise<void>
@@ -39,7 +59,7 @@ export function useAnswerTranslation(
   nodeId: string,
   questionOverride?: string,
 ): AnswerTranslation {
-  const { locale } = useLocale()
+  const { locale, t } = useLocale()
   const [phase, setPhase] = useState<TranslationPhase>('idle')
   const [note, setNote] = useState<string | null>(null)
 
@@ -79,6 +99,8 @@ export function useAnswerTranslation(
     }
     if (outcome.status === 'queued') {
       setPhase('queued')
+      const key = outcome.cause ? QUEUED_NOTE[outcome.cause] : undefined
+      setNote(key ? t(key) : null)
       return
     }
     setPhase('failed')

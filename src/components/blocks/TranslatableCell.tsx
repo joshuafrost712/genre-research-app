@@ -70,6 +70,12 @@ export function TranslatableCell({
             )}
           </div>
 
+          {/* Even in the compact frame, a deferred request says why: the common
+              cause is being signed out, which the person can fix immediately. */}
+          {note && phase === 'queued' && (
+            <p className="mt-0.5 text-[10px] text-amber-800">{note}</p>
+          )}
+
           {existing !== undefined && (
             <div className="mt-1">
               <AutosaveText value={existing} multiline={multiline} onSave={saveEdit} />

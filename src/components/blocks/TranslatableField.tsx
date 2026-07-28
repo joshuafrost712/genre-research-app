@@ -89,6 +89,11 @@ export function TranslatableField({
             )
           )}
 
+          {/* A deferred request explains itself in full; an outright failure shows
+              the upstream detail small, since it is diagnostic rather than actionable. */}
+          {note && phase === 'queued' && (
+            <p className="mt-1 text-[11px] text-amber-800">{note}</p>
+          )}
           {note && phase === 'failed' && (
             <p className="mt-1 text-[10px] text-gray-400" title={note}>
               {note}

@@ -56,6 +56,28 @@ const UI = {
     en: 'Queued for translation.',
     id: 'Menunggu diterjemahkan.',
   },
+  // Why it queued. "Queued." alone leaves a facilitator with nothing to act on,
+  // and the first of these is a ten-second fix rather than a fault.
+  'translate.queuedSignIn': {
+    en: 'Sign in (top right) to translate straight away.',
+    id: 'Masuk (kanan atas) agar terjemahan langsung muncul.',
+  },
+  'translate.queuedNeedsTesterLink': {
+    en: 'Instant translation needs a tester sign-in. Open the app from the tester link, sign in, and try again.',
+    id: 'Terjemahan langsung memerlukan masuk sebagai penguji. Buka aplikasi dari tautan penguji, masuk, lalu coba lagi.',
+  },
+  'translate.queuedNotConfigured': {
+    en: 'Instant translation is not switched on for this site yet, so this is saved for the next batch.',
+    id: 'Terjemahan langsung belum diaktifkan di situs ini, jadi ini disimpan untuk kumpulan berikutnya.',
+  },
+  'translate.queuedBusy': {
+    en: 'Too many translations at once. Saved, and it will catch up.',
+    id: 'Terlalu banyak permintaan sekaligus. Sudah disimpan dan akan menyusul.',
+  },
+  'translate.queuedOffline': {
+    en: 'No connection right now. Saved, and it will translate once you are back online.',
+    id: 'Tidak ada koneksi saat ini. Sudah disimpan dan akan diterjemahkan setelah kembali online.',
+  },
   'translate.editHint': {
     en: 'Edit the translation if it needs adjusting.',
     id: 'Ubah terjemahan ini bila perlu disesuaikan.',
