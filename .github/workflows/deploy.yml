@@ -46,6 +46,17 @@ jobs:
           # scripts/setup-supabase.sh. Leave unset and beta mode runs anonymous.
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # Public URL of the deployed `translate` Edge Function, which gives the
+          # app instant (under two seconds) translation of the answers a team
+          # types. The Anthropic key stays in Supabase secrets and never reaches
+          # the browser, so only the function URL is needed here.
+          #
+          # Leave this variable unset and the app still works: the worksheet and
+          # navigation are translated at build time, and a request to translate an
+          # answer is QUEUED for the zero-cost Claude handoff on the Export page
+          # instead of failing. Set it after
+          # `supabase functions deploy translate`.
+          VITE_TRANSLATE_URL: ${{ vars.VITE_TRANSLATE_URL }}
       # SPA fallback: GitHub Pages serves 404.html for unknown paths; point it at
       # the app shell so deep links / refreshes resolve client-side.
       - run: cp dist/index.html dist/404.html
