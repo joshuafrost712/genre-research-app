@@ -4,11 +4,25 @@
  * schema + entries and need no account or connectivity. Google Sheets export
  * (client-side GIS, tab-per-section) is deferred: it needs an OAuth client id.
  */
-import { findNode } from './content/loader'
-import { ROWS_KEY } from './storage/entries'
+import { findNode, findSourceNode } from './content/loader'
+import { entryTranslation, ROWS_KEY } from './storage/entries'
 import { STYLE_IDEA_NODE, SUMMARY_KEY } from './content/summarize'
+import { localizedNode } from './i18n/content'
+import type { Locale } from './i18n/locales'
 import type { Entry } from './types'
 import type { GuideNode, Layer } from '../schema/types'
+
+/**
+ * Pair every question and answer with a second language.
+ *
+ * The point is review: a consultant who does not read the team's working language
+ * must still be able to check the work, and the team must still see the record in
+ * their own. `answer` always stays the team's own words; the translation goes in
+ * the alt column, never over the top of what they said.
+ */
+export interface BilingualOptions {
+  altLocale: Locale
+}
 
 export interface ExportNames {
   focusText: string
@@ -27,6 +41,10 @@ export interface ExportRow {
   column: string
   answer: string
   notApplicable: string
+  /** The same question in the paired language (bilingual export only). */
+  questionAlt?: string
+  /** The answer translated into the paired language, when a translation exists. */
+  answerAlt?: string
 }
 
 function containerIdOf(e: Entry): string {
@@ -77,7 +95,17 @@ function parseArray(value?: string): string[] {
 }
 
 /** Build the long-format rows from the entries of one project. */
-export function buildRows(entries: Entry[], names: ExportNames): ExportRow[] {
+/** The same worksheet question rendered in another language. */
+function questionInLocale(nodeId: string, locale: Locale): string | undefined {
+  const source = findSourceNode(nodeId)?.node
+  return source ? localizedNode(source, locale).label : undefined
+}
+
+export function buildRows(
+  entries: Entry[],
+  names: ExportNames,
+  bilingual?: BilingualOptions,
+): ExportRow[] {
   // Row order per (node, container) from the ROWS sidecars.
   const rowOrder = new Map<string, string[]>()
   for (const e of entries) {
@@ -149,6 +177,14 @@ export function buildRows(entries: Entry[], names: ExportNames): ExportRow[] {
       column: col,
       answer,
       notApplicable: na ? 'yes' : '',
+      ...(bilingual
+        ? {
+            questionAlt: questionInLocale(e.node_id, bilingual.altLocale),
+            // Only the free-text answer has a translation; a select's value is an
+            // id whose label already comes from the translated worksheet content.
+            answerAlt: entryTranslation(e, bilingual.altLocale),
+          }
+        : {}),
     })
   }
 
@@ -191,9 +227,32 @@ function csvField(value: string): string {
   return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
 }
 
+/**
+ * Bilingual columns sit beside the ones they pair with, so a reviewer reads the
+ * two versions of a question (or an answer) side by side rather than scrolling.
+ * Only emitted when the rows actually carry them, so a monolingual export keeps
+ * exactly the columns it always had.
+ */
+function csvHeadersFor(rows: ExportRow[]): [keyof ExportRow, string][] {
+  const hasQuestionAlt = rows.some((r) => r.questionAlt !== undefined)
+  const hasAnswerAlt = rows.some((r) => r.answerAlt !== undefined)
+  if (!hasQuestionAlt && !hasAnswerAlt) return CSV_HEADERS
+
+  const out: [keyof ExportRow, string][] = []
+  for (const entry of CSV_HEADERS) {
+    out.push(entry)
+    if (entry[0] === 'question' && hasQuestionAlt) out.push(['questionAlt', 'Question (other language)'])
+    if (entry[0] === 'answer' && hasAnswerAlt) out.push(['answerAlt', 'Answer (other language)'])
+  }
+  return out
+}
+
 export function toCsv(rows: ExportRow[]): string {
-  const header = CSV_HEADERS.map(([, label]) => label).join(',')
-  const body = rows.map((r) => CSV_HEADERS.map(([key]) => csvField(r[key])).join(','))
+  const headers = csvHeadersFor(rows)
+  const header = headers.map(([, label]) => label).join(',')
+  // The bilingual columns are optional on ExportRow; an absent value is an empty
+  // cell, not the string "undefined".
+  const body = rows.map((r) => headers.map(([key]) => csvField(r[key] ?? '')).join(','))
   return BOM + [header, ...body].join('\n')
 }
 

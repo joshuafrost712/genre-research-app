@@ -21,6 +21,10 @@ export const COLORS = {
   na: '9CA3AF', // not-applicable: muted italic
   footer: '9CA3AF',
   rule: 'E5E7EB', // hairlines + table borders
+  // Bilingual pairing: the second language sits under the first, clearly
+  // subordinate, so it reads as a gloss for the reviewer rather than competing
+  // with the team's own words for primacy.
+  alt: '4B5563',
 } as const
 
 export const SIZES = {
@@ -35,6 +39,8 @@ export const SIZES = {
   footer: 8,
   tableHeader: 9,
   tableCell: 10,
+  altQuestion: 8.5,
+  altAnswer: 10,
 } as const
 
 /** '#'-prefixed hex for pdfmake. */

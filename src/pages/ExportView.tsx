@@ -6,11 +6,14 @@ import { buildAiPrompt, buildRows, buildSheetTabs, toCsv, type ExportNames } fro
 import { exportToGoogleSheets, isSheetsConfigured } from '../lib/googleSheets'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import { useDepthMode } from '../components/DepthModeContext'
+import { useLocale } from '../lib/i18n/LocaleContext'
+import { LOCALE_LABELS, SOURCE_LOCALE } from '../lib/i18n/locales'
 
 /** Offline export: long-format CSV and an AI-synthesis prompt. */
 export function ExportView() {
   const { ctx } = useActiveContext()
   const { mode } = useDepthMode()
+  const { locale, answerTarget } = useLocale()
   const entries = useAllEntries(ctx)
   const names = useLiveQuery(async (): Promise<ExportNames | null> => {
     if (!ctx) return null
@@ -25,12 +28,19 @@ export function ExportView() {
     { status: 'idle' | 'working' } | { status: 'done'; url: string } | { status: 'error'; message: string }
   >({ status: 'idle' })
   const [docState, setDocState] = useState<'idle' | 'docx' | 'pdf'>('idle')
+  // Pair every question and answer with a second language so a consultant who
+  // does not read the team's working language can still review the work. Default
+  // on whenever two languages are actually in play.
+  const [bilingual, setBilingual] = useState(true)
 
   if (!ctx || entries === undefined || !names) {
     return <p className="text-sm text-gray-400">Loading…</p>
   }
 
-  const rows = buildRows(entries, names)
+  // The paired language is English when the team is working in another language,
+  // and the answer-translation target when they are working in English.
+  const altLocale = locale === SOURCE_LOCALE ? answerTarget : SOURCE_LOCALE
+  const rows = buildRows(entries, names, bilingual ? { altLocale } : undefined)
   const slug = `${names.focusText}-${names.genre}`.replace(/[^a-z0-9]+/gi, '-').toLowerCase()
 
   const download = (content: Blob | string, filename: string, type: string) => {
@@ -87,6 +97,24 @@ export function ExportView() {
           account needed.
         </p>
       </div>
+
+      <label className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white p-3">
+        <input
+          type="checkbox"
+          checked={bilingual}
+          onChange={(e) => setBilingual(e.target.checked)}
+          className="mt-0.5"
+        />
+        <span className="text-sm">
+          Include {LOCALE_LABELS[altLocale] ?? altLocale} alongside{' '}
+          {LOCALE_LABELS[locale] ?? locale}
+          <span className="block text-xs text-gray-500">
+            Each question and answer appears in both languages, so someone who does not
+            read one of them can still follow the work. Answers show the team's own
+            words first, with the translation underneath.
+          </span>
+        </span>
+      </label>
 
       <div className="flex flex-col gap-3">
         <button

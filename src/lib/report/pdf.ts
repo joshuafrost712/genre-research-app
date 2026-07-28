@@ -49,12 +49,21 @@ const tableLayout = {
   paddingRight: () => 6,
 }
 
-function answerCell(answer: string): Content {
-  return { text: answer, style: 'tableCell' }
+/**
+ * A table cell. When a paired-language gloss exists it is stacked beneath the
+ * value inside the same cell, so columns stay aligned and the table does not
+ * double in width.
+ */
+function answerCell(answer: string, alt?: string): Content {
+  if (!alt?.trim()) return { text: answer, style: 'tableCell' }
+  return { stack: [{ text: answer, style: 'tableCell' }, { text: alt, style: 'altAnswer' }] }
 }
 
 function gridContent(q: ReportQuestion): Content[] {
   const label: Content = { text: q.question, style: 'question', margin: [0, 6, 0, 3] }
+  const altLabel: Content | null = q.questionAlt?.trim()
+    ? { text: q.questionAlt, style: 'altQuestion', margin: [0, 0, 0, 3] }
+    : null
 
   let widths: (string | number)[]
   const body: Content[][] = []
@@ -69,7 +78,7 @@ function gridContent(q: ReportQuestion): Content[] {
         { text: rl, style: 'tableRowHead' },
         ...q.columns.map((col): Content => {
           const match = q.cells.find((c) => c.row === rl && c.column === col)
-          return answerCell(match?.answer ?? '')
+          return answerCell(match?.answer ?? '', match?.answerAlt)
         }),
       ])
     }
@@ -80,21 +89,30 @@ function gridContent(q: ReportQuestion): Content[] {
       { text: 'Answer', style: 'tableHeader' },
     ])
     for (const c of q.cells) {
-      body.push([{ text: c.row || '•', style: 'tableRowHead' }, answerCell(c.answer)])
+      body.push([{ text: c.row || '•', style: 'tableRowHead' }, answerCell(c.answer, c.answerAlt)])
     }
   }
 
-  return [label, { table: { headerRows: 1, widths, body }, layout: tableLayout, margin: [0, 0, 0, 4] }]
+  return [
+    label,
+    ...(altLabel ? [altLabel] : []),
+    { table: { headerRows: 1, widths, body }, layout: tableLayout, margin: [0, 0, 0, 4] },
+  ]
 }
 
 function scalarContent(q: ReportQuestion): Content[] {
   const cell = q.cells[0]
   const label: Content = { text: q.question, style: 'question', margin: [0, 6, 0, 1] }
+  const altLabel: Content[] = q.questionAlt?.trim()
+    ? [{ text: q.questionAlt, style: 'altQuestion' }]
+    : []
   if (cell?.notApplicable && !cell.answer.trim()) {
-    return [label, { text: NA_LABEL, style: 'na' }]
+    return [label, ...altLabel, { text: NA_LABEL, style: 'na' }]
   }
-  const runs: Content[] = [{ text: cell?.answer ?? '', style: 'answer' }]
-  return [label, { text: runs }]
+  const altAnswer: Content[] = cell?.answerAlt?.trim()
+    ? [{ text: cell.answerAlt, style: 'altAnswer' }]
+    : []
+  return [label, ...altLabel, { text: [{ text: cell?.answer ?? '', style: 'answer' }] }, ...altAnswer]
 }
 
 export function buildPdf(model: ReportModel): Promise<Blob> {
@@ -156,6 +174,10 @@ export function buildPdf(model: ReportModel): Promise<Blob> {
       tableHeader: { fontSize: SIZES.tableHeader, bold: true, color: hash(COLORS.sky) },
       tableRowHead: { fontSize: SIZES.tableHeader, bold: true, color: hash(COLORS.question) },
       tableCell: { fontSize: SIZES.tableCell, color: hash(COLORS.answer) },
+      // Bilingual gloss: italic and subordinate, so the team's own words keep
+      // primacy and the second language reads as a reviewer's aid.
+      altQuestion: { fontSize: SIZES.altQuestion, italics: true, color: hash(COLORS.alt) },
+      altAnswer: { fontSize: SIZES.altAnswer, italics: true, color: hash(COLORS.alt) },
       footer: { fontSize: SIZES.footer, color: hash(COLORS.footer) },
     },
   }

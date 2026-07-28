@@ -34,6 +34,19 @@ function heading(text: string, size: number, color: string, opts: { before?: num
   })
 }
 
+/**
+ * The paired-language line. Rendered under the text it glosses, smaller and
+ * italic, so a reviewer can follow it without it competing with the team's own
+ * words. Absent for a monolingual export.
+ */
+function altPara(text: string | undefined, size: number): Paragraph | null {
+  if (!text?.trim()) return null
+  return new Paragraph({
+    spacing: { after: 20 },
+    children: [new TextRun({ text, italics: true, size: halfPt(size), color: COLORS.alt })],
+  })
+}
+
 /** A scalar (non-grid) question: muted question label, then the emphasized answer. */
 function scalarParas(q: ReportQuestion): Paragraph[] {
   const cell = q.cells[0]
@@ -43,6 +56,9 @@ function scalarParas(q: ReportQuestion): Paragraph[] {
       children: [new TextRun({ text: q.question, size: halfPt(SIZES.question), color: COLORS.question })],
     }),
   ]
+  const altQ = altPara(q.questionAlt, SIZES.altQuestion)
+  if (altQ) out.push(altQ)
+
   if (cell?.notApplicable && !cell.answer.trim()) {
     out.push(
       new Paragraph({
@@ -57,25 +73,35 @@ function scalarParas(q: ReportQuestion): Paragraph[] {
         ],
       }),
     )
+    const altA = altPara(cell?.answerAlt, SIZES.altAnswer)
+    if (altA) out.push(altA)
   }
   return out
 }
 
-function cellText(text: string, opts: { bold?: boolean; color?: string; size?: number } = {}): TableCell {
+function cellText(
+  text: string,
+  opts: { bold?: boolean; color?: string; size?: number; alt?: string } = {},
+): TableCell {
+  const paragraphs = [
+    new Paragraph({
+      children: [
+        new TextRun({
+          text,
+          bold: opts.bold,
+          size: halfPt(opts.size ?? SIZES.tableCell),
+          color: opts.color ?? COLORS.answer,
+        }),
+      ],
+    }),
+  ]
+  // In a table the gloss goes inside the same cell, under the value, so columns
+  // stay aligned and the table does not double in width.
+  const alt = altPara(opts.alt, SIZES.altAnswer)
+  if (alt) paragraphs.push(alt)
   return new TableCell({
     margins: { top: 40, bottom: 40, left: 80, right: 80 },
-    children: [
-      new Paragraph({
-        children: [
-          new TextRun({
-            text,
-            bold: opts.bold,
-            size: halfPt(opts.size ?? SIZES.tableCell),
-            color: opts.color ?? COLORS.answer,
-          }),
-        ],
-      }),
-    ],
+    children: paragraphs,
   })
 }
 
@@ -85,6 +111,8 @@ function gridParas(q: ReportQuestion): (Paragraph | Table)[] {
     spacing: { before: 120, after: 40 },
     children: [new TextRun({ text: q.question, size: halfPt(SIZES.question), color: COLORS.question })],
   })
+
+  const altLabel = altPara(q.questionAlt, SIZES.altQuestion)
 
   const border = { style: BorderStyle.SINGLE, size: 2, color: COLORS.rule }
   const borders = { top: border, bottom: border, left: border, right: border }
@@ -108,7 +136,7 @@ function gridParas(q: ReportQuestion): (Paragraph | Table)[] {
             cellText(rl, { bold: true, color: COLORS.question, size: SIZES.tableHeader }),
             ...q.columns.map((col) => {
               const match = q.cells.find((c) => c.row === rl && c.column === col)
-              return cellText(match?.answer ?? '')
+              return cellText(match?.answer ?? '', { alt: match?.answerAlt })
             }),
           ],
         }),
@@ -133,7 +161,11 @@ function gridParas(q: ReportQuestion): (Paragraph | Table)[] {
     }
   }
 
-  return [label, new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders, rows })]
+  return [
+    label,
+    ...(altLabel ? [altLabel] : []),
+    new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders, rows }),
+  ]
 }
 
 function distinct(items: string[]): string[] {
