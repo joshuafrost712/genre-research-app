@@ -6,7 +6,7 @@
  */
 import { findNode, findSourceNode } from './content/loader'
 import { entryTranslation, ROWS_KEY } from './storage/entries'
-import { STYLE_IDEA_NODE, SUMMARY_KEY } from './content/summarize'
+import { DEFER_TO_DRAFTING, STYLE_IDEA_NODE, SUMMARY_KEY } from './content/summarize'
 import { localizedNode } from './i18n/content'
 import type { Locale } from './i18n/locales'
 import type { Entry } from './types'
@@ -121,7 +121,11 @@ export function buildRows(
     // 2d plans live on a synthetic node (one per Required feature); export them
     // with the feature they answer, looked up from the genre-layer table row.
     if (e.node_id === STYLE_IDEA_NODE) {
-      if (!e.text?.trim()) continue
+      // A feature flagged "best decided while drafting" exports even without
+      // plan text; the flag itself is the decision of record.
+      const deferredPlan = e.value === DEFER_TO_DRAFTING
+      const text = e.text?.trim() ?? ''
+      if (!text && !deferredPlan) continue
       const sep = e.cell_key?.indexOf('__') ?? -1
       const tableId = sep > 0 ? e.cell_key!.slice(0, sep) : ''
       const rowId = sep > 0 ? e.cell_key!.slice(sep + 2) : ''
@@ -136,7 +140,11 @@ export function buildRows(
         container: containerLabel(e, names),
         row: '',
         column: '',
-        answer: e.text,
+        answer: deferredPlan
+          ? text
+            ? `To be decided while drafting — notes so far: ${text}`
+            : 'To be decided while drafting'
+          : text,
         notApplicable: '',
       })
       continue

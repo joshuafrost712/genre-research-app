@@ -42,6 +42,7 @@ import { getActiveLocale } from '../../lib/i18n/activeLocale'
 import { deriveSectionRecall, macroDecisions, translationSummary } from '../../lib/content/sectionRecall'
 import {
   needsSummary,
+  DEFER_TO_DRAFTING,
   requiredFeatureRefs,
   STYLE_IDEA_NODE,
   SUMMARY_KEY,
@@ -1084,20 +1085,28 @@ function TranslationSummaryBlock({ ctx }: { ctx: ActiveContext }) {
   if (entries === undefined) return null
   const s = translationSummary(entries, ctx.focusTextId, ctx.worksheetId)
   const macro = macroDecisions(entries, ctx.worksheetId)
-  const required = requiredFeatureRefs(entries, ctx.genreId).map((f) => {
+  const allRequired = requiredFeatureRefs(entries, ctx.genreId).map((f) => {
     const idea = entries.find(
       (e) =>
         e.node_id === STYLE_IDEA_NODE &&
         e.worksheet_id === ctx.worksheetId &&
         e.cell_key === `${f.tableId}__${f.rowId}`,
     )
-    return { ...f, idea: (idea?.text ?? '').trim() }
+    return {
+      ...f,
+      idea: (idea?.text ?? '').trim(),
+      deferred: idea?.value === DEFER_TO_DRAFTING,
+    }
   })
+  // Features flagged "best decided while drafting" on 2d group at the bottom
+  // of the log (feedback 2026-07-24 #6).
+  const required = allRequired.filter((f) => !f.deferred)
+  const deferred = allRequired.filter((f) => f.deferred)
   const empty =
     s.purpose.length === 0 &&
     !s.chosenGenre &&
     macro.length === 0 &&
-    required.length === 0
+    allRequired.length === 0
   if (empty) return null
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm">
@@ -1138,13 +1147,28 @@ function TranslationSummaryBlock({ ctx }: { ctx: ActiveContext }) {
       {required.length > 0 && (
         <>
           <div className="mt-2 text-xs font-medium text-gray-500">
-            Required features &amp; your plans (from 2d)
+            Required style features &amp; your plans (from 2d)
           </div>
           <ul className="flex flex-col gap-0.5">
             {required.map((f, i) => (
               <li key={i} className="text-gray-700">
                 <span className="text-gray-400">{f.areaLabel}:</span>{' '}
                 {f.idea ? `${f.text} → ${f.idea}` : `${f.text} (no plan yet)`}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {deferred.length > 0 && (
+        <>
+          <div className="mt-2 text-xs font-medium text-gray-500">
+            To be decided while drafting
+          </div>
+          <ul className="flex flex-col gap-0.5">
+            {deferred.map((f, i) => (
+              <li key={i} className="text-gray-700">
+                <span className="text-gray-400">{f.areaLabel}:</span> {f.text}
+                {f.idea ? ` — notes so far: ${f.idea}` : ''}
               </li>
             ))}
           </ul>

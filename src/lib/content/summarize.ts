@@ -29,6 +29,14 @@ export const REQUIRED_COL = '__required'
 /** Synthesis node holding the per-feature translation plans (2d left column). */
 export const STYLE_IDEA_NODE = 'style.idea'
 
+/**
+ * Value flag on a STYLE_IDEA_NODE entry: the team chose "best decided while
+ * drafting" for this feature (2d checkbox). The 2e decisions log groups these
+ * at the bottom as "To be decided while drafting"; any plan text is a partial
+ * note, not a settled plan.
+ */
+export const DEFER_TO_DRAFTING = 'defer_to_drafting'
+
 /** Default table columns: content, who participates, and what types of events. */
 export const DEFAULT_COLUMNS = ['s1b.content', 's2eth.who', 's2eth.when']
 
@@ -41,7 +49,7 @@ export interface SummaryColumnDef {
 /** Every column the table can show: the genre-layer scalar prompts + Required features. */
 export function columnCatalog(): SummaryColumnDef[] {
   const out: SummaryColumnDef[] = [
-    { id: REQUIRED_COL, label: 'Required features', subLabel: 'from the style pages (1e)' },
+    { id: REQUIRED_COL, label: 'Required style features', subLabel: 'from the style pages (1e)' },
   ]
   for (const { subsections } of navTree()) {
     for (const sub of subsections) {

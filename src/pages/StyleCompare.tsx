@@ -10,7 +10,7 @@ import { findNode, nextNavId, routeForSub } from '../lib/content/loader'
 import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 import { setLastNode } from '../lib/storage/appState'
 import { upsertEntry, useAllEntries, useEntry } from '../lib/storage/entries'
-import { requiredFeatureRefs, STYLE_IDEA_NODE } from '../lib/content/summarize'
+import { DEFER_TO_DRAFTING, requiredFeatureRefs, STYLE_IDEA_NODE } from '../lib/content/summarize'
 import type { ActiveContext } from '../lib/storage/appState'
 
 /**
@@ -45,6 +45,15 @@ export function StyleCompare() {
   const genreName =
     genre && !genre.name.startsWith('Untitled') ? genre.name : 'the genre'
   const legacyGroup = findNode('s0.stylistic_notes')?.node
+  // The optional legacy notes tables predate the Required-features flow and are
+  // retired (feedback 2026-07-24 #4) — but never silently: a worksheet that
+  // already holds answers in them keeps the section so nothing is orphaned.
+  const legacyHasData = entries.some(
+    (e) =>
+      e.node_id.startsWith('s0.sn.') &&
+      e.worksheet_id === ctx.worksheetId &&
+      (e.text ?? '').trim() !== '',
+  )
   const nextId = nextNavId('s0.stylistic_notes')
   const title = resolveGenreTokens(
     legacyGroup?.label ?? '2d: The Style — Compare & Decide',
@@ -63,8 +72,9 @@ export function StyleCompare() {
           {title}
         </h1>
         <p className="mt-1 text-sm text-gray-600">
-          {genreName}'s <span className="font-medium">Required</span> features, and your plan for
-          achieving each one with <span className="font-medium text-sky-700">{passage}</span>.
+          {genreName}'s <span className="font-medium">Required</span> style features, and your
+          plan for achieving each one with{' '}
+          <span className="font-medium text-sky-700">{passage}</span>.
         </p>
         <p className="mt-2 rounded-md bg-sky-50 p-3 text-sm text-sky-900">
           Have the passage in front of you — or better, internalized, especially in oral
@@ -102,7 +112,7 @@ export function StyleCompare() {
         — changes there affect every passage that uses this genre.
       </p>
 
-      {legacyGroup && (
+      {legacyGroup && legacyHasData && (
         <details className="rounded-xl border border-gray-200 bg-white p-4">
           <summary className="cursor-pointer text-sm font-semibold text-gray-700">
             More stylistic notes (optional)
@@ -141,6 +151,11 @@ function FeatureCard({
 }) {
   const cellKey = `${feature.tableId}__${feature.rowId}`
   const idea = useEntry(ctx, STYLE_IDEA_NODE, 'synthesis', cellKey)
+  // Some style decisions genuinely can't precede drafting; the flag rides the
+  // same entry's value field and groups the feature at the bottom of the 2e
+  // decisions log as "To be decided while drafting" (feedback 2026-07-24 #6).
+  // The plan box stays usable for partial notes either way.
+  const deferred = idea?.value === DEFER_TO_DRAFTING
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -164,6 +179,23 @@ function FeatureCard({
               upsertEntry(ctx, STYLE_IDEA_NODE, 'synthesis', { text: v }, cellKey)
             }
           />
+          <label className="mt-1.5 flex cursor-pointer items-center gap-1.5 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={deferred}
+              onChange={() =>
+                void upsertEntry(
+                  ctx,
+                  STYLE_IDEA_NODE,
+                  'synthesis',
+                  { value: deferred ? '' : DEFER_TO_DRAFTING },
+                  cellKey,
+                )
+              }
+              className="h-3.5 w-3.5 accent-emerald-700"
+            />
+            Best decided while drafting
+          </label>
         </div>
       </div>
     </section>

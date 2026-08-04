@@ -326,7 +326,7 @@ const JOURNEY: JourneyStage[] = [
     id: 'style',
     workspace: 'w2',
     title: '2d: The Style — Compare & Decide',
-    blurb: "Plan how to achieve the genre's Required features with this passage.",
+    blurb: "Plan how to achieve the genre's Required style features with this passage.",
     subIds: ['s0.stylistic_notes'],
   },
   {

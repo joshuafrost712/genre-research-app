@@ -1,5 +1,5 @@
 {
-  "version": "2.4.0",
+  "version": "2.4.1",
   "title": "Local Genres Research for Scripture Translation",
   "chrome": [
     {
@@ -609,7 +609,7 @@
         {
           "id": "s3b",
           "type": "group",
-          "label": "1e.2: Flow (discourse) of {genre}",
+          "label": "1e.2: Flow (Discourse) of {genre}",
           "layer": "genre",
           "children": [
             {
