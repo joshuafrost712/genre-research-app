@@ -40,6 +40,23 @@ describe('deriveSectionRecall', () => {
   it('returns nothing when the source subsection is empty for the genre', () => {
     expect(deriveSectionRecall([], 's3a', 'g1')).toHaveLength(0)
   })
+
+  it('surfaces fixed_grid charts (1d.4 connections) row by row', () => {
+    // s2d's content lives entirely in s2d.chart, a fixed_grid; the /macro rail
+    // showed nothing for it before the fixed_grid case existed (2026-07-24 #3).
+    const entries = [
+      entry({ node_id: 's2d.chart', genre_id: 'g1', cell_key: 'words__sounds', text: 'echoed refrain' }),
+      entry({ node_id: 's2d.chart', genre_id: 'g1', cell_key: 'phrases__structural', text: 'matched line pairs' }),
+      entry({ node_id: 's2d.chart', genre_id: 'g2', cell_key: 'words__sounds', text: 'other genre' }),
+    ]
+    const fields = deriveSectionRecall(entries, 's2d', 'g1')
+    expect(fields).toHaveLength(2)
+    expect(fields[0].label).toBe('Related words')
+    expect(fields[0].value).toContain('echoed refrain')
+    expect(fields[1].label).toBe('Related phrases')
+    expect(fields[1].value).toContain('matched line pairs')
+    expect(fields.map((f) => f.value).join(' ')).not.toContain('other genre')
+  })
 })
 
 describe('translationSummary', () => {

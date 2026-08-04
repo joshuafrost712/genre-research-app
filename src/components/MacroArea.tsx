@@ -212,8 +212,10 @@ function RowZones({
           )}
         </div>
       )}
-      <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
+      {/* Both zones share one box treatment so their inputs sit level
+          (feedback 2026-07-24 #1) — only the tint tells them apart. */}
+      <div className="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
+        <div className="flex flex-col gap-2 rounded-md border border-sky-100 bg-sky-50/50 p-2">
           {psalmCols.map((col) => (
             <ZoneCell key={col.id} ctx={ctx} nodeId={nodeId} layer={layer} rowId={rowId} col={col} />
           ))}

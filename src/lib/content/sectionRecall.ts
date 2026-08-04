@@ -94,6 +94,9 @@ export function deriveSectionRecall(
       case 'repeatable_list':
         out.push(...tableRows(entries, leaf, genreId, detailed))
         break
+      case 'fixed_grid':
+        out.push(...gridRows(entries, leaf, genreId))
+        break
       default:
         break
     }
@@ -141,6 +144,40 @@ function tableRows(
   return rows
     .filter((r) => r.headline)
     .map((r) => ({ label: '•', value: r.headline }))
+}
+
+/**
+ * Rows of a fixed_grid chart (fixed row set, cells keyed row__col). One field
+ * per row that has anything filled in, the filled cells summarized after the
+ * row's own label. Without this, a subsection whose content lives in a grid —
+ * 1d.4's connections chart — recalls as "Nothing recorded there yet" on 2c
+ * (feedback 2026-07-24 #3).
+ */
+function gridRows(entries: Entry[], node: GuideNode, genreId: string): SummaryField[] {
+  const cols = node.columns ?? []
+  const out: SummaryField[] = []
+  for (const row of node.rows ?? []) {
+    const filled = cols
+      .map((c) => ({
+        label: chipLabel(c.label),
+        value: trimmed(
+          entries.find(
+            (e) =>
+              e.node_id === node.id &&
+              e.genre_id === genreId &&
+              e.cell_key === `${row.id}__${c.id}`,
+          )?.text,
+        ),
+      }))
+      .filter((d) => d.value)
+    if (filled.length) {
+      out.push({
+        label: row.label ?? '•',
+        value: filled.map((d) => `${d.label}: ${d.value}`).join('; '),
+      })
+    }
+  }
+  return out
 }
 
 /** A short label for a column, first clause before "(" or "?", capped. */
