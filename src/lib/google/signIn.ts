@@ -1,6 +1,6 @@
 /**
- * The Google sign-in action, extracted so both the header `AccountButton` and
- * the beta sign-in control can trigger it without duplicating the OAuth dance.
+ * The Google sign-in action, kept separate from the app's own account so the
+ * header `AccountMenu` can offer it as what it is: an optional Drive connection.
  * Requests the non-sensitive `drive.file` scope, reads the user's identity,
  * ensures a per-device sync id, persists the account, and starts the sync
  * engine. Returns the saved account; throws if the user cancels or it fails.

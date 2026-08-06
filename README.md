@@ -6,10 +6,11 @@ culturally relevant genre, studying it with enough depth to translate well, and
 carrying that study into a faithful translation of a focus text. The AI layer
 (added later) proposes and prompts but never decides, so the team keeps ownership.
 
-The offline core, the full worksheet content, both export paths, and AI routing
+The offline core, the full worksheet content, every export path, and AI routing
 are built. AI routing follows the cairn pattern: Claude (Max) routes notes on a
-GitHub repo or via a token-free copy/paste path — no metered API, no Supabase.
-`genre-research-app` is a working name, renamable.
+GitHub repo or via a token-free copy/paste path, with no metered API. A Supabase
+project was added later for two optional things only: accounts, and the auth check
+on live answer translation. `genre-research-app` is a working name, renamable.
 
 The canonical plan lives in the Obsidian vault at
 `Projects/AI Projects/Local Genres Research App - MVP Plan.md`.
@@ -48,14 +49,24 @@ depth. Data is stored only on that device.
   worksheet nodes; provenance is kept.
 - **Genres & focus texts.** Create / rename / switch focus texts and genres; the
   worksheet re-points to the active pairing. Genre analysis is reusable.
-- **Export.** Long-format CSV and an AI-synthesis prompt offline; Google Sheets
-  (tab per section) when a `VITE_GOOGLE_CLIENT_ID` is set.
+- **Export.** Word, PDF, long-format CSV and an AI-synthesis prompt, all built in
+  the browser with no account and no connectivity; Google Sheets (tab per section)
+  additionally when a `VITE_GOOGLE_CLIENT_ID` is set.
 - **AI routing (no metered API).** Claude (Max) proposes where each captured note
   belongs — via a private GitHub repo (`VITE_ROUTING_REPO` + an in-app token) or a
   token-free copy/paste path. Proposals arrive as needs-review entries; the Review
   screen confirms/edits/discards each. Nothing files silently.
 - **Local-first.** Dexie/IndexedDB is the source of truth. The app runs fully
-  offline; no account or backend is required.
+  offline; no account or backend is required, and no route is auth-guarded.
+- **Accounts (optional).** Supabase email and password, usable with *any* address.
+  Creating one goes through an invite-code-gated Edge Function
+  (`supabase/functions/signup`, deployed by `scripts/enable-signup.sh`), because
+  public signup would put the translation engine's metered key behind nothing but a
+  free account. An account tags feedback to a person and authorizes live
+  translation. It is unrelated to Google: Google sign-in is a separate, optional
+  connection whose only job is saving a copy of the work to that person's Drive.
+  There is no self-serve password reset while the project has no custom SMTP; use
+  `scripts/reset-beta-password.sh`.
 
 ## Testing
 
@@ -129,5 +140,7 @@ src/
 - Field-readiness pass and Bali rehearsal.
 
 To enable the optional integrations, set the env vars in `.env` (see
-`.env.example`): `VITE_GOOGLE_CLIENT_ID` for Sheets export, `VITE_ROUTING_REPO`
-for automated GitHub routing. Everything else works with neither.
+`.env.example`): `VITE_GOOGLE_CLIENT_ID` for Drive and Sheets export,
+`VITE_ROUTING_REPO` for automated GitHub routing, and `VITE_SUPABASE_URL` +
+`VITE_SUPABASE_ANON_KEY` for accounts and live translation. Everything else works
+with none of them.

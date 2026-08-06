@@ -1,14 +1,21 @@
 /**
- * Teams: a team is a shared Drive folder. Creating one needs the broad `drive`
- * scope (a teammate's file is invisible to `drive.file`), so team actions trigger
- * incremental consent. Teams are non-discoverable: there is no registry or search;
- * access is only via an explicit Drive share — an email invite or a secret link.
+ * Teams, the Drive implementation. **Switched off** behind `TEAMS_ENABLED`; see
+ * `lib/features.ts` for why, and for what replaces it. Kept on disk only so the
+ * shape of the problem it solved is available while the Postgres version is built.
+ * Delete this file when that ships.
+ *
+ * A team is a shared Drive folder. Creating one needs the broad `drive` scope (a
+ * teammate's file is invisible to `drive.file`), so team actions trigger incremental
+ * consent, and that one requirement is what put the whole app behind Google's
+ * unverified-app wall. Teams are non-discoverable: there is no registry or search;
+ * access is only via an explicit Drive share, an email invite or a secret link.
  *
  * The Drive link is the real access secret. Our app-level `joinSecret` is a second
  * factor (verified against a hash stored in team.json) and a point we could revoke
  * at the app level later.
  */
 import { ensureScope } from '../google/auth'
+import { TEAMS_ENABLED } from '../features'
 import { getAccount } from '../google/account'
 import {
   createPermission,
@@ -43,6 +50,20 @@ export interface CreatedTeam extends TeamRef {
   joinLink: string
 }
 
+/**
+ * Enforced in code, not just by hiding the nav entry. Every function below asks
+ * Google for the restricted full `drive` scope, and the app's whole Google posture
+ * now depends on that scope never being requested (see `lib/features.ts`). A
+ * forgotten route or a stale bookmark must not be able to reach it.
+ */
+function assertTeamsEnabled(): void {
+  if (!TEAMS_ENABLED) {
+    throw new Error(
+      'Shared teams are being rebuilt so they work without a Google account. Your own work is unaffected.',
+    )
+  }
+}
+
 function randomToken(bytes = 18): string {
   const a = new Uint8Array(bytes)
   crypto.getRandomValues(a)
@@ -64,6 +85,7 @@ export function buildJoinLink(folderId: string, secret: string): string {
 
 /** Create a team folder, set link-sharing, and register it locally. */
 export async function createTeam(name: string): Promise<CreatedTeam> {
+  assertTeamsEnabled()
   await ensureScope('full')
   const folderId = await findOrCreateFolder(`Genre Research Team — ${name}`)
   const teamId = uid()
@@ -87,6 +109,7 @@ export async function createTeam(name: string): Promise<CreatedTeam> {
 
 /** Redeem a folder id + secret: verify, register locally, pull the team's data. */
 export async function joinByCode(folderId: string, secret: string): Promise<TeamRef> {
+  assertTeamsEnabled()
   await ensureScope('full')
   const file = await findFile(TEAM_FILE, folderId)
   if (!file) {
@@ -113,6 +136,7 @@ export async function joinByCode(folderId: string, secret: string): Promise<Team
  * grant, so no join secret is required here.
  */
 export async function discoverTeams(): Promise<TeamRef[]> {
+  assertTeamsEnabled()
   await ensureScope('full') // shared folders are invisible to drive.file
   const known = new Set((await listTeams()).map((t) => t.folderId))
   const folders = (await listSharedFolders()).filter(
@@ -135,18 +159,21 @@ export async function discoverTeams(): Promise<TeamRef[]> {
 
 /** Invite a teammate by email (Google emails them the share). */
 export async function inviteByEmail(folderId: string, email: string): Promise<void> {
+  assertTeamsEnabled()
   await ensureScope('full')
   await createPermission(folderId, { type: 'user', role: 'writer', emailAddress: email.trim() })
 }
 
 /** Who currently has access to the team folder. */
 export async function listMembers(folderId: string): Promise<DrivePermission[]> {
+  assertTeamsEnabled()
   await ensureScope('full')
   return listPermissions(folderId)
 }
 
 /** Owner removes a member's access. */
 export async function removeMember(folderId: string, permissionId: string): Promise<void> {
+  assertTeamsEnabled()
   await ensureScope('full')
   await deletePermission(folderId, permissionId)
 }

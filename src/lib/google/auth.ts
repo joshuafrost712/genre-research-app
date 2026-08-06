@@ -9,6 +9,13 @@
  * another device, is invisible to `drive.file`). A granted `drive` token is a
  * superset, so it transparently satisfies later `file`-scope requests.
  *
+ * `SCOPES.full` currently has NO reachable caller: Teams is off (see
+ * `lib/features.ts`), which is what allows the OAuth client to declare only the
+ * non-sensitive scope and be published to Production without Google review. Do not
+ * wire a new caller to it. Anything that seems to need it needs the Postgres
+ * backend instead, or the Google Picker, which grants `drive.file` access to a file
+ * the person selects.
+ *
  * Everything is gated on VITE_GOOGLE_CLIENT_ID: with no client id the whole
  * feature reports as not configured and the rest of the app is unaffected.
  */

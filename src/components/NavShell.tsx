@@ -12,6 +12,7 @@ import { useDepthMode } from './DepthModeContext'
 import { useProgress } from './useProgress'
 import { resolveGenreTokens, useNameTokens } from './GenreNameProvider'
 import { isGoogleConfigured } from '../lib/google/auth'
+import { TEAMS_ENABLED } from '../lib/features'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { useLocale } from '../lib/i18n/LocaleContext'
 import type { UiKey } from '../lib/i18n/strings'
@@ -41,8 +42,8 @@ const QUICK_LINKS: { to: string; key: UiKey; end?: boolean }[] = [
   { to: '/follow-up', key: 'nav.followUp' },
   { to: '/export', key: 'nav.export' },
   { to: '/help', key: 'nav.help' },
-  // Teams (cloud sharing) only appears when Google sign-in is configured.
-  ...(isGoogleConfigured() ? [{ to: '/teams', key: 'nav.teams' as UiKey }] : []),
+  // Teams is off while shared work moves off Google Drive; see lib/features.ts.
+  ...(TEAMS_ENABLED && isGoogleConfigured() ? [{ to: '/teams', key: 'nav.teams' as UiKey }] : []),
 ]
 
 const WORKSPACE_ACCENT: Record<string, string> = {

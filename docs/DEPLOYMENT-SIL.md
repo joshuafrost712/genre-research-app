@@ -10,13 +10,19 @@ IndexedDB-first, GitHub Pages today), so most of this mirrors
 
 ## What it is, in one paragraph
 
-A **100% static frontend PWA** that renders the research worksheet from bundled JSON
-and stores everything the team enters in the browser's IndexedDB. It works fully
-offline. **Today it needs no backend at all** — there is no Supabase usage in the
-shipped code; the whole worksheet, both export paths, and the AI note-routing run
-locally or through a token-free copy/paste path. Two features are *optional and
-opt-in*: Google sign-in (for Google Sheets export and cross-device sync) and a
-future server-side AI drafting broker.
+A **static frontend PWA** that renders the research worksheet from bundled JSON and
+stores everything the team enters in the browser's IndexedDB. It works fully
+offline, and **the core app still needs no backend**: the whole worksheet, both
+export paths (Word, PDF and CSV all build in the browser), and the AI note-routing
+run locally or through a token-free copy/paste path.
+
+Three features are *optional and opt-in*, and two of them now use a Supabase
+project. An **account** (Supabase email and password, any address, created through
+an invite-code-gated Edge Function) identifies a person for feedback and authorizes
+**live answer translation**, which runs through a second Edge Function holding the
+engine credentials. **Google sign-in** is separate from the account and does one
+thing: save a copy of the work to that person's own Google Drive. None of the three
+is required to use the app, and no account gates any route.
 
 ## What SIL needs to provide
 
@@ -36,17 +42,30 @@ All config is `VITE_*` build variables (see `.env.example`).
 |---|---|---|
 | `VITE_BASE` | if subpath | base path (e.g. `/genre/`); default `/` |
 | `VITE_GOOGLE_CLIENT_ID` | optional | Google OAuth Web client id → enables Sheets export, cloud sync, Teams. A public client identifier, not a secret. |
-| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | optional | only if the future AI-broker backend is enabled |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | optional | accounts (sign-in, invite-code signup) and the auth check on live translation. The anon key is a public client identifier, not a secret. |
+| `VITE_TRANSLATE_URL` | optional | the deployed translate Edge Function; unset means answers queue for deferred translation instead |
 | `VITE_ROUTING_REPO`, `VITE_ROUTING_BRANCH` | optional | private GitHub repo for automated AI note-routing (copy/paste fallback needs none) |
 
 ## Optional pieces (only if SIL wants them)
 
 - **Google OAuth** (`VITE_GOOGLE_CLIENT_ID`): register a Web OAuth client in Google
   Cloud, add the SIL deploy origin (and `http://localhost` for dev) to the
-  authorized JavaScript origins. Scopes are requested incrementally in-browser
-  (`drive.file` for personal sync/Sheets; full `drive` only when joining a team).
-  Until the OAuth app is verified, Google shows an "unverified app" screen; for a
-  pilot, add users as OAuth "Test users" (<100). No client secret is used.
+  authorized JavaScript origins. No client secret is used.
+
+  Scopes are requested incrementally in-browser: the non-sensitive `drive.file` for
+  personal sync and Sheets, and the **restricted** full `drive` only when joining a
+  team. That distinction decides how much Google review is needed. An app requesting
+  only `drive.file` can be published to Production with no verification and no
+  warning screen. While the client sits in **Testing** publishing status, only
+  accounts on the test-user list (100 max) can consent at all, everyone else is
+  hard-blocked with "has not completed the Google verification process", and each
+  consent expires after seven days.
+
+  Note also that a Workspace admin who blocks unapproved third-party apps will block
+  this one regardless of verification status. That is a separate control, and it is
+  why organization-managed accounts often cannot use the Drive features even when
+  everything else is in order. The unblock is for the admin to mark the OAuth client
+  ID trusted under Admin console, Security, API controls, App access control.
 
 - **AI drafting broker (future).** The app's `.env.example` contemplates a
   server-side AI broker. To match ThruLine, implement it the same way: a Supabase

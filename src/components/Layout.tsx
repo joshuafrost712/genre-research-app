@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { NavShell } from './NavShell'
 import { ContextBar } from './ContextBar'
-import { AccountButton } from './AccountButton'
-import { BetaSignIn } from './beta/BetaSignIn'
+import { AccountMenu } from './AccountMenu'
+import { AccountDialog } from './account/AccountDialog'
 import { BetaWelcome } from './beta/BetaWelcome'
 import { FeedbackHighlight } from './feedback/FeedbackHighlight'
 import { GenreNameProvider } from './GenreNameProvider'
@@ -11,7 +11,6 @@ import { QuickJot } from './QuickJot'
 import { Tour } from './tour/TourProvider'
 import { APP_TOUR, APP_TOUR_STEPS } from './tour/tours'
 import { DevFeedbackRoot } from '../devfeedback/DevFeedbackRoot'
-import { isBetaMode } from '../devfeedback/enabled'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { useLocale } from '../lib/i18n/LocaleContext'
 
@@ -34,6 +33,7 @@ export function Layout() {
     <GenreNameProvider>
     <Tour id={APP_TOUR} steps={APP_TOUR_STEPS} />
     <BetaWelcome />
+    <AccountDialog />
     <FeedbackHighlight />
     <div key={locale} className="flex h-dvh flex-col bg-gray-50 text-gray-900">
       <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 print:hidden">
@@ -53,7 +53,7 @@ export function Layout() {
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <ContextBar />
           <LanguageSwitcher />
-          {isBetaMode() ? <BetaSignIn /> : <AccountButton />}
+          <AccountMenu />
         </div>
       </header>
 

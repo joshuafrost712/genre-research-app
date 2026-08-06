@@ -1,26 +1,25 @@
 /**
- * The single header sign-in control in beta mode. It replaces the two separate
- * buttons (Google + beta account) with one control that carries two coexisting
- * identities:
+ * The header account control, shown in every mode. It carries two independent,
+ * coexisting identities:
  *
- *   - the **account** (Supabase email/password) — the primary identity, and
- *     what tags feedback to a person; and
- *   - an optional **Google** connection a tester associates to save their work
- *     to Drive (the ordinary cloud-sync behavior, reachable here in beta).
+ *   - the **account** (Supabase email/password) — the primary identity, usable with
+ *     any email address, which tags feedback and authorizes live translation; and
+ *   - an optional **Google** connection, which does exactly one thing: save a copy
+ *     of the work to that person's Google Drive.
  *
- * Signed out of both, it shows a generic "Sign in" button whose menu offers the
- * two choices. Signed in, it shows each identity's chip. Renders nothing outside
- * beta mode, so ordinary and dev builds keep the plain `AccountButton`.
+ * It used to render only in beta mode, with ordinary builds falling back to a
+ * Google-only button. That was the whole reason the app looked like it required a
+ * Google account, so both identities are now offered everywhere and the Google entry
+ * says what it is actually for.
  */
 import { useEffect, useState } from 'react'
-import { isBetaMode } from '../../devfeedback/enabled'
-import { isGoogleConfigured, forgetToken } from '../../lib/google/auth'
-import { clearAccount, getAccount, type Account } from '../../lib/google/account'
-import { signInWithGoogle } from '../../lib/google/signIn'
-import { syncEngine, useSyncStatus } from '../../lib/sync/engine'
-import { useSupabaseSession, signOutBeta, updatePassword } from '../../lib/supabase/session'
-import { setFeedbackAuthor } from '../../lib/feedback/identity'
-import { setMetaValue } from '../../lib/storage/appState'
+import { isGoogleConfigured, forgetToken } from '../lib/google/auth'
+import { clearAccount, getAccount, type Account } from '../lib/google/account'
+import { signInWithGoogle } from '../lib/google/signIn'
+import { syncEngine, useSyncStatus } from '../lib/sync/engine'
+import { useSupabaseSession, signOutBeta, updatePassword } from '../lib/supabase/session'
+import { setFeedbackAuthor } from '../lib/feedback/identity'
+import { openAccountDialog } from './account/dialogStore'
 
 const SYNC_DOT: Record<string, string> = {
   idle: 'bg-emerald-500',
@@ -31,8 +30,7 @@ const SYNC_DOT: Record<string, string> = {
 
 type OpenMenu = null | 'chooser' | 'account' | 'google'
 
-export function BetaSignIn() {
-  const beta = isBetaMode()
+export function AccountMenu() {
   const { configured, user } = useSupabaseSession()
   const [googleAccount, setGoogleAccount] = useState<Account | null>(null)
   const sync = useSyncStatus()
@@ -48,9 +46,10 @@ export function BetaSignIn() {
     getAccount().then(setGoogleAccount)
   }, [])
 
-  if (!beta) return null
-
   const googleAvailable = isGoogleConfigured()
+
+  // Nothing to offer and nothing to show: stay out of the header entirely.
+  if (!configured && !googleAvailable && !googleAccount) return null
 
   const connectGoogle = async () => {
     setBusy(true)
@@ -82,9 +81,8 @@ export function BetaSignIn() {
     setMenu(null)
   }
 
-  const openAccountForm = () => {
-    // Reopen the beta welcome, which hosts the email/password sign-in form.
-    void setMetaValue('betaWelcomeSeen', '0')
+  const open = (mode: 'signin' | 'create') => {
+    openAccountDialog(mode)
     setMenu(null)
   }
 
@@ -126,30 +124,46 @@ export function BetaSignIn() {
             Sign in
           </button>
           {menu === 'chooser' && (
-            <div className="absolute right-0 z-30 mt-1 w-64 rounded border border-gray-200 bg-white py-1 text-sm shadow-lg">
+            <div className="absolute right-0 z-30 mt-1 w-72 rounded border border-gray-200 bg-white py-1 text-sm shadow-lg">
               {configured && (
-                <button
-                  type="button"
-                  onClick={openAccountForm}
-                  className="block w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-100"
-                >
-                  Sign in with an account
-                  <span className="block text-xs text-gray-500">Email &amp; password we sent you</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => open('create')}
+                    className="block w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-100"
+                  >
+                    Create an account
+                    <span className="block text-xs text-gray-500">
+                      Any email works, including your work address
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => open('signin')}
+                    className="block w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-100"
+                  >
+                    Sign in with your account
+                    <span className="block text-xs text-gray-500">Email &amp; password</span>
+                  </button>
+                </>
               )}
               {googleAvailable && (
                 <button
                   type="button"
                   onClick={connectGoogle}
                   disabled={busy}
-                  className="block w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  className="block w-full border-t border-gray-100 px-3 py-2 text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                 >
-                  {busy ? 'Signing in…' : 'Sign in with Google'}
-                  <span className="block text-xs text-gray-500">Save your work to Google Drive</span>
+                  {busy ? 'Connecting…' : 'Save to Google Drive (optional)'}
+                  <span className="block text-xs text-gray-500">
+                    Keeps a copy in your own Drive. Not needed to use the app.
+                  </span>
                 </button>
               )}
               {!configured && !googleAvailable && (
-                <div className="px-3 py-2 text-xs text-gray-500">Sign-in isn't available in this build.</div>
+                <div className="px-3 py-2 text-xs text-gray-500">
+                  Sign-in isn't available in this build.
+                </div>
               )}
             </div>
           )}
@@ -172,7 +186,7 @@ export function BetaSignIn() {
             <span className="hidden max-w-[12rem] truncate sm:inline">{user.email}</span>
           </button>
           {menu === 'account' && (
-            <div className="absolute right-0 z-30 mt-1 w-64 rounded border border-gray-200 bg-white py-1 text-sm shadow-lg">
+            <div className="absolute right-0 z-30 mt-1 w-72 rounded border border-gray-200 bg-white py-1 text-sm shadow-lg">
               <div className="truncate px-3 py-1.5 text-xs text-gray-500">{user.email}</div>
               {changing ? (
                 <div className="px-3 py-2">
@@ -226,7 +240,7 @@ export function BetaSignIn() {
                   disabled={busy}
                   className="block w-full px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                 >
-                  {busy ? 'Connecting…' : 'Connect Google (save your work to Drive)'}
+                  {busy ? 'Connecting…' : 'Save to Google Drive (optional)'}
                 </button>
               )}
               <button
@@ -259,7 +273,9 @@ export function BetaSignIn() {
               </span>
             )}
             {/* When an account chip is already shown, keep the Google chip compact. */}
-            {!user && <span className="hidden max-w-[12rem] truncate sm:inline">{googleAccount.email}</span>}
+            {!user && (
+              <span className="hidden max-w-[12rem] truncate sm:inline">{googleAccount.email}</span>
+            )}
             <span
               className={`h-2 w-2 rounded-full ${SYNC_DOT[sync.state] ?? 'bg-gray-300'}`}
               title={syncTitle}
@@ -272,6 +288,15 @@ export function BetaSignIn() {
                 Google Drive
                 <span className="block truncate text-gray-700">{googleAccount.email}</span>
               </div>
+              {!user && configured && (
+                <button
+                  type="button"
+                  onClick={() => open('signin')}
+                  className="block w-full px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100"
+                >
+                  Sign in with your account
+                </button>
+              )}
               <button
                 type="button"
                 onClick={disconnectGoogle}

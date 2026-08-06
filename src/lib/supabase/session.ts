@@ -82,9 +82,14 @@ export async function updatePassword(newPassword: string): Promise<SignInResult>
 }
 
 /**
- * Send a magic-link / one-time-code email. Secondary fallback (the built-in
- * email service is rate-limited to a couple per hour). The link returns the
- * tester to this app origin, where `detectSessionInUrl` completes the sign-in.
+ * Send a magic-link / one-time-code email. Strictly a fallback: the project has no
+ * custom SMTP, so this runs on Supabase's built-in mailer at TWO EMAILS PER HOUR
+ * project-wide. The third person to try it in any hour gets nothing, which used to
+ * look like a silent failure, so that ceiling is now named in the error rather than
+ * passed through as Supabase's wording. The real fix is custom SMTP.
+ *
+ * The link returns the tester to this app origin, where `detectSessionInUrl`
+ * completes the sign-in.
  */
 export async function signInWithEmail(email: string): Promise<SignInResult> {
   if (!supabase) return { ok: false, error: 'Sign-in is not available in this build yet.' }
@@ -92,7 +97,15 @@ export async function signInWithEmail(email: string): Promise<SignInResult> {
   if (!clean) return { ok: false, error: 'Enter your email address.' }
   const emailRedirectTo = window.location.origin + import.meta.env.BASE_URL
   const { error } = await supabase.auth.signInWithOtp({ email: clean, options: { emailRedirectTo } })
-  return error ? { ok: false, error: error.message } : { ok: true }
+  if (!error) return { ok: true }
+  if (error.status === 429 || /rate limit/i.test(error.message)) {
+    return {
+      ok: false,
+      error:
+        'Sign-in emails are limited to a couple per hour across everyone using the app, and that limit is currently reached. Use your password, or try again in an hour.',
+    }
+  }
+  return { ok: false, error: error.message }
 }
 
 export async function signOutBeta(): Promise<void> {
