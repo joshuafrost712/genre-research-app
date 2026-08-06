@@ -43,28 +43,31 @@ fi
 
 GENERATED=0
 if [[ -z "${SIGNUP_INVITE_CODE:-}" ]]; then
-  # Four words drawn with a CSPRNG from the system dictionary. That dictionary has
-  # tens of thousands of usable words, so four of them carry well over 40 bits —
-  # far past anything the function's per-IP throttle would ever let you try — while
-  # staying short enough to read down a phone and type without errors.
+  # Four words plus three digits, drawn with a CSPRNG from a CURATED list of common
+  # words. The list is ~100 words, so this carries about 36 bits. That is far past
+  # what the function's per-IP throttle would ever let anyone try, and the code is
+  # not the only thing standing between a stranger and anything valuable.
+  #
+  # Deliberately NOT /usr/share/dict/words. That has more entropy per word and
+  # produced "unscrew-ayllu-geneat-pasang" on the first run: three of those four are
+  # words nobody can copy off a phone screen without a typo. A code people mistype
+  # is the same friction this whole change exists to remove.
   SIGNUP_INVITE_CODE="$(python3 - <<'PY'
-import secrets, pathlib
+import secrets
 
-FALLBACK = """river lantern maple cedar harbor meadow ember willow pebble cobalt
+WORDS = """river lantern maple cedar harbor meadow ember willow pebble cobalt
 thicket amber quartz beacon cypress juniper marigold saffron indigo breeze cavern
-dune fjord glade summit tide vale wren zephyr lattice compass anchor""".split()
+dune fjord glade summit tide valley wren zephyr lattice compass anchor bramble
+copper garden hollow island kettle ladder mantle needle orchard pillar quiver
+ribbon saddle timber velvet walnut yellow almond basket candle daisy eagle
+feather granite hammer ivory jasmine kernel lemon marble nutmeg olive parcel
+quarry rabbit silver tulip umber violet willow yarrow acorn birch clover
+dolphin elder fennel ginger heather indigo jasper kelp linen mallow
+nectar oyster peach quince raven sorrel thistle umbra vessel wheat
+yonder zinnia bluff creek dawn ferry grove haven inlet""".split()
 
-words = []
-path = pathlib.Path('/usr/share/dict/words')
-if path.exists():
-    words = [
-        w for w in path.read_text(errors='ignore').split()
-        if 4 <= len(w) <= 7 and w.isalpha() and w.islower()
-    ]
-if len(words) < 2000:
-    words = FALLBACK
-
-print('-'.join(secrets.choice(words) for _ in range(4)))
+code = '-'.join(secrets.choice(WORDS) for _ in range(4))
+print(f'{code}-{secrets.randbelow(900) + 100}')
 PY
 )"
   GENERATED=1

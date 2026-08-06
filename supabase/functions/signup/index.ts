@@ -60,10 +60,10 @@ function readiness(): string | null {
  * LIMITATION, deliberately accepted, same as the translate function: Supabase may
  * run several isolates, so the true ceiling is this multiplied by the isolate count,
  * and it resets on cold start. That is fine here because it is not the primary
- * defence — a four-word invite code carries roughly 44 bits, which no amount of
- * HTTP round-trips will exhaust. This throttle exists to make brute force
+ * defence. The code `enable-signup.sh` generates carries about 36 bits, which no
+ * volume of HTTP round-trips will exhaust; this throttle exists to make brute force
  * expensive and noisy rather than impossible. Move it to a Postgres counter if the
- * code is ever shortened.
+ * code is ever shortened, or if this ever guards something worth real money.
  */
 const hits = new Map<string, number[]>()
 
