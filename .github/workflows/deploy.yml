@@ -11,6 +11,19 @@ permissions:
   id-token: write
 
 # One in-flight deploy at a time; let a new push supersede an older run.
+#
+# TRAP, hit on 2026-08-06 and worth thirty minutes to whoever hits it next. A Pages
+# deployment's id IS the commit sha, so once a deployment for a given sha reaches a
+# cancelled state, every retry for that same sha ("Created deployment for <sha>",
+# then "Deployment cancelled" about six seconds later) fails instantly. Re-running
+# the failed job does not help, and neither does workflow_dispatch on the same ref.
+#
+# Two pushes in quick succession are enough to cause it: the second supersedes the
+# first here, and if the survivor then times out waiting on Pages (it polls
+# deployment_queued for ten minutes and aborts), its sha is burnt.
+#
+# The fix is a NEW commit, not a retry. Check https://www.githubstatus.com first to
+# rule out a real Pages incident, then push something, even an empty commit.
 concurrency:
   group: pages
   cancel-in-progress: true
