@@ -86,3 +86,14 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Default is 600000 (10 min). On 2026-08-06 four consecutive deploys were
+          # accepted by Pages, moved to deployment_in_progress, and were still
+          # in_progress when this action hit ten minutes. The action does not just
+          # give up at that point, it CANCELS the deployment, so a Pages build that
+          # is merely slow gets killed rather than finishing late. githubstatus.com
+          # showed no incident and the build job passed in ~22s each time.
+          #
+          # Thirty minutes costs nothing on a good day, since the step returns as
+          # soon as Pages reports success.
+          timeout: 1800000
