@@ -65,8 +65,12 @@ depth. Data is stored only on that device.
   free account. An account tags feedback to a person and authorizes live
   translation. It is unrelated to Google: Google sign-in is a separate, optional
   connection whose only job is saving a copy of the work to that person's Drive.
+  The invite code does not expire and is meant to be passed between participants;
+  rotating it silently invalidates every copy in circulation, so it is a
+  deliberate act, never housekeeping (see `scripts/enable-signup.sh`).
   Forgotten passwords are self-serve: "Forgot your password?" in the sign-in
   dialog emails a link, over the project's custom SMTP (Brevo relay, 100/hour).
+  That link expires in an hour; the invite code does not. The two are unrelated.
   `scripts/reset-beta-password.sh` remains as a maintainer fallback.
 - **One device, one account.** The local database is stamped with the account it
   belongs to. A *different* account signing in on the same browser clears it first

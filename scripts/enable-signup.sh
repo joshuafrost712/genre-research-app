@@ -18,8 +18,18 @@
 #
 #   ~/.claude/secrets/genre-invite.env   SIGNUP_INVITE_CODE=four-random-words-here
 #
-# To rotate: blank the value in that file and re-run. Anyone who already has an
-# account keeps it; only new signups need the new code.
+# The code does NOT expire. There is no TTL and nothing rotates it on a schedule;
+# it changes only when a human runs this script against a blanked value. That is
+# deliberate. Joshua's standing decision (2026-08-07): the code is meant to be
+# passed participant to participant for weeks at a stretch, and an influx of
+# accounts is not a concern for this app. Re-issuing means emailing the whole
+# cohort again, which is the cost he is avoiding.
+#
+# So: DO NOT rotate as housekeeping. Rotate only when asked, or when the code is
+# known to have leaked outside the cohort. To rotate: blank the value in that file
+# and re-run. Anyone who already has an account keeps it; only new signups need
+# the new code — and every unused code already in circulation stops working, so
+# the whole cohort has to be told.
 set -euo pipefail
 
 API="https://api.supabase.com/v1"
