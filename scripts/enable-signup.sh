@@ -20,10 +20,15 @@
 #
 # The code does NOT expire. There is no TTL and nothing rotates it on a schedule;
 # it changes only when a human runs this script against a blanked value. That is
-# deliberate. Joshua's standing decision (2026-08-07): the code is meant to be
-# passed participant to participant for weeks at a stretch, and an influx of
-# accounts is not a concern for this app. Re-issuing means emailing the whole
-# cohort again, which is the cost he is avoiding.
+# deliberate: the code is meant to be passed participant to participant for weeks
+# at a stretch, and re-issuing means telling everyone previously emailed that
+# their code is dead.
+#
+# That a single shared code has no per-person revocation is known and accepted at
+# the current workshop's size, because this is a tool for an incredibly niche task
+# and few people would create an account unprompted. The gate is here to stop the
+# metered translate key sitting behind a free public signup, not to ration demand.
+# Reconsider if the app is ever promoted past a workshop cohort.
 #
 # So: DO NOT rotate as housekeeping. Rotate only when asked, or when the code is
 # known to have leaked outside the cohort. To rotate: blank the value in that file
