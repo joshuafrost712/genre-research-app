@@ -29,6 +29,8 @@ import {
 import { adoptBestProject } from './adopt'
 import { getActiveProjectId } from '../storage/appState'
 import { initSyncMode, syncMode } from './mode'
+import { rememberAccount } from '../supabase/accountMemory'
+import { requestPersistentStorage } from '../storage/persist'
 
 export type SyncState = 'idle' | 'syncing' | 'offline' | 'error' | 'signed-out' | 'paused'
 
@@ -199,6 +201,22 @@ function detach(): void {
   window.removeEventListener('beforeunload', onBeforeUnload)
 }
 
+/**
+ * Two things that must happen on every arrival at a signed-in state, whichever
+ * route got us here (fresh sign-in, restored session, token refresh).
+ *
+ * The marker is what lets a later boot tell "your session went missing" apart
+ * from "you have never signed in" — see `supabase/accountMemory.ts`.
+ *
+ * The persistence request is repeated rather than done once at startup because
+ * Chrome grants it on engagement heuristics that a just-opened app may not meet
+ * yet, and a signed-in user is exactly the signal it is looking for.
+ */
+function onSignedIn(email: string | undefined): void {
+  if (email) rememberAccount(email)
+  void requestPersistentStorage()
+}
+
 export const syncEngine = {
   /**
    * Idempotent. Mounted unconditionally: with no Supabase configured it does
@@ -213,7 +231,7 @@ export const syncEngine = {
     // first cycle rather than after one round of syncing they asked not to have.
     await initSyncMode()
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         bootstrapped = false
         peersSeen.clear()
@@ -221,9 +239,13 @@ export const syncEngine = {
         invalidateProjectCache()
         detach()
         setStatus({ state: 'signed-out', peers: 0, lastSyncedAt: null })
+        // Deliberately does NOT forget the account marker. This event fires for a
+        // dropped session as well as a chosen sign-out, and only `signOutBeta`
+        // knows which one this was.
         return
       }
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+        onSignedIn(session?.user?.email)
         attach()
         void syncOnce()
       }
@@ -234,6 +256,7 @@ export const syncEngine = {
     // stored session has been read. Kick a cycle for the already-signed-in case.
     const { data } = await supabase.auth.getSession()
     if (data.session) {
+      onSignedIn(data.session.user?.email)
       attach()
       void syncOnce()
     } else {

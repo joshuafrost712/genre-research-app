@@ -164,6 +164,42 @@ export async function upsertEntry(
  * (so a restore is also undoable). Only a real change to a non-empty value is
  * recorded; flag-only patches and first writes add no history rows.
  */
+/**
+ * Put back the text a teammate's edit replaced.
+ *
+ * Addressed by entry id rather than by (ctx, nodeId, layer, cellKey) because the
+ * caller is the overwrite toast, which knows which ROW was replaced but has no
+ * business reconstructing an ActiveContext for a project the user may not even
+ * have open. The row still exists — last-write-wins replaced its contents, it did
+ * not delete it — so every container field is already correct and must be left
+ * exactly as found.
+ *
+ * The fresh `updated_at` is what makes this work rather than bounce: the merge
+ * rule is newest-wins, so a restore stamped now beats the remote row that just
+ * landed, and the next pull leaves it alone instead of overwriting it again.
+ */
+export async function restoreEntryText(
+  entryId: string,
+  prevText: string | undefined,
+  prevValue: string | undefined,
+): Promise<boolean> {
+  const existing = await db.entries.get(entryId)
+  if (!existing) return false
+  const restored: Entry = {
+    ...existing,
+    text: prevText ?? '',
+    value: prevValue,
+    // The restored text is the original answer again, so any translation cached
+    // against the teammate's replacement text no longer describes it.
+    translations: undefined,
+    updated_at: now(),
+    sync_status: 'local',
+  }
+  await db.entries.put(restored)
+  await trackUpsert('entries', restored)
+  return true
+}
+
 export async function upsertEntryWithHistory(
   ctx: ActiveContext,
   nodeId: string,

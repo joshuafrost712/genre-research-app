@@ -21,6 +21,8 @@ import { useSupabaseSession, signOutBeta, updatePassword } from '../lib/supabase
 import { setFeedbackAuthor } from '../lib/feedback/identity'
 import { openAccountDialog } from './account/dialogStore'
 import { ProjectPicker } from './ProjectPicker'
+import { storageDurability, type Durability } from '../lib/storage/persist'
+import { useLocale } from '../lib/i18n/LocaleContext'
 
 const SYNC_DOT: Record<string, string> = {
   idle: 'bg-emerald-500',
@@ -33,7 +35,9 @@ type OpenMenu = null | 'chooser' | 'account' | 'google'
 
 export function AccountMenu() {
   const { configured, user } = useSupabaseSession()
+  const { t } = useLocale()
   const [googleAccount, setGoogleAccount] = useState<Account | null>(null)
+  const [durability, setDurability] = useState<Durability>('unknown')
   const sync = useSyncStatus()
 
   const [menu, setMenu] = useState<OpenMenu>(null)
@@ -46,6 +50,13 @@ export function AccountMenu() {
   useEffect(() => {
     getAccount().then(setGoogleAccount)
   }, [])
+
+  // Re-read whenever the menu opens: a browser can grant persistence later, once
+  // it has decided the app is used rather than visited, so a value read once at
+  // startup would go stale as "not guaranteed" and stay there.
+  useEffect(() => {
+    if (menu === 'account') void storageDurability().then(setDurability)
+  }, [menu])
 
   const googleAvailable = isGoogleConfigured()
 
@@ -189,6 +200,20 @@ export function AccountMenu() {
           {menu === 'account' && (
             <div className="absolute right-0 z-30 mt-1 w-72 rounded border border-gray-200 bg-white py-1 text-sm shadow-lg">
               <div className="truncate px-3 py-1.5 text-xs text-gray-500">{user.email}</div>
+              {/*
+                Whether the browser agreed to keep this app's data. Shown because
+                a field problem ("everything vanished on my phone") is otherwise
+                unanswerable, and because a "not guaranteed" here is the cue that
+                the work needs to be in the account rather than only on the device.
+              */}
+              {durability !== 'unknown' && (
+                <div className="px-3 pb-1.5 text-xs text-gray-400">
+                  {t('account.storageLabel')}:{' '}
+                  {durability === 'protected'
+                    ? t('account.storageProtected')
+                    : t('account.storageBestEffort')}
+                </div>
+              )}
               {changing ? (
                 <div className="px-3 py-2">
                   <input

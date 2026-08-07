@@ -1,44 +1,56 @@
 name: Keep Supabase awake
 
-# A free Supabase project PAUSES ITSELF after 7 days with no requests, and a
-# paused project takes down sign-in, cloud sync and live translation at once.
-# It already happened on 2026-08-06.
+# A free-tier Supabase project pauses itself after 7 days with no API activity,
+# and a paused project takes every signed-in client down with it: sync stalls,
+# token refreshes fail, and people get signed out mid-session. Restoring is one
+# click in the dashboard with no data loss, but that click needs someone with
+# dashboard access and a connection — which is exactly what a facilitator running
+# a workshop in Bali does not want to be doing.
 #
-# The dangerous window is not the workshop itself (Aug 18 to Sep 4 in Bali is
-# continuous use) but the quiet stretch before it: finish building, fly, and the
-# project is asleep when the room opens. Unpausing is a dashboard click, but it
-# is a dashboard click performed in front of participants on venue wifi.
+# So: one cheap authenticated request every two days keeps the clock reset.
 #
-# One cheap request every other day is enough. It reads a table that RLS denies
-# to anon, which is fine: a denied read is still a request, and getting back an
-# empty array is itself proof the API answered.
+# KNOWN LIMIT, worth stating rather than discovering. GitHub disables scheduled
+# workflows in a repository after 60 days with no activity, so this protects a
+# project whose repo is being worked on and stops protecting one that goes quiet.
+# It is also NOT implied by a Pages deploy — deploying the site does not touch
+# Supabase. If this repo goes idle for a couple of months, check the project is
+# still awake before trusting it.
 
 on:
   schedule:
-    - cron: '17 6 */2 * *' # every other day, an off-the-hour minute
+    # 07:00 UTC on even days of the month. Well inside the 7-day window even if a
+    # run is skipped or delayed, which GitHub's scheduler does under load.
+    - cron: '0 7 2,4,6,8,10,12,14,16,18,20,22,24,26,28,30 * *'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping PostgREST
+      - name: Ping the REST endpoint
         env:
-          URL: ${{ vars.VITE_SUPABASE_URL }}
-          KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: |
-          set -euo pipefail
-          if [ -z "${URL:-}" ] || [ -z "${KEY:-}" ]; then
-            echo "VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY repo variables are unset."
-            exit 1
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Supabase repo variables are not set; nothing to keep awake."
+            exit 0
           fi
-          code="$(curl -s -o /dev/null -w '%{http_code}' \
-            "$URL/rest/v1/sync_records?select=project_id&limit=1" \
-            -H "apikey: $KEY")"
-          echo "PostgREST answered $code"
-          # 2xx means awake. 4xx also means awake (it answered). Only a network
-          # failure or a 5xx suggests the project is paused or unwell.
+
+          # PostgREST's root endpoint: authenticated, counts as project activity,
+          # and reads no rows. `-f` makes an HTTP error a non-zero exit so a
+          # project that has ALREADY paused fails the run loudly instead of
+          # reporting a cheerful green tick every two days while asleep.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/")
+
+          echo "HTTP $code from $SUPABASE_URL/rest/v1/"
           case "$code" in
-            2*|4*) exit 0 ;;
-            *) echo "Unexpected status — the project may be paused."; exit 1 ;;
+            2*|3*) echo "Project is awake." ;;
+            *) echo "::error::Supabase did not answer normally (HTTP $code) — it may be paused. Restore it from the dashboard."; exit 1 ;;
           esac

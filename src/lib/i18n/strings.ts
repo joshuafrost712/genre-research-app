@@ -98,6 +98,50 @@ const UI = {
     en: 'The original changed, so the old translation was cleared.',
     id: 'Teks asli berubah, jadi terjemahan lama dihapus.',
   },
+
+  // Sync chip. The signed-out label is the important one: this chip used to
+  // render nothing at all while signed out, and an absent indicator reads as a
+  // healthy one. Saying "on this device only" is what stops someone filling in a
+  // worksheet for an hour without realising none of it has an account behind it.
+  'sync.localOnly': { en: 'On this device only', id: 'Hanya di perangkat ini' },
+  'sync.localOnlyDetail': {
+    en: 'You are not signed in, so answers are saved on this device only. Sign in to keep them safe.',
+    id: 'Anda belum masuk, jadi jawaban hanya tersimpan di perangkat ini. Masuk agar tersimpan dengan aman.',
+  },
+  'sync.saved': { en: 'Saved', id: 'Tersimpan' },
+  'sync.offline': { en: 'Offline', id: 'Offline' },
+  'sync.failed': { en: 'Sync failed', id: 'Sinkronisasi gagal' },
+  'sync.off': { en: 'Sync off', id: 'Sinkronisasi dimatikan' },
+  'sync.waiting': { en: '{n} waiting', id: '{n} menunggu' },
+  'sync.tapToSync': { en: 'Tap to sync now.', id: 'Ketuk untuk sinkronkan sekarang.' },
+
+  // Session loss.
+  'account.signedOutTitle': { en: 'You have been signed out', id: 'Anda telah keluar dari akun' },
+  'account.signedOutBody': {
+    en: 'Your work is safe on this device. Sign back in to save it to your account and see it on your other devices.',
+    id: 'Pekerjaan Anda aman di perangkat ini. Masuk kembali agar tersimpan ke akun Anda dan terlihat di perangkat lain.',
+  },
+  'account.signBackIn': { en: 'Sign back in', id: 'Masuk kembali' },
+  'account.continueWithout': { en: 'Continue without an account', id: 'Lanjutkan tanpa akun' },
+  'account.localOnlyBanner': {
+    en: 'Working on this device only. Your answers will be added to your account next time you sign in.',
+    id: 'Bekerja hanya di perangkat ini. Jawaban Anda akan ditambahkan ke akun saat Anda masuk lagi.',
+  },
+  'account.storageLabel': { en: 'Offline storage', id: 'Penyimpanan di perangkat' },
+  'account.storageProtected': { en: 'protected', id: 'terlindungi' },
+  'account.storageBestEffort': { en: 'not guaranteed', id: 'tidak dijamin' },
+
+  // A teammate's edit replacing yours. The previous text is already kept in the
+  // history table; this is what tells a person it happened.
+  'overwrite.title': {
+    en: 'A teammate’s edit replaced your answer',
+    id: 'Suntingan rekan tim menggantikan jawaban Anda',
+  },
+  'overwrite.where': { en: 'in {where}', id: 'di {where}' },
+  'overwrite.undo': { en: 'Restore mine', id: 'Kembalikan milik saya' },
+  'overwrite.view': { en: 'View', id: 'Lihat' },
+  'overwrite.dismiss': { en: 'Dismiss', id: 'Tutup' },
+  'overwrite.restored': { en: 'Your answer is back.', id: 'Jawaban Anda telah dikembalikan.' },
 } satisfies Record<string, UiEntry>
 
 export type UiKey = keyof typeof UI

@@ -20,6 +20,7 @@
  */
 import { db } from '../storage/db'
 import { dirtyKeys } from './outbox'
+import { emitOverwrite } from './notices'
 import type { Shard, ShardRecord, SyncTable } from './types'
 import type { Entry } from '../types'
 
@@ -157,6 +158,17 @@ async function recordOverwrite(rec: ShardRecord, local: Timestamped | undefined)
     prev_value: before.value,
     changed_at: new Date().toISOString(),
     source: 'sync-overwrite',
+  })
+
+  // The history row makes it recoverable; this makes it noticed. Emitting after
+  // the write, so a notice can never point at a row that does not exist yet.
+  emitOverwrite({
+    entryId: before.id,
+    projectId: before.project_id ?? '',
+    nodeId: before.node_id ?? '',
+    cellKey: before.cell_key,
+    prevText: before.text,
+    prevValue: before.value,
   })
 }
 

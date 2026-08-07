@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, isSupabaseConfigured } from './client'
+import { forgetAccount } from './accountMemory'
 
 export interface BetaUser {
   id: string
@@ -108,6 +109,16 @@ export async function signInWithEmail(email: string): Promise<SignInResult> {
   return { ok: false, error: error.message }
 }
 
+/**
+ * Sign out on purpose.
+ *
+ * Forgetting the account marker is the load-bearing half. `SIGNED_OUT` fires for
+ * a dropped session as well as this, so the marker is the only thing that tells
+ * them apart — leave it behind and the next app start greets someone who just
+ * chose to sign out with "you've been signed out", which teaches people to
+ * dismiss the one warning that matters.
+ */
 export async function signOutBeta(): Promise<void> {
+  forgetAccount()
   await supabase?.auth.signOut()
 }

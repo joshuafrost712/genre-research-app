@@ -15,7 +15,8 @@
     "i18n:report": "vite-node scripts/translation-strings.ts report",
     "i18n:apply": "vite-node scripts/translation-strings.ts apply",
     "i18n:contract": "vite-node scripts/translate-contract.ts",
-    "translate:google": "vite-node scripts/setup-google-translation.ts"
+    "translate:google": "vite-node scripts/setup-google-translation.ts",
+    "check:signed-out": "node scripts/check-signed-out-visible.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",

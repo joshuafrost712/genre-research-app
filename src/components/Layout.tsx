@@ -5,6 +5,8 @@ import { ContextBar } from './ContextBar'
 import { AccountMenu } from './AccountMenu'
 import { SyncChip } from './SyncChip'
 import { AccountDialog } from './account/AccountDialog'
+import { SignedOutNotice, LocalOnlyBanner } from './account/SignedOutNotice'
+import { OverwriteToast } from './OverwriteToast'
 import { BetaWelcome } from './beta/BetaWelcome'
 import { FeedbackHighlight } from './feedback/FeedbackHighlight'
 import { GenreNameProvider } from './GenreNameProvider'
@@ -35,8 +37,10 @@ export function Layout() {
     <Tour id={APP_TOUR} steps={APP_TOUR_STEPS} />
     <BetaWelcome />
     <AccountDialog />
+    <SignedOutNotice />
     <FeedbackHighlight />
     <div key={locale} className="flex h-dvh flex-col bg-gray-50 text-gray-900">
+      <LocalOnlyBanner />
       <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 print:hidden">
         <button
           type="button"
@@ -85,6 +89,7 @@ export function Layout() {
       </div>
       <div className="print:hidden">
         <QuickJot />
+        <OverwriteToast />
         <DevFeedbackRoot />
       </div>
     </div>
