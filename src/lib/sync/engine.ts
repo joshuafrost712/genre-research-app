@@ -75,11 +75,25 @@ async function syncOnce(): Promise<void> {
   try {
     const authorId = await getAuthorId()
 
-    // First cycle after sign-in: publish local work so it exists in the cloud at
-    // all, then adopt if this device is showing a throwaway starter.
+    // First cycle after sign-in. ORDER IS LOAD-BEARING: pull, adopt, then publish.
+    //
+    // Publishing first looks harmless and is not. publishOwnProjects always
+    // publishes the ACTIVE project so a brand-new account is not left empty, and
+    // on a second device the active project is the throwaway starter this browser
+    // made seconds ago. Publish it first and it lands in the synced set, at which
+    // point adoption sees "you are already on a synced project" and declines to
+    // move — leaving the person staring at an empty worksheet with their real
+    // answers sitting one project over, fully downloaded and invisible.
+    //
+    // So: find out what the account already holds, bring it down, decide where
+    // this device should be pointed, and only then offer anything local upward.
     if (!bootstrapped) {
-      const activeId = await getActiveProjectId()
-      await publishOwnProjects(activeId)
+      const existing = await syncedProjectIds(true)
+      for (const id of existing) await pullProject(id, authorId)
+      await adoptBestProject(await getActiveProjectId(), existing)
+      // An empty active project is only worth publishing when there was nothing
+      // to adopt, i.e. this really is the person's first device.
+      await publishOwnProjects(await getActiveProjectId(), existing.size === 0)
       bootstrapped = true
     }
 

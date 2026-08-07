@@ -140,7 +140,14 @@ async function launch(label) {
         /* already gone */
       }
       proc.kill('SIGKILL')
-      rmSync(dir, { recursive: true, force: true })
+      // Chrome unlinks its profile lock asynchronously, so an immediate rmSync
+      // races it and throws ENOTEMPTY after every check has already passed.
+      await sleep(500)
+      try {
+        rmSync(dir, { recursive: true, force: true })
+      } catch {
+        /* the OS will reap the temp dir; a leftover must not fail the run */
+      }
     },
   }
 }
@@ -175,24 +182,30 @@ console.log(`==> Account ${email}`)
 console.log(`==> App ${APP_URL}`)
 
 /**
- * Sign in from inside the page, using the app's own Supabase client rather than
- * typing into the form. The form is covered by other checks; what matters here
- * is what the sync engine does once a session exists.
+ * Sign in by planting the session supabase-js would have written itself, then
+ * reloading. Works identically against `vite dev` and a production bundle,
+ * where there is no module graph to import from.
+ *
+ * This deliberately exercises the RELOAD path, which is the one that matters:
+ * it is how the app behaves for someone who signed in yesterday and opens it
+ * again, and it is where an engine that only starts from the sign-in click
+ * would quietly never start at all.
  */
-const signIn = `
-  const { supabase } = await import('/src/lib/supabase/client.ts').catch(() => ({}))
-  if (supabase) {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: ${JSON.stringify(email)}, password: ${JSON.stringify(password)} })
-    return error ? 'error: ' + error.message : 'signed-in'
-  }
-  return 'no-module'
-`
+const session = await (
+  await fetch(`${BASE}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: {
+      apikey: keys.find((k) => k.name === 'anon').api_key,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password }),
+  })
+).json()
 
-/** Production builds have no module graph to import; drive the UI instead. */
-const signInViaUi = `
-  const key = Object.keys(localStorage).find(k => k.startsWith('sb-'))
-  return key ? 'already' : 'needs-ui'
+const plantSession = `
+  localStorage.setItem(${JSON.stringify(`sb-${REF}-auth-token`)},
+    ${JSON.stringify(JSON.stringify(session))})
+  return 'planted'
 `
 
 let A, B
@@ -206,8 +219,12 @@ try {
   const bootedA = await A.evaluate(`return document.body.innerText.slice(0, 80)`)
   check('A loads the app', typeof bootedA === 'string' && bootedA.length > 0, bootedA)
 
-  const authA = await A.evaluate(signIn)
-  check('A signs in', authA === 'signed-in', String(authA))
+  await A.evaluate(plantSession)
+  await A.goto(APP_URL)
+  const authA = await A.evaluate(
+    `return (window.localStorage.getItem(${JSON.stringify(`sb-${REF}-auth-token`)}) ? 'signed-in' : 'no')`,
+  )
+  check('A signs in and reloads into a live session', authA === 'signed-in', String(authA))
 
   // Give the engine its bootstrap cycle (publish own projects, first pull).
   await sleep(4000)
@@ -238,7 +255,11 @@ try {
 
   console.log('==> Device B: a separate browser profile, same account')
   await B.goto(APP_URL)
-  const authB = await B.evaluate(signIn)
+  await B.evaluate(plantSession)
+  await B.goto(APP_URL)
+  const authB = await B.evaluate(
+    `return (window.localStorage.getItem(${JSON.stringify(`sb-${REF}-auth-token`)}) ? 'signed-in' : 'no')`,
+  )
   check('B signs in', authB === 'signed-in', String(authB))
 
   const t0 = Date.now()

@@ -90,10 +90,19 @@ export async function joinProject(code: string): Promise<JoinedProject> {
  * "Worth syncing" excludes empty starter projects. Every device auto-creates one
  * on first run (appState.ensureActiveProject), so publishing indiscriminately
  * would fill an account with "Untitled project" rows, one per browser the person
- * ever opened. A project earns a place in the cloud by containing an entry, or by
- * being the one currently open.
+ * ever opened. A project earns a place in the cloud by containing an entry.
+ *
+ * `includeEmptyActive` is the one exception, and the caller must be careful with
+ * it. A brand-new account needs its first, still-empty project published or
+ * there is nothing to sync at all. But on a SECOND device the active project is
+ * the throwaway starter this browser just made, and publishing that before
+ * adoption runs is what makes a person's real work arrive and stay invisible.
+ * Pass true only when the account genuinely holds nothing yet.
  */
-export async function publishOwnProjects(activeProjectId?: string): Promise<number> {
+export async function publishOwnProjects(
+  activeProjectId?: string,
+  includeEmptyActive = false,
+): Promise<number> {
   if (!supabase) return 0
 
   const already = await syncedProjectIds(true)
@@ -103,7 +112,7 @@ export async function publishOwnProjects(activeProjectId?: string): Promise<numb
   for (const p of projects) {
     if (already.has(p.id)) continue
     const hasWork = (await db.entries.where('project_id').equals(p.id).count()) > 0
-    if (!hasWork && p.id !== activeProjectId) continue
+    if (!hasWork && !(includeEmptyActive && p.id === activeProjectId)) continue
     try {
       await publishProject(p.id, p.name)
       published++
