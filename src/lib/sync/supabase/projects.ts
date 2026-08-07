@@ -9,6 +9,7 @@
 import { supabase } from '../../supabase/client'
 import { db } from '../../storage/db'
 import { reenqueueProject } from '../outbox'
+import { hasWork, substanceOf } from '../substance'
 
 export interface SharedProject {
   project_id: string
@@ -19,17 +20,33 @@ export interface SharedProject {
 }
 
 let cache: SharedProject[] | null = null
+let cachedAt = 0
+
+/**
+ * The list goes stale on its own, and it has to.
+ *
+ * Local actions (publishing, joining) invalidate it explicitly, but the case
+ * that matters is the one no local action can see: your OTHER device publishes a
+ * project, or a facilitator adds you to a team. Cache that answer forever and
+ * this browser pulls only the projects it happened to know about at sign-in, so
+ * a passage added on the laptop never reaches the tablet until someone reloads.
+ * Fifteen seconds is slow enough to be nearly free next to a three-second poll,
+ * and fast enough that nobody in a room notices the wait.
+ */
+const CACHE_TTL_MS = 15_000
 
 export function invalidateProjectCache(): void {
   cache = null
+  cachedAt = 0
 }
 
 export async function listMyProjects(force = false): Promise<SharedProject[]> {
   if (!supabase) return []
-  if (cache && !force) return cache
+  if (cache && !force && Date.now() - cachedAt < CACHE_TTL_MS) return cache
   const { data, error } = await supabase.rpc('my_projects')
   if (error) throw new Error(error.message)
   cache = (data ?? []) as SharedProject[]
+  cachedAt = Date.now()
   return cache
 }
 
@@ -85,24 +102,21 @@ export async function joinProject(code: string): Promise<JoinedProject> {
 }
 
 /**
- * Publish every local project worth syncing, on sign-in.
+ * Publish every local project worth syncing.
  *
- * "Worth syncing" excludes empty starter projects. Every device auto-creates one
- * on first run (appState.ensureActiveProject), so publishing indiscriminately
- * would fill an account with "Untitled project" rows, one per browser the person
- * ever opened. A project earns a place in the cloud by containing an entry.
+ * "Worth syncing" excludes the bare starter every device makes for itself on
+ * first run (appState.ensureActiveProject). Publishing those indiscriminately
+ * fills an account with one "Untitled project" per browser the person has ever
+ * opened, and it does something worse than clutter: an empty published project
+ * competes for the device's attention with the real one. That is precisely how a
+ * passage typed in Safari reached Chrome and stayed invisible there.
  *
- * `includeEmptyActive` is the one exception, and the caller must be careful with
- * it. A brand-new account needs its first, still-empty project published or
- * there is nothing to sync at all. But on a SECOND device the active project is
- * the throwaway starter this browser just made, and publishing that before
- * adoption runs is what makes a person's real work arrive and stay invisible.
- * Pass true only when the account genuinely holds nothing yet.
+ * So there is no `includeEmptyActive` escape hatch any more. A brand-new account
+ * simply publishes nothing until its owner does something, which costs nothing:
+ * the moment they name a passage or type an answer, `publishActiveIfWorked`
+ * catches it on the very next cycle.
  */
-export async function publishOwnProjects(
-  activeProjectId?: string,
-  includeEmptyActive = false,
-): Promise<number> {
+export async function publishOwnProjects(): Promise<number> {
   if (!supabase) return 0
 
   const already = await syncedProjectIds(true)
@@ -111,8 +125,7 @@ export async function publishOwnProjects(
 
   for (const p of projects) {
     if (already.has(p.id)) continue
-    const hasWork = (await db.entries.where('project_id').equals(p.id).count()) > 0
-    if (!hasWork && !(includeEmptyActive && p.id === activeProjectId)) continue
+    if (!hasWork(await substanceOf(p.id))) continue
     try {
       await publishProject(p.id, p.name)
       published++
@@ -124,4 +137,29 @@ export async function publishOwnProjects(
 
   if (published) invalidateProjectCache()
   return published
+}
+
+/**
+ * Publish the project being worked in, the moment it stops being a bare starter.
+ *
+ * This runs every cycle and is the counterpart to not publishing empty starters
+ * at sign-in. It is cheap by construction: local Dexie counts decide, and the
+ * server is only called when there is genuinely something new to publish.
+ *
+ * Returns true if it published, meaning the caller should refresh its id set.
+ */
+export async function publishActiveIfWorked(
+  activeProjectId: string | undefined,
+  syncedIds: Set<string>,
+): Promise<boolean> {
+  if (!supabase || !activeProjectId || syncedIds.has(activeProjectId)) return false
+  if (!hasWork(await substanceOf(activeProjectId))) return false
+  const project = await db.projects.get(activeProjectId)
+  if (!project) return false
+  try {
+    await publishProject(activeProjectId, project.name)
+    return true
+  } catch {
+    return false // retried next cycle; the outbox keeps the work meanwhile
+  }
 }

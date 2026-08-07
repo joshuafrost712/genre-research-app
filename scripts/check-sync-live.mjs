@@ -267,11 +267,17 @@ try {
   )
   await page.goto(APP_URL)
 
-  const chip = await page.evaluate(`
-    const el = [...document.querySelectorAll('button')].find(b => /Saved|waiting|Offline|Sync failed/.test(b.textContent))
-    return el ? el.textContent.trim() : null
-  `)
-  check('the sync chip renders in the deployed header', chip !== null, String(chip))
+  // Wait for it rather than sampling once: the chip renders nothing while the
+  // stored session is still being read, so a single read moments after navigation
+  // fails for a reason that has nothing to do with sync.
+  const chip = await page.until(
+    `(() => {
+      const el = [...document.querySelectorAll('button')].find(b => /Saved|waiting|Offline|Sync failed/.test(b.textContent))
+      return el ? el.textContent.trim() : null
+    })()`,
+    15000,
+  )
+  check('the sync chip renders in the deployed header', chip.ok, String(chip.value))
 
   const t0 = Date.now()
   const got = await page.until(

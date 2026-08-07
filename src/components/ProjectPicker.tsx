@@ -23,6 +23,15 @@ interface Row {
   name: string
   synced: boolean
   entries: number
+  /** The passages in it, which is how a person actually tells two apart. */
+  passages: string[]
+}
+
+/** "Psalm 124, Psalm 1 +3 more" — enough to recognise, short enough to read. */
+function describe(passages: string[]): string {
+  if (passages.length === 0) return 'no passages yet'
+  const shown = passages.slice(0, 2).join(', ')
+  return passages.length > 2 ? `${shown} +${passages.length - 2} more` : shown
 }
 
 export function ProjectPicker({ onDone }: { onDone?: () => void }) {
@@ -45,10 +54,19 @@ export function ProjectPicker({ onDone }: { onDone?: () => void }) {
         name: p.name || 'Untitled project',
         synced: syncedIds.has(p.id),
         entries: await db.entries.where('project_id').equals(p.id).count(),
+        passages: (await db.focusTexts.where('project_id').equals(p.id).toArray())
+          .map((f) => (f.reference ?? '').trim())
+          .filter((r) => r && r !== 'Untitled focus text'),
       })),
     )
-    withCounts.sort((a, b) => b.entries - a.entries || a.name.localeCompare(b.name))
-    setRows(withCounts)
+    // Bare starters are hidden unless you are standing in one. Every browser
+    // makes one, and listing them turns a two-item menu into a wall of
+    // identically-named projects with nothing in them.
+    const worth = withCounts.filter(
+      (r) => r.id === active || r.entries > 0 || r.passages.length > 0,
+    )
+    worth.sort((a, b) => b.entries - a.entries || b.passages.length - a.passages.length)
+    setRows(worth)
     setActiveId(active)
   }
 
@@ -103,6 +121,7 @@ export function ProjectPicker({ onDone }: { onDone?: () => void }) {
               {row.id === activeId ? '✓ ' : ''}
               {row.name}
             </span>
+            <span className="block truncate text-xs text-gray-500">{describe(row.passages)}</span>
             <span className="block text-xs text-gray-500">
               {row.entries} answer{row.entries === 1 ? '' : 's'}
               {row.synced ? ' · synced' : ' · this device only'}

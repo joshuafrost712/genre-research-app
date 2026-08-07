@@ -17,7 +17,8 @@
  * come back from `join_project` rather than being guessed.
  */
 import { db } from '../storage/db'
-import { setActiveProject, setMetaValue } from '../storage/appState'
+import { getMetaValue, setActiveProject, setMetaValue } from '../storage/appState'
+import { hasWork, substanceOf } from './substance'
 import type { JoinedProject } from './supabase/projects'
 
 type Listener = () => void
@@ -43,18 +44,37 @@ const activeFocusTextKey = (p: string) => `activeFocusText:${p}`
 const activeGenreKey = (p: string) => `activeGenre:${p}`
 const activeWorksheetKey = (p: string) => `activeWorksheet:${p}`
 
-/** How much real work a project holds, used to pick between candidates. */
-async function entryCount(projectId: string): Promise<number> {
-  return db.entries.where('project_id').equals(projectId).count()
+/**
+ * The project the person chose by hand, from the picker or by joining a code.
+ *
+ * Adoption must never override a deliberate choice. Without this, opening an
+ * empty worksheet on purpose (to set the next team up, say) would get you yanked
+ * back to whichever project has the most in it, on the next three-second poll.
+ */
+const PINNED_PROJECT = 'projectPinnedByUser'
+
+async function pinnedProjectId(): Promise<string | undefined> {
+  return getMetaValue(PINNED_PROJECT)
 }
 
 /**
- * After a sign-in pull, switch to a synced project if the one we are showing is
- * an untouched starter.
+ * After a pull, point this device at the project that actually holds the work.
  *
- * Deliberately conservative: it only ever moves AWAY from a project with zero
- * entries. Someone who has been working locally keeps their place, and their
- * work is published alongside rather than replaced. Returns true if it switched.
+ * The rule is narrow on purpose: it moves only away from a project that holds
+ * **nothing at all** — the bare starter this browser minted for itself — and
+ * only towards one where somebody has done something. So it can never displace
+ * work, it can never hop a device off a worksheet it is already showing because
+ * a busier one appeared, and two devices can never trade places on alternate
+ * polls. A device adopts at most once, then stays put.
+ *
+ * It runs on EVERY cycle, not only the first one after sign-in, and it does not
+ * care whether the current project is itself synced. Both of those were wrong
+ * before, and together they produced the exact bug this rewrite fixes: two
+ * browsers signed into one account each published their own empty starter, each
+ * then satisfied "you are already on a synced project", and neither ever
+ * converged. A passage added in Safari replicated to Chrome within seconds and
+ * Chrome went on showing a different, empty project. The rows were never the
+ * problem; the pointer was.
  */
 export async function adoptBestProject(
   activeProjectId: string | undefined,
@@ -63,23 +83,27 @@ export async function adoptBestProject(
   if (syncedIds.size === 0) return false
 
   if (activeProjectId) {
-    if (syncedIds.has(activeProjectId)) return false // already on a synced project
-    if ((await entryCount(activeProjectId)) > 0) return false // real local work; leave it
+    if ((await pinnedProjectId()) === activeProjectId) return false // their choice, not ours
+    if (hasWork(await substanceOf(activeProjectId))) return false // something is here; stay
   }
 
-  // Prefer the synced project with the most work, then the most recently updated.
-  let best: { id: string; entries: number; updated: string } | null = null
+  // The best candidate by (score, updated_at, id). Every device computes the
+  // same order from the same rows, so they converge on one project rather than
+  // chasing each other.
+  let best: { id: string; score: number; updated: string } | null = null
   for (const id of syncedIds) {
     const project = await db.projects.get(id)
-    if (!project) continue // pulled membership but not the rows yet
-    const entries = await entryCount(id)
+    if (!project) continue // membership known, rows not pulled yet
+    const s = await substanceOf(id)
+    if (!hasWork(s)) continue // an empty starter is never worth adopting
     const updated = project.updated_at ?? project.created_at ?? ''
     if (
       !best ||
-      entries > best.entries ||
-      (entries === best.entries && updated > best.updated)
+      s.score > best.score ||
+      (s.score === best.score && updated > best.updated) ||
+      (s.score === best.score && updated === best.updated && id > best.id)
     ) {
-      best = { id, entries, updated }
+      best = { id, score: s.score, updated }
     }
   }
 
@@ -137,6 +161,9 @@ export async function switchToProject(
   hint?: Parameters<typeof adoptContainers>[1],
 ): Promise<void> {
   await setActiveProject(projectId)
+  // Pin before adopting containers, so a poll landing in between cannot decide
+  // this deliberate move was a stranded starter and undo it.
+  await setMetaValue(PINNED_PROJECT, projectId)
   await adoptContainers(projectId, hint)
   notify()
 }

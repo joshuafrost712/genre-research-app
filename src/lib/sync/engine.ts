@@ -20,7 +20,12 @@ import { onEnqueue, pendingCount } from './outbox'
 import { getAuthorId } from './author'
 import { pushOutbox } from './supabase/push'
 import { pullProject } from './supabase/pull'
-import { publishOwnProjects, syncedProjectIds, invalidateProjectCache } from './supabase/projects'
+import {
+  publishActiveIfWorked,
+  publishOwnProjects,
+  syncedProjectIds,
+  invalidateProjectCache,
+} from './supabase/projects'
 import { adoptBestProject } from './adopt'
 import { getActiveProjectId } from '../storage/appState'
 import { initSyncMode, syncMode } from './mode'
@@ -84,13 +89,11 @@ async function syncOnce(): Promise<void> {
 
     // First cycle after sign-in. ORDER IS LOAD-BEARING: pull, adopt, then publish.
     //
-    // Publishing first looks harmless and is not. publishOwnProjects always
-    // publishes the ACTIVE project so a brand-new account is not left empty, and
-    // on a second device the active project is the throwaway starter this browser
-    // made seconds ago. Publish it first and it lands in the synced set, at which
-    // point adoption sees "you are already on a synced project" and declines to
-    // move — leaving the person staring at an empty worksheet with their real
-    // answers sitting one project over, fully downloaded and invisible.
+    // Publishing first looks harmless and is not. On a second device the active
+    // project is the throwaway starter this browser made seconds ago; publish it
+    // first and it lands in the synced set before adoption has had a chance to
+    // look, which is how a person ends up staring at an empty worksheet with
+    // their real answers one project over, fully downloaded and invisible.
     //
     // So: find out what the account already holds, bring it down, decide where
     // this device should be pointed, and only then offer anything local upward.
@@ -98,14 +101,20 @@ async function syncOnce(): Promise<void> {
       const existing = await syncedProjectIds(true)
       for (const id of existing) await pullProject(id, authorId)
       await adoptBestProject(await getActiveProjectId(), existing)
-      // An empty active project is only worth publishing when there was nothing
-      // to adopt, i.e. this really is the person's first device.
-      await publishOwnProjects(await getActiveProjectId(), existing.size === 0)
+      await publishOwnProjects()
       bootstrapped = true
     }
 
     const ids = await syncedProjectIds()
     for (const id of forbidden) ids.delete(id)
+
+    // A starter earns its place in the cloud as soon as someone works in it.
+    // Nothing is published on sign-in any more, so this is what carries a
+    // brand-new account's very first passage up. Before the push, so the work
+    // and the project it belongs to travel in the same cycle.
+    if (await publishActiveIfWorked(await getActiveProjectId(), ids)) {
+      for (const id of await syncedProjectIds(true)) if (!forbidden.has(id)) ids.add(id)
+    }
 
     const result = await pushOutbox(ids)
     for (const id of result.forbidden) {
