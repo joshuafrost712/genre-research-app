@@ -3,6 +3,7 @@ import { Link, Outlet } from 'react-router-dom'
 import { NavShell } from './NavShell'
 import { ContextBar } from './ContextBar'
 import { AccountMenu } from './AccountMenu'
+import { SyncChip } from './SyncChip'
 import { AccountDialog } from './account/AccountDialog'
 import { BetaWelcome } from './beta/BetaWelcome'
 import { FeedbackHighlight } from './feedback/FeedbackHighlight'
@@ -52,6 +53,7 @@ export function Layout() {
         </Link>
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <ContextBar />
+          <SyncChip />
           <LanguageSwitcher />
           <AccountMenu />
         </div>

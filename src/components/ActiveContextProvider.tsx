@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { ensureActiveContext, type ActiveContext } from '../lib/storage/appState'
+import { onActiveProjectAdopted } from '../lib/sync/adopt'
 
 interface Value {
   ctx: ActiveContext | null
@@ -36,6 +37,12 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
   }, [tick])
 
   const reload = useCallback(() => setTick((t) => t + 1), [])
+
+  // Sync can move the active project underneath us: signing in on a fresh device
+  // pulls down real work and adopts it in place of the empty starter this browser
+  // just created. Without re-resolving here, the person keeps staring at the
+  // starter while their answers sit in Dexie one project over.
+  useEffect(() => onActiveProjectAdopted(reload), [reload])
 
   return <Ctx.Provider value={{ ctx, reload }}>{children}</Ctx.Provider>
 }

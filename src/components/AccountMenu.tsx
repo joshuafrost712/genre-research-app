@@ -20,6 +20,7 @@ import { syncEngine, useSyncStatus } from '../lib/sync/engine'
 import { useSupabaseSession, signOutBeta, updatePassword } from '../lib/supabase/session'
 import { setFeedbackAuthor } from '../lib/feedback/identity'
 import { openAccountDialog } from './account/dialogStore'
+import { ProjectPicker } from './ProjectPicker'
 
 const SYNC_DOT: Record<string, string> = {
   idle: 'bg-emerald-500',
@@ -233,6 +234,7 @@ export function AccountMenu() {
                 </button>
               )}
               {pwMsg && <div className="px-3 py-1 text-xs text-gray-500">{pwMsg}</div>}
+              <ProjectPicker onDone={() => setMenu(null)} />
               {googleAvailable && !googleAccount && (
                 <button
                   type="button"

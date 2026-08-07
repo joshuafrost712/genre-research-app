@@ -1,14 +1,18 @@
 /**
- * The local outbox: every persisted change appends a row here so the flusher has
+ * The local outbox: every persisted change appends a row here so the pusher has
  * a single queue to drain, without adding sync columns to every entity. Enqueueing
- * is a no-op when Google is not configured, so the offline/local-only build never
- * touches this store. A tiny pub-sub lets the sync engine flush soon after a write.
+ * is a no-op when Supabase is not configured, so a fully local build never touches
+ * this store. A tiny pub-sub lets the sync engine push soon after a write.
+ *
+ * Rows are enqueued for EVERY project, including ones that are not published.
+ * Filtering happens at push time (supabase/push.ts), which drops rows for
+ * unsynced projects rather than retrying them forever against a server that
+ * would silently discard them.
  */
 import { db } from '../storage/db'
-import { isGoogleConfigured } from '../google/auth'
+import { isSupabaseConfigured } from '../supabase/client'
 import { now } from '../util'
 import type { OutboxRow, SyncOp, SyncTable } from './types'
-import { SYNC_TABLES } from './types'
 
 type Listener = () => void
 const listeners = new Set<Listener>()
@@ -43,7 +47,7 @@ async function enqueue(
   updatedAt: string,
   data?: unknown,
 ): Promise<void> {
-  if (!isGoogleConfigured()) return
+  if (!isSupabaseConfigured()) return
   await db.outbox.add({ table, op, recordId, project_id: projectId, updated_at: updatedAt, data })
   notify()
 }
@@ -80,13 +84,19 @@ export async function dirtyKeys(): Promise<Set<string>> {
   return new Set(rows.map((r) => `${r.table}/${r.recordId}`))
 }
 
+/** How many writes are waiting. Shown verbatim in the header, because a number
+ *  can be checked and a green dot cannot. */
+export async function pendingCount(): Promise<number> {
+  return db.outbox.count()
+}
+
 /**
- * Re-enqueue every record of a project as an upsert. Used when a project moves to
- * a new scope (e.g. into a team) so all its existing data flushes to the new
- * scope's folder, where teammates can pull it.
+ * Re-enqueue every record of a project as an upsert, so everything already in
+ * this browser reaches the cloud. Called when a project is published: work done
+ * before sign-in is uploaded rather than stranded on the device.
  */
 export async function reenqueueProject(projectId: string): Promise<void> {
-  if (!isGoogleConfigured()) return
+  if (!isSupabaseConfigured()) return
   const proj = await db.projects.get(projectId)
   if (proj) await trackUpsert('projects', proj)
   const byProject = (rows: Trackable[]) => rows
@@ -102,26 +112,7 @@ export async function reenqueueProject(projectId: string): Promise<void> {
     await trackUpsert('entries', e)
 }
 
-/**
- * One-time upload of pre-existing local data: on first sign-in, enqueue every
- * record so work created before sync existed is mirrored to the cloud too.
- */
-export async function backfillAll(): Promise<void> {
-  if (!isGoogleConfigured()) return
-  const flag = await db.meta.get('syncBackfilled')
-  if (flag?.value === '1') return
-
-  const loaders: Record<SyncTable, () => Promise<Trackable[]>> = {
-    projects: () => db.projects.toArray(),
-    focusTexts: () => db.focusTexts.toArray(),
-    genres: () => db.genres.toArray(),
-    worksheets: () => db.worksheets.toArray(),
-    capturedNotes: () => db.capturedNotes.toArray(),
-    entries: () => db.entries.toArray(),
-  }
-  for (const table of SYNC_TABLES) {
-    const rows = await loaders[table]()
-    for (const r of rows) await trackUpsert(table, r)
-  }
-  await db.meta.put({ key: 'syncBackfilled', value: '1' })
-}
+// `backfillAll()` used to enqueue EVERY local record on first sign-in. It is gone
+// on purpose: with per-project publishing, `reenqueueProject` at publish time is
+// the scoped equivalent, and a blanket backfill would have uploaded local-only
+// projects the user never chose to publish.

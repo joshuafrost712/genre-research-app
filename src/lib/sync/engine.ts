@@ -1,27 +1,48 @@
 /**
- * Sync engine: orchestrates flush + pull for the active scope. Runs only when
- * Google is configured AND a user is signed in. It flushes shortly after a local
- * write (debounced), pulls on an interval and on regaining focus/connectivity,
- * and exposes a status the header can show. Everything is network-optional: a
- * failed cycle leaves the outbox intact and retries next tick or on `online`.
+ * Sync engine: pushes the outbox and pulls every synced project, on a short
+ * debounce after a local write and on a steady interval.
+ *
+ * It runs on the Supabase session, not on Google. Nothing here needs a Google
+ * account, a Drive scope, or an OAuth consent screen.
+ *
+ * The poll is unconditional and is the product. Realtime, when it lands, only
+ * nudges this same cycle to run sooner. That ordering is deliberate: a websocket
+ * fails SILENTLY (the socket stays "subscribed" and simply stops delivering once
+ * its token goes stale), so a poll that only ran when Realtime reported itself
+ * down could never rescue a Realtime that was lying. A poll that always runs can.
+ *
+ * Everything is network-optional: a failed cycle leaves the outbox intact and
+ * retries on the next tick, on `online`, or when the tab is focused again.
  */
 import { useSyncExternalStore } from 'react'
-import { getAccessToken, isGoogleConfigured } from '../google/auth'
-import { getAccount } from '../google/account'
-import { backfillAll, onEnqueue } from './outbox'
-import { getActiveScope } from './scope'
-import { flush } from './flush'
-import { pull } from './pull'
+import { supabase, isSupabaseConfigured } from '../supabase/client'
+import { onEnqueue, pendingCount } from './outbox'
+import { getAuthorId } from './author'
+import { pushOutbox } from './supabase/push'
+import { pullProject } from './supabase/pull'
+import { publishOwnProjects, syncedProjectIds, invalidateProjectCache } from './supabase/projects'
+import { adoptBestProject } from './adopt'
+import { getActiveProjectId } from '../storage/appState'
 
-export type SyncState = 'idle' | 'syncing' | 'offline' | 'error'
+export type SyncState = 'idle' | 'syncing' | 'offline' | 'error' | 'signed-out'
 
 export interface SyncStatus {
   state: SyncState
   lastSyncedAt: string | null
   error: string | null
+  /** Outbox depth. A number the status chip can show, because a dot can lie. */
+  pending: number
+  /** Other devices seen in the synced projects this session. */
+  peers: number
 }
 
-let status: SyncStatus = { state: 'idle', lastSyncedAt: null, error: null }
+let status: SyncStatus = {
+  state: isSupabaseConfigured() ? 'signed-out' : 'idle',
+  lastSyncedAt: null,
+  error: null,
+  pending: 0,
+  peers: 0,
+}
 const subscribers = new Set<() => void>()
 
 function setStatus(patch: Partial<SyncStatus>): void {
@@ -30,38 +51,84 @@ function setStatus(patch: Partial<SyncStatus>): void {
 }
 
 let running = false
+let bootstrapped = false
+const peersSeen = new Set<string>()
+/** Projects the server refused; stop retrying until the next sign-in. */
+const forbidden = new Set<string>()
 
 async function syncOnce(): Promise<void> {
-  if (running || !isGoogleConfigured()) return
-  if (!(await getAccount())) return
-  if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    setStatus({ state: 'offline' })
+  if (running || !supabase) return
+
+  const { data } = await supabase.auth.getSession()
+  if (!data.session) {
+    setStatus({ state: 'signed-out', pending: await pendingCount() })
     return
   }
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    setStatus({ state: 'offline', pending: await pendingCount() })
+    return
+  }
+
   running = true
   setStatus({ state: 'syncing', error: null })
   try {
-    const scope = await getActiveScope()
-    // Team reads need the broad scope; pre-warm it so a silent token re-grant
-    // after expiry/reload doesn't drop to drive.file (which can't see teammates).
-    if (scope.kind === 'team') await getAccessToken('full')
-    await flush(scope)
-    await pull(scope)
-    setStatus({ state: 'idle', lastSyncedAt: new Date().toISOString() })
+    const authorId = await getAuthorId()
+
+    // First cycle after sign-in: publish local work so it exists in the cloud at
+    // all, then adopt if this device is showing a throwaway starter.
+    if (!bootstrapped) {
+      const activeId = await getActiveProjectId()
+      await publishOwnProjects(activeId)
+      bootstrapped = true
+    }
+
+    const ids = await syncedProjectIds()
+    for (const id of forbidden) ids.delete(id)
+
+    const result = await pushOutbox(ids)
+    for (const id of result.forbidden) {
+      forbidden.add(id)
+      ids.delete(id)
+    }
+    if (result.forbidden.length) invalidateProjectCache()
+
+    for (const id of ids) {
+      const pulled = await pullProject(id, authorId)
+      for (const a of pulled.authors) peersSeen.add(a)
+    }
+
+    await adoptBestProject(await getActiveProjectId(), ids)
+
+    setStatus({
+      state: 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      pending: await pendingCount(),
+      peers: peersSeen.size,
+    })
   } catch (e) {
-    setStatus({ state: 'error', error: e instanceof Error ? e.message : 'Sync failed.' })
+    setStatus({
+      state: 'error',
+      error: e instanceof Error ? e.message : 'Sync failed.',
+      pending: await pendingCount(),
+    })
   } finally {
     running = false
   }
 }
 
-const PULL_INTERVAL_MS = 45_000
-const FLUSH_DEBOUNCE_MS = 3_000
+/**
+ * 300ms, not the 3s the Drive version used. End-to-end latency is this plus the
+ * peer's poll, so every millisecond here is paid twice in the room.
+ */
+const FLUSH_DEBOUNCE_MS = 300
+const PULL_INTERVAL_MS = 3_000
 
 let started = false
 let interval: number | null = null
 let debounce: number | null = null
 let unsubEnqueue: (() => void) | null = null
+let unsubAuth: (() => void) | null = null
 
 function onOnline(): void {
   void syncOnce()
@@ -73,46 +140,81 @@ function onBeforeUnload(): void {
   void syncOnce() // best-effort final flush
 }
 
+function attach(): void {
+  if (interval !== null) return
+  unsubEnqueue = onEnqueue(() => {
+    void pendingCount().then((pending) => setStatus({ pending }))
+    if (debounce) window.clearTimeout(debounce)
+    debounce = window.setTimeout(() => void syncOnce(), FLUSH_DEBOUNCE_MS)
+  })
+  interval = window.setInterval(() => void syncOnce(), PULL_INTERVAL_MS)
+  window.addEventListener('online', onOnline)
+  document.addEventListener('visibilitychange', onVisible)
+  window.addEventListener('beforeunload', onBeforeUnload)
+}
+
+function detach(): void {
+  if (interval) {
+    window.clearInterval(interval)
+    interval = null
+  }
+  if (debounce) {
+    window.clearTimeout(debounce)
+    debounce = null
+  }
+  unsubEnqueue?.()
+  unsubEnqueue = null
+  window.removeEventListener('online', onOnline)
+  document.removeEventListener('visibilitychange', onVisible)
+  window.removeEventListener('beforeunload', onBeforeUnload)
+}
+
 export const syncEngine = {
-  /** Idempotent: starts the loop once a configured user is signed in. */
+  /**
+   * Idempotent. Mounted unconditionally: with no Supabase configured it does
+   * nothing, and while signed out it waits for the auth event rather than
+   * needing the sign-in path to remember to call it.
+   */
   async start(): Promise<void> {
-    if (started || !isGoogleConfigured()) return
-    if (!(await getAccount())) return
+    if (started || !supabase) return
     started = true
 
-    await backfillAll()
-
-    unsubEnqueue = onEnqueue(() => {
-      if (debounce) window.clearTimeout(debounce)
-      debounce = window.setTimeout(() => void syncOnce(), FLUSH_DEBOUNCE_MS)
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        bootstrapped = false
+        peersSeen.clear()
+        forbidden.clear()
+        invalidateProjectCache()
+        detach()
+        setStatus({ state: 'signed-out', peers: 0, lastSyncedAt: null })
+        return
+      }
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+        attach()
+        void syncOnce()
+      }
     })
-    interval = window.setInterval(() => void syncOnce(), PULL_INTERVAL_MS)
-    window.addEventListener('online', onOnline)
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('beforeunload', onBeforeUnload)
+    unsubAuth = () => sub.subscription.unsubscribe()
 
-    void syncOnce()
+    // onAuthStateChange fires INITIAL_SESSION on subscribe, but only once the
+    // stored session has been read. Kick a cycle for the already-signed-in case.
+    const { data } = await supabase.auth.getSession()
+    if (data.session) {
+      attach()
+      void syncOnce()
+    } else {
+      setStatus({ state: 'signed-out', pending: await pendingCount() })
+    }
   },
 
   stop(): void {
     started = false
-    if (interval) {
-      window.clearInterval(interval)
-      interval = null
-    }
-    if (debounce) {
-      window.clearTimeout(debounce)
-      debounce = null
-    }
-    unsubEnqueue?.()
-    unsubEnqueue = null
-    window.removeEventListener('online', onOnline)
-    document.removeEventListener('visibilitychange', onVisible)
-    window.removeEventListener('beforeunload', onBeforeUnload)
-    setStatus({ state: 'idle' })
+    detach()
+    unsubAuth?.()
+    unsubAuth = null
   },
 
-  /** Force a sync now (e.g. after creating/joining a team). */
+  /** Force a cycle now (after publishing, joining, or a manual retry). */
   syncNow(): void {
     void syncOnce()
   },
