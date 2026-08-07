@@ -1,88 +1,138 @@
-import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { useActiveContext } from '../components/ActiveContextProvider'
-import { isGoogleConfigured } from '../lib/google/auth'
-import { getAccount } from '../lib/google/account'
-import { setActiveScopeProject } from '../lib/sync/scope'
-import { joinByCode } from '../lib/sync/teams'
-import { syncEngine } from '../lib/sync/engine'
-
 /**
- * Redeem a team invite link of the form `…/teams/join?f=<folderId>&s=<secret>`.
- * Requires Google sign-in; on success it pulls the team's data and switches to it.
+ * Deep-link join: `/teams/join?code=...`.
+ *
+ * The code still has to be typed or pasted somewhere, so this exists to save a
+ * room of people doing it by hand. A facilitator can put one link in a chat
+ * message or on a slide and everyone lands on the shared worksheet.
+ *
+ * It joins automatically only when signed in. Otherwise it holds the code,
+ * offers sign-in, and joins once a session appears, so the link survives being
+ * opened by someone who has not signed in yet.
  */
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useActiveContext } from '../components/ActiveContextProvider'
+import { useSupabaseSession } from '../lib/supabase/session'
+import { joinAndAdopt } from '../lib/sync/team'
+import { syncEngine } from '../lib/sync/engine'
+import { openAccountDialog } from '../components/account/dialogStore'
+
+type State = 'idle' | 'joining' | 'joined' | 'error'
+
 export function JoinTeam() {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const { reload } = useActiveContext()
-  const folderId = params.get('f') ?? ''
-  const secret = params.get('s') ?? ''
+  const { configured, user } = useSupabaseSession()
 
-  const [status, setStatus] = useState<'idle' | 'joining' | 'done' | 'error'>('idle')
+  const code = (params.get('code') ?? '').trim()
+  const [state, setState] = useState<State>('idle')
   const [message, setMessage] = useState<string | null>(null)
-  const [signedIn, setSignedIn] = useState<boolean | null>(null)
+  // A re-render must not fire a second join for the same code.
+  const attempted = useRef(false)
+
+  const run = useCallback(async () => {
+    if (!code || attempted.current) return
+    attempted.current = true
+    setState('joining')
+    try {
+      const res = await joinAndAdopt(code)
+      reload()
+      syncEngine.syncNow()
+      setState('joined')
+      setMessage(res.name || 'the shared worksheet')
+      setTimeout(() => navigate('/'), 1200)
+    } catch (e) {
+      setState('error')
+      setMessage(e instanceof Error ? e.message : 'Could not join.')
+    }
+  }, [code, navigate, reload])
 
   useEffect(() => {
-    getAccount().then((a) => setSignedIn(!!a))
-  }, [])
+    if (user && code) void run()
+  }, [user, code, run])
 
-  async function join() {
-    if (!folderId || !secret) {
-      setStatus('error')
-      setMessage('This invite link is incomplete.')
-      return
-    }
-    setStatus('joining')
-    setMessage(null)
-    try {
-      const team = await joinByCode(folderId, secret)
-      await setActiveScopeProject(`team:${folderId}`)
-      syncEngine.syncNow()
-      reload()
-      setStatus('done')
-      setMessage(`Joined "${team.name}".`)
-    } catch (e) {
-      setStatus('error')
-      setMessage(e instanceof Error ? e.message : 'Could not join the team.')
-    }
+  if (!code) {
+    return (
+      <div className="mx-auto max-w-md p-6 text-center">
+        <h1 className="text-lg font-semibold">No code in this link</h1>
+        <p className="mt-2 text-sm text-gray-600">
+          Ask the facilitator to send it again, or type the code on the shared worksheets page.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate('/teams')}
+          className="mt-4 rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
+        >
+          Enter a code
+        </button>
+      </div>
+    )
   }
 
-  if (!isGoogleConfigured()) {
-    return <p className="text-sm text-gray-500">Google sign-in is not configured in this build.</p>
+  if (!configured) {
+    return (
+      <div className="mx-auto max-w-md p-6 text-center">
+        <h1 className="text-lg font-semibold">Sharing is off in this build</h1>
+        <p className="mt-2 text-sm text-gray-600">The app still works on this device.</p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-md p-6 text-center">
+        <h1 className="text-lg font-semibold">Sign in to join</h1>
+        <p className="mt-2 text-sm text-gray-600">
+          You are joining <code className="rounded bg-gray-100 px-1">{code}</code>. Any email
+          address works.
+        </p>
+        <div className="mt-4 flex justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => openAccountDialog('signin')}
+            className="rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
+          >
+            Sign in
+          </button>
+          <button
+            type="button"
+            onClick={() => openAccountDialog('create')}
+            className="rounded border border-sky-300 px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-50"
+          >
+            Create an account
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex max-w-lg flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Join a team</h1>
-      {signedIn === false && (
-        <p className="text-sm text-gray-600">
-          Sign in with Google (top right) first, then come back to this link to join.
-        </p>
-      )}
-      {status === 'idle' && signedIn && (
+    <div className="mx-auto max-w-md p-6 text-center">
+      {state === 'joining' && (
         <>
-          <p className="text-sm text-gray-600">
-            You were invited to join a shared team. Joining downloads the team's current work to
-            this device and syncs your changes back to it.
-          </p>
-          <button
-            type="button"
-            onClick={join}
-            className="self-start rounded-md bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
-          >
-            Join team
-          </button>
+          <h1 className="text-lg font-semibold">Joining…</h1>
+          <p className="mt-2 text-sm text-gray-600">Bringing the team's work onto this device.</p>
         </>
       )}
-      {status === 'joining' && <p className="text-sm text-gray-600">Joining…</p>}
-      {message && (
-        <p className={`text-sm ${status === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>
-          {message}
-        </p>
+      {state === 'joined' && (
+        <>
+          <h1 className="text-lg font-semibold">You are in</h1>
+          <p className="mt-2 text-sm text-gray-600">Opening {message}.</p>
+        </>
       )}
-      {status === 'done' && (
-        <Link to="/" className="text-sm text-gray-700 underline">
-          Go to the dashboard
-        </Link>
+      {state === 'error' && (
+        <>
+          <h1 className="text-lg font-semibold">Could not join</h1>
+          <p className="mt-2 text-sm text-red-600">{message}</p>
+          <button
+            type="button"
+            onClick={() => navigate('/teams')}
+            className="mt-4 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Try typing the code
+          </button>
+        </>
       )}
     </div>
   )

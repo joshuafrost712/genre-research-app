@@ -1,351 +1,264 @@
+/**
+ * Shared worksheets: share the one you have open, or join someone else's by code.
+ *
+ * Replaces the Google Drive version, which needed the restricted full-`drive`
+ * OAuth scope, only worked for personal Google accounts, and took 25 to 48
+ * seconds to show a teammate's answer. This runs on the same Postgres sync every
+ * signed-in device already uses, so a team is simply a project with more than one
+ * member.
+ *
+ * The page deliberately leads with the operational rule rather than burying it:
+ * one person sets the worksheet up and shares the code, everyone else joins. A
+ * member who shares their own project instead ends up with a second worksheet
+ * that looks identical and contains nobody else's work.
+ */
 import { useCallback, useEffect, useState } from 'react'
 import { useActiveContext } from '../components/ActiveContextProvider'
-import { isGoogleConfigured } from '../lib/google/auth'
-import { getAccount, type Account } from '../lib/google/account'
-import {
-  getProjectScopeKey,
-  listTeams,
-  moveProjectToScope,
-  scopeKeyOf,
-  setActiveScopeProject,
-  type TeamRef,
-} from '../lib/sync/scope'
-import {
-  buildJoinLink,
-  createTeam,
-  discoverTeams,
-  inviteByEmail,
-  leaveTeam,
-  listMembers,
-} from '../lib/sync/teams'
+import { db } from '../lib/storage/db'
+import { useSupabaseSession } from '../lib/supabase/session'
+import { listMyProjects, type SharedProject } from '../lib/sync/supabase/projects'
+import { joinAndAdopt, shareActiveProject } from '../lib/sync/team'
+import { switchToProject } from '../lib/sync/adopt'
 import { syncEngine } from '../lib/sync/engine'
-import type { DrivePermission } from '../lib/google/drive'
+import { openAccountDialog } from '../components/account/dialogStore'
 
-/**
- * Teams: create a shared team, invite by email or copy a secret link, see who has
- * access, and move the current project into a team (or back to personal). Teams
- * are non-discoverable; there is no search or directory anywhere.
- */
 export function Teams() {
   const { ctx, reload } = useActiveContext()
-  const [account, setAccount] = useState<Account | null>(null)
-  const [teams, setTeams] = useState<TeamRef[]>([])
-  const [activeScopeKey, setActiveScopeKey] = useState<string>('personal')
-  const [name, setName] = useState('')
+  const { configured, user } = useSupabaseSession()
+
+  const [mine, setMine] = useState<SharedProject[]>([])
+  const [projectName, setProjectName] = useState('')
+  const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [newLink, setNewLink] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    setAccount(await getAccount())
-    setTeams(await listTeams())
-    const pid = ctx?.projectId
-    setActiveScopeKey(pid ? await getProjectScopeKey(pid) : 'personal')
-  }, [ctx?.projectId])
+    if (!user) {
+      setMine([])
+      return
+    }
+    try {
+      setMine(await listMyProjects(true))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load your worksheets.')
+    }
+    if (ctx?.projectId) {
+      setProjectName((await db.projects.get(ctx.projectId))?.name ?? '')
+    }
+  }, [user, ctx?.projectId])
 
   useEffect(() => {
     void refresh()
   }, [refresh])
 
-  if (!isGoogleConfigured()) {
+  if (!configured) {
     return (
-      <p className="text-sm text-gray-500">
-        Teams need Google sign-in, which is not configured in this build.
-      </p>
-    )
-  }
-  if (!account) {
-    return (
-      <p className="text-sm text-gray-500">
-        Sign in with Google (top right) to create or join a team.
-      </p>
+      <div className="mx-auto max-w-2xl p-4">
+        <h1 className="text-xl font-semibold">Shared worksheets</h1>
+        <p className="mt-3 text-sm text-gray-600">
+          This build has no cloud sync configured, so the app runs entirely on this device.
+        </p>
+      </div>
     )
   }
 
-  async function run(fn: () => Promise<void>) {
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-2xl p-4">
+        <h1 className="text-xl font-semibold">Shared worksheets</h1>
+        <p className="mt-3 text-sm text-gray-600">
+          Sign in first. Sharing works with any email address; nothing here needs Google.
+        </p>
+        <button
+          type="button"
+          onClick={() => openAccountDialog('signin')}
+          className="mt-3 rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
+        >
+          Sign in
+        </button>
+      </div>
+    )
+  }
+
+  const activeShared = mine.find((p) => p.project_id === ctx?.projectId)
+
+  const share = async () => {
     setBusy(true)
     setError(null)
     setNotice(null)
     try {
-      await fn()
+      await shareActiveProject()
+      syncEngine.syncNow()
+      await refresh()
+      setNotice('Shared. Give the code below to your team.')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.')
+      setError(e instanceof Error ? e.message : 'Could not share this worksheet.')
     } finally {
       setBusy(false)
     }
   }
 
-  async function onCreate() {
-    if (!name.trim()) return
-    await run(async () => {
-      const team = await createTeam(name.trim())
-      setName('')
-      setNewLink(team.joinLink)
-      await refresh()
-    })
-  }
-
-  async function onDiscover() {
-    await run(async () => {
-      const found = await discoverTeams()
-      await refresh()
-      if (found.length === 0) {
-        setError(
-          'No new teams found. Make sure you accepted the Google Drive share sent to this account.',
-        )
-      } else {
-        setNotice(
-          `Added ${found.length === 1 ? `"${found[0].name}"` : `${found.length} teams`}. Open a team below to start syncing.`,
-        )
-      }
-    })
-  }
-
-  async function moveCurrentTo(key: string) {
-    if (!ctx) return
-    await run(async () => {
-      await moveProjectToScope(ctx.projectId, key)
-      syncEngine.syncNow()
-      await refresh()
-    })
-  }
-
-  async function openTeam(team: TeamRef) {
-    await run(async () => {
-      const switched = await setActiveScopeProject(scopeKeyOf({ kind: 'team', ...team }))
-      syncEngine.syncNow()
+  const join = async () => {
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const res = await joinAndAdopt(code)
+      setCode('')
       reload()
-      if (!switched) {
-        setError(
-          `No project in "${team.name}" yet. Move your current project into it, or create one while it is active.`,
-        )
-      }
+      syncEngine.syncNow()
       await refresh()
-    })
+      setNotice(
+        res.applied > 0
+          ? `Joined ${res.name || 'the worksheet'}. Your screen is now showing the team's work.`
+          : `Joined ${res.name || 'the worksheet'}. Nobody has typed anything yet.`,
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not join.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const open = async (projectId: string) => {
+    setBusy(true)
+    try {
+      await switchToProject(projectId)
+      reload()
+      syncEngine.syncNow()
+      await refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const copy = (text: string) => {
+    void navigator.clipboard?.writeText(text)
+    setNotice('Code copied.')
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-semibold">Teams</h1>
-      <p className="text-sm text-gray-600">
-        A team shares this project's data through a private Google Drive folder. Teams are
-        never searchable: people can only join from an invite or a link you give them.
-      </p>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-gray-700">Current project</h2>
-        <p className="text-sm text-gray-600">
-          Syncing to:{' '}
-          <span className="font-medium">
-            {activeScopeKey === 'personal'
-              ? 'Personal (your Drive)'
-              : (teams.find((t) => scopeKeyOf({ kind: 'team', ...t }) === activeScopeKey)?.name ??
-                'a team')}
-          </span>
+    <div className="mx-auto max-w-2xl space-y-6 p-4">
+      <div>
+        <h1 className="text-xl font-semibold">Shared worksheets</h1>
+        <p className="mt-2 text-sm text-gray-600">
+          Everyone on a shared worksheet sees each other's answers within a second or two, on
+          any device, with any email address.
         </p>
-        {activeScopeKey !== 'personal' && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => moveCurrentTo('personal')}
-            className="self-start rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100 disabled:opacity-50"
-          >
-            Move current project back to Personal
-          </button>
-        )}
+      </div>
+
+      <section className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <p className="font-medium">One person shares, everyone else joins.</p>
+        <p className="mt-1">
+          Set up the passage and the genres first, then share the code. If each person shares
+          their own worksheet instead, you get several worksheets that look the same and hold
+          different answers.
+        </p>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-gray-700">Create a team</h2>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Team name (e.g. a language name)"
-            className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
-          />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onCreate}
-            className="rounded-md bg-gray-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-          >
-            Create
-          </button>
-        </div>
-        {newLink && (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm">
-            <p className="font-medium text-emerald-800">Team created. Share this private link:</p>
-            <CopyLink link={newLink} />
+      <section className="rounded border border-gray-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-gray-900">The worksheet you have open</h2>
+        <p className="mt-1 text-sm text-gray-700">{projectName || 'Untitled project'}</p>
+
+        {activeShared ? (
+          <div className="mt-3">
+            <p className="text-xs text-gray-500">
+              Shared with {activeShared.member_count}{' '}
+              {activeShared.member_count === 1 ? 'person (just you)' : 'people'}. Join code:
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <code className="rounded bg-gray-100 px-2 py-1 text-sm font-medium">
+                {activeShared.join_code}
+              </code>
+              <button
+                type="button"
+                onClick={() => copy(activeShared.join_code)}
+                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+              >
+                Copy
+              </button>
+            </div>
           </div>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-gray-700">Join a team</h2>
-        <p className="text-sm text-gray-600">
-          Invited by email? After accepting the Google Drive share, click below to add the team
-          here. (A join link someone sends you also works.)
-        </p>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onDiscover}
-          className="self-start rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100 disabled:opacity-50"
-        >
-          Find teams shared with me
-        </button>
-        {notice && (
-          <p className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-800">
-            {notice}
-          </p>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-gray-700">Your teams</h2>
-        {teams.length === 0 && <p className="text-sm text-gray-400">No teams yet.</p>}
-        {teams.map((team) => (
-          <TeamCard
-            key={team.folderId}
-            team={team}
-            busy={busy}
-            isActive={activeScopeKey === scopeKeyOf({ kind: 'team', ...team })}
-            onOpen={() => openTeam(team)}
-            onMoveHere={() => moveCurrentTo(scopeKeyOf({ kind: 'team', ...team }))}
-            onInvite={(email) => run(() => inviteByEmail(team.folderId, email))}
-            onLeave={() => run(async () => { await leaveTeam(team.folderId); await refresh() })}
-          />
-        ))}
-      </section>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-    </div>
-  )
-}
-
-function CopyLink({ link }: { link: string }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <div className="mt-1 flex items-center gap-2">
-      <input
-        readOnly
-        value={link}
-        className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs"
-        onFocus={(e) => e.currentTarget.select()}
-      />
-      <button
-        type="button"
-        onClick={async () => {
-          await navigator.clipboard.writeText(link)
-          setCopied(true)
-          window.setTimeout(() => setCopied(false), 1500)
-        }}
-        className="shrink-0 rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100"
-      >
-        {copied ? 'Copied' : 'Copy'}
-      </button>
-    </div>
-  )
-}
-
-function TeamCard({
-  team,
-  busy,
-  isActive,
-  onOpen,
-  onMoveHere,
-  onInvite,
-  onLeave,
-}: {
-  team: TeamRef
-  busy: boolean
-  isActive: boolean
-  onOpen: () => void
-  onMoveHere: () => void
-  onInvite: (email: string) => void
-  onLeave: () => void
-}) {
-  const [email, setEmail] = useState('')
-  const [members, setMembers] = useState<DrivePermission[] | null>(null)
-
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4">
-      <div className="flex items-center justify-between">
-        <span className="font-medium">
-          {team.name}
-          {isActive && <span className="ml-2 text-[11px] font-medium text-emerald-600">active</span>}
-        </span>
-        <div className="flex gap-2">
+        ) : (
           <button
             type="button"
+            onClick={share}
             disabled={busy}
-            onClick={onOpen}
-            className="rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50"
+            className="mt-3 rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
           >
-            Open
+            {busy ? 'Sharing…' : 'Share this worksheet'}
           </button>
+        )}
+      </section>
+
+      <section className="rounded border border-gray-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-gray-900">Join a worksheet</h2>
+        <p className="mt-1 text-xs text-gray-500">
+          Type the code the facilitator gave you. Anything you have already written stays where
+          it is; you can switch back to it below.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && code.trim()) void join()
+            }}
+            placeholder="summit-sorrel-violet-667"
+            className="min-w-0 flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm"
+          />
           <button
             type="button"
-            disabled={busy || isActive}
-            onClick={onMoveHere}
-            className="rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50"
+            onClick={join}
+            disabled={busy || !code.trim()}
+            className="rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
           >
-            Move current project here
+            {busy ? 'Joining…' : 'Join'}
           </button>
         </div>
-      </div>
+      </section>
 
-      {team.joinSecret && <CopyLink link={buildJoinLink(team.folderId, team.joinSecret)} />}
-
-      <div className="flex gap-2">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Invite by email"
-          className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
-        />
-        <button
-          type="button"
-          disabled={busy || !email.trim()}
-          onClick={() => {
-            onInvite(email.trim())
-            setEmail('')
-          }}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100 disabled:opacity-50"
-        >
-          Invite
-        </button>
-      </div>
-      <p className="text-xs text-gray-400">
-        After they accept the Drive email, they click "Find teams shared with me" to join here.
-      </p>
-
-      <div className="flex items-center gap-3 text-xs text-gray-500">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={async () => setMembers(await listMembers(team.folderId))}
-          className="hover:text-gray-800"
-        >
-          Show members
-        </button>
-        <button type="button" disabled={busy} onClick={onLeave} className="hover:text-red-600">
-          Leave team
-        </button>
-      </div>
-      {members && (
-        <ul className="text-xs text-gray-600">
-          {members.map((m) => (
-            <li key={m.id}>
-              {m.emailAddress ?? m.type} · {m.role}
-            </li>
-          ))}
-        </ul>
+      {mine.length > 0 && (
+        <section className="rounded border border-gray-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-gray-900">Your shared worksheets</h2>
+          <ul className="mt-2 divide-y divide-gray-100">
+            {mine.map((p) => (
+              <li key={p.project_id} className="flex items-center gap-2 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-gray-800">
+                    {p.project_id === ctx?.projectId && (
+                      <span className="text-sky-700">✓ </span>
+                    )}
+                    {p.name || 'Untitled project'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {p.member_count} {p.member_count === 1 ? 'member' : 'members'} · {p.role} ·{' '}
+                    <code>{p.join_code}</code>
+                  </p>
+                </div>
+                {p.project_id !== ctx?.projectId && (
+                  <button
+                    type="button"
+                    onClick={() => open(p.project_id)}
+                    disabled={busy}
+                    className="shrink-0 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Open
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
+
+      {notice && <p className="text-sm text-emerald-700">{notice}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <p className="text-xs text-gray-500">
+        Voice recordings stay on the device that made them; they are not shared.
+      </p>
     </div>
   )
 }

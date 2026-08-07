@@ -3,18 +3,16 @@
  * Google access token. Generalised from the original Sheets-only helper so both
  * Sheets export and cloud sync share one token cache and one consent flow.
  *
- * Scope is incremental: solo cloud users stay on the non-sensitive `drive.file`
- * scope (no app verification, no scary consent); the broad `drive` scope is only
- * requested when a user creates or joins a team (a teammate's file, created on
- * another device, is invisible to `drive.file`). A granted `drive` token is a
- * superset, so it transparently satisfies later `file`-scope requests.
+ * Only the non-sensitive `drive.file` scope is ever requested: no app
+ * verification, no warning screen, no 100-user cap, no seven-day consent expiry.
  *
- * `SCOPES.full` currently has NO reachable caller: Teams is off (see
- * `lib/features.ts`), which is what allows the OAuth client to declare only the
- * non-sensitive scope and be published to Production without Google review. Do not
- * wire a new caller to it. Anything that seems to need it needs the Postgres
- * backend instead, or the Google Picker, which grants `drive.file` access to a file
- * the person selects.
+ * The broad `drive` scope is GONE, along with the Drive team sync that was its
+ * only caller. Declaring it was what held the whole OAuth client in Google's
+ * Testing status, where organization-managed accounts were refused outright and
+ * even a personal Gmail needed to be on a list. Do not add it back. Shared work
+ * runs on Postgres now (`lib/sync/`), and anything that needs a file this app did
+ * not create wants the Google Picker, which grants `drive.file` access to
+ * whatever the person selects.
  *
  * Everything is gated on VITE_GOOGLE_CLIENT_ID: with no client id the whole
  * feature reports as not configured and the rest of the app is unaffected.
@@ -22,7 +20,6 @@
 
 export const SCOPES = {
   file: 'https://www.googleapis.com/auth/drive.file',
-  full: 'https://www.googleapis.com/auth/drive',
 } as const
 export type ScopeKey = keyof typeof SCOPES
 
@@ -82,10 +79,8 @@ interface CachedToken {
 }
 let cached: CachedToken | null = null
 
-/** A `drive` (full) token is a superset that also covers `drive.file`. */
 function covers(c: CachedToken, scope: string): boolean {
-  if (c.scopes.includes(scope)) return true
-  return scope === SCOPES.file && c.scopes.includes(SCOPES.full)
+  return c.scopes.includes(scope)
 }
 
 async function requestToken(scope: string, prompt: '' | 'consent'): Promise<CachedToken> {

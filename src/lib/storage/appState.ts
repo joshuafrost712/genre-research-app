@@ -437,7 +437,15 @@ export async function ensureWorksheetFor(
     .first()
   if (existing) return existing
   const worksheet: TranslationWorksheet = {
-    id: uid(),
+    // DETERMINISTIC, not uid(). A worksheet is uniquely identified by the pair it
+    // joins, so deriving the id from that pair means two devices reaching it
+    // before they have synced independently compute the SAME id and converge.
+    // With a random id they each mint their own, last-write-wins keeps both, and
+    // the team's synthesis answers split silently across two worksheets that are
+    // mutually invisible. Dexie primary keys are plain strings, so this needs no
+    // schema change and existing random ids keep working: the find-by-pair lookup
+    // above runs first and never sees this line.
+    id: `ws-${focusTextId}-${genreId}`,
     project_id: projectId,
     focus_text_id: focusTextId,
     genre_id: genreId,

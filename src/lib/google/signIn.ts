@@ -1,20 +1,20 @@
 /**
  * The Google sign-in action, kept separate from the app's own account so the
  * header `AccountMenu` can offer it as what it is: an optional Drive connection.
- * Requests the non-sensitive `drive.file` scope, reads the user's identity,
- * ensures a per-device sync id, persists the account, and starts the sync
- * engine. Returns the saved account; throws if the user cancels or it fails.
+ * Requests the non-sensitive `drive.file` scope, reads the user's identity and
+ * persists the account. Returns it; throws if the user cancels or it fails.
+ *
+ * It no longer touches the sync engine. Cloud sync runs on the Supabase session
+ * and starts itself from an auth state change, so connecting Drive is now purely
+ * about saving a copy to Drive and nothing else depends on it.
  */
 import { ensureScope, fetchIdentity } from './auth'
-import { getSyncAuthorId, saveAccount, type Account } from './account'
-import { syncEngine } from '../sync/engine'
+import { saveAccount, type Account } from './account'
 
 export async function signInWithGoogle(): Promise<Account> {
   await ensureScope('file')
   const identity = await fetchIdentity()
-  await getSyncAuthorId() // create the per-device id on first sign-in
   const account: Account = { email: identity.email, name: identity.name, photo: identity.photo }
   await saveAccount(account)
-  void syncEngine.start()
   return account
 }

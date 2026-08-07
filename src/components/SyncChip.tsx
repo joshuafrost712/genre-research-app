@@ -34,30 +34,41 @@ export function SyncChip() {
 
   if (sync.state === 'signed-out') return null
 
-  const stale = sync.lastSyncedAt !== null && nowMs - new Date(sync.lastSyncedAt).getTime() > 30_000
+  // Stale means the poll has stopped running, which is a different and worse
+  // problem than a cycle that failed loudly: nothing is on screen to say so.
+  const stale =
+    sync.state !== 'paused' &&
+    sync.lastSyncedAt !== null &&
+    nowMs - new Date(sync.lastSyncedAt).getTime() > 30_000
 
   const tone =
     sync.state === 'error' || stale
       ? 'border-red-300 bg-red-50 text-red-700'
-      : sync.state === 'offline'
-        ? 'border-gray-300 bg-gray-50 text-gray-600'
-        : sync.pending > 0 || sync.state === 'syncing'
-          ? 'border-amber-300 bg-amber-50 text-amber-800'
-          : 'border-emerald-300 bg-emerald-50 text-emerald-800'
+      : sync.state === 'paused'
+        ? 'border-gray-400 bg-gray-100 text-gray-700'
+        : sync.state === 'offline'
+          ? 'border-gray-300 bg-gray-50 text-gray-600'
+          : sync.pending > 0 || sync.state === 'syncing'
+            ? 'border-amber-300 bg-amber-50 text-amber-800'
+            : 'border-emerald-300 bg-emerald-50 text-emerald-800'
 
   const label =
-    sync.state === 'offline'
-      ? 'Offline'
-      : sync.state === 'error'
-        ? 'Sync failed'
-        : sync.pending > 0
-          ? `${sync.pending} waiting`
-          : 'Saved'
+    sync.state === 'paused'
+      ? 'Sync off'
+      : sync.state === 'offline'
+        ? 'Offline'
+        : sync.state === 'error'
+          ? 'Sync failed'
+          : sync.pending > 0
+            ? `${sync.pending} waiting`
+            : 'Saved'
 
   const detail =
-    sync.state === 'error'
-      ? (sync.error ?? 'unknown error')
-      : `Last synced ${ago(sync.lastSyncedAt, nowMs)}${sync.peers > 0 ? ` · ${sync.peers} other device${sync.peers === 1 ? '' : 's'}` : ''}`
+    sync.state === 'paused'
+      ? `Local only (?sync=off). ${sync.pending} change${sync.pending === 1 ? '' : 's'} held for when it is back on.`
+      : sync.state === 'error'
+        ? (sync.error ?? 'unknown error')
+        : `Last synced ${ago(sync.lastSyncedAt, nowMs)}${sync.peers > 0 ? ` · ${sync.peers} other device${sync.peers === 1 ? '' : 's'}` : ''}`
 
   return (
     <button

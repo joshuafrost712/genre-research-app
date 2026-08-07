@@ -23,8 +23,9 @@ import { pullProject } from './supabase/pull'
 import { publishOwnProjects, syncedProjectIds, invalidateProjectCache } from './supabase/projects'
 import { adoptBestProject } from './adopt'
 import { getActiveProjectId } from '../storage/appState'
+import { initSyncMode, syncMode } from './mode'
 
-export type SyncState = 'idle' | 'syncing' | 'offline' | 'error' | 'signed-out'
+export type SyncState = 'idle' | 'syncing' | 'offline' | 'error' | 'signed-out' | 'paused'
 
 export interface SyncStatus {
   state: SyncState
@@ -58,6 +59,12 @@ const forbidden = new Set<string>()
 
 async function syncOnce(): Promise<void> {
   if (running || !supabase) return
+  if (syncMode() === 'off') {
+    // Local-only by request. Writes keep queueing in the outbox, so turning sync
+    // back on later flushes everything rather than losing the session's work.
+    setStatus({ state: 'paused', pending: await pendingCount() })
+    return
+  }
 
   const { data } = await supabase.auth.getSession()
   if (!data.session) {
@@ -192,6 +199,10 @@ export const syncEngine = {
   async start(): Promise<void> {
     if (started || !supabase) return
     started = true
+
+    // Before anything else, so a facilitator's ?sync=off is honoured on the very
+    // first cycle rather than after one round of syncing they asked not to have.
+    await initSyncMode()
 
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {

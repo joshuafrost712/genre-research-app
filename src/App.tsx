@@ -23,7 +23,6 @@ import { Routing } from './pages/Routing'
 import { Review } from './pages/Review'
 import { Teams } from './pages/Teams'
 import { JoinTeam } from './pages/JoinTeam'
-import { TEAMS_ENABLED } from './lib/features'
 
 const router = createBrowserRouter(
   [
@@ -49,15 +48,11 @@ const router = createBrowserRouter(
         { path: 'routing', element: <Routing /> },
         { path: 'review', element: <Review /> },
         { path: 'export', element: <ExportView /> },
-        // Off while shared work moves off Google Drive; see lib/features.ts. The
-        // routes go too, not just the nav entry, so an old bookmark or a join link
-        // someone still has cannot reach the restricted-scope code path.
-        ...(TEAMS_ENABLED
-          ? [
-              { path: 'teams', element: <Teams /> },
-              { path: 'teams/join', element: <JoinTeam /> },
-            ]
-          : []),
+        // Shared worksheets run on Postgres now, so these need a Supabase project
+        // rather than a Google account. Both pages explain themselves when it is
+        // absent, so the routes stay reachable and a join link never 404s.
+        { path: 'teams', element: <Teams /> },
+        { path: 'teams/join', element: <JoinTeam /> },
       ],
     },
   ],
