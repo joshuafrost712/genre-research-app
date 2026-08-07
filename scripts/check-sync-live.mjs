@@ -115,7 +115,7 @@ async function launch(label) {
     evaluate,
     goto,
     until,
-    close() {
+    async close() {
       try {
         ws.close()
       } catch {
