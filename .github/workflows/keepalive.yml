@@ -1,0 +1,44 @@
+name: Keep Supabase awake
+
+# A free Supabase project PAUSES ITSELF after 7 days with no requests, and a
+# paused project takes down sign-in, cloud sync and live translation at once.
+# It already happened on 2026-08-06.
+#
+# The dangerous window is not the workshop itself (Aug 18 to Sep 4 in Bali is
+# continuous use) but the quiet stretch before it: finish building, fly, and the
+# project is asleep when the room opens. Unpausing is a dashboard click, but it
+# is a dashboard click performed in front of participants on venue wifi.
+#
+# One cheap request every other day is enough. It reads a table that RLS denies
+# to anon, which is fine: a denied read is still a request, and getting back an
+# empty array is itself proof the API answered.
+
+on:
+  schedule:
+    - cron: '17 6 */2 * *' # every other day, an off-the-hour minute
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping PostgREST
+        env:
+          URL: ${{ vars.VITE_SUPABASE_URL }}
+          KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${URL:-}" ] || [ -z "${KEY:-}" ]; then
+            echo "VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY repo variables are unset."
+            exit 1
+          fi
+          code="$(curl -s -o /dev/null -w '%{http_code}' \
+            "$URL/rest/v1/sync_records?select=project_id&limit=1" \
+            -H "apikey: $KEY")"
+          echo "PostgREST answered $code"
+          # 2xx means awake. 4xx also means awake (it answered). Only a network
+          # failure or a 5xx suggests the project is paused or unwell.
+          case "$code" in
+            2*|4*) exit 0 ;;
+            *) echo "Unexpected status — the project may be paused."; exit 1 ;;
+          esac

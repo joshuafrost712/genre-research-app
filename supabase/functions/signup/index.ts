@@ -30,8 +30,20 @@ const MIN_PASSWORD_LENGTH = 8
 const MAX_NAME_LENGTH = 100
 const MAX_EMAIL_LENGTH = 254
 
-/** Attempts allowed per IP per window, successful or not. */
-const RATE_LIMIT_PER_WINDOW = 8
+/**
+ * Attempts allowed per IP per window, successful or not.
+ *
+ * Raised from 8 on 2026-08-06. The throttle keys on the first x-forwarded-for
+ * hop, and a room full of people on one conference access point shares a single
+ * public IP. At 8 the ninth person to sign up at a workshop is refused, with an
+ * error indistinguishable from mistyping the invite code, and everyone after
+ * them too. That is the exact scenario this app is being built for.
+ *
+ * The invite code, not this number, is the wall. This exists to stop someone
+ * grinding codes, and 200 in ten minutes is still far too slow to search a
+ * ~36-bit space while leaving a whole cohort room to sign up at once.
+ */
+const RATE_LIMIT_PER_WINDOW = 200
 const RATE_WINDOW_MS = 10 * 60_000
 
 const CORS = {

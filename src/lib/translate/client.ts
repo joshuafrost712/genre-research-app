@@ -123,6 +123,21 @@ async function postWithDeadline(url: string, body: unknown, token?: string | nul
   }
 }
 
+/**
+ * Is this actually our JSON API answering, or something wearing its status code?
+ *
+ * A captive portal (hotel, conference venue, the Bali workshop wifi) intercepts
+ * the request and replies HTTP 200 with an HTML login page. That takes the
+ * `res.ok` path, parses to nothing, and returns `failed` — and because the queue
+ * fallback only runs on `!res.ok` or a thrown error, the translation is dropped
+ * with no queue row and nothing to recover. Checking the content type turns a
+ * silent loss back into the deferred lane the degrade ladder was built for.
+ */
+export function looksLikeJson(res: Response): boolean {
+  const type = res.headers.get('content-type') ?? ''
+  return type.toLowerCase().includes('application/json')
+}
+
 async function readOutcome(res: Response, started: number): Promise<TranslateOutcome> {
   const data = (await res.json().catch(() => ({}))) as {
     translation?: string
@@ -166,7 +181,19 @@ export async function translateText(args: TranslateArgs): Promise<TranslateOutco
   if (TRANSLATE_URL) {
     try {
       const res = await postWithDeadline(TRANSLATE_URL, payload, await accessToken())
-      if (res.ok) return await readOutcome(res, started)
+      if (res.ok && looksLikeJson(res)) return await readOutcome(res, started)
+
+      // A 2xx that is not JSON is a captive portal, not our API. Treat it as a
+      // transport failure so it queues rather than vanishing.
+      if (res.ok) {
+        await enqueueTranslation({ ...args })
+        return {
+          status: 'queued',
+          reason: 'network sign-in page intercepted the request',
+          cause: 'offline',
+        }
+      }
+
       // 401/429/5xx: queue it so the answer still gets translated eventually.
       await enqueueTranslation({ ...args })
       const data = (await res.json().catch(() => ({}))) as { error?: string }
