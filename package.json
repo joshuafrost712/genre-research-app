@@ -17,7 +17,8 @@
     "i18n:contract": "vite-node scripts/translate-contract.ts",
     "translate:google": "vite-node scripts/setup-google-translation.ts",
     "check:signed-out": "node scripts/check-signed-out-visible.mjs",
-    "check:overwrite": "node scripts/check-overwrite-toast.mjs"
+    "check:overwrite": "node scripts/check-overwrite-toast.mjs",
+    "check:account-switch": "node scripts/check-account-switch.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",

@@ -10,6 +10,30 @@ import { supabase } from '../../supabase/client'
 import { db } from '../../storage/db'
 import { reenqueueProject } from '../outbox'
 import { hasWork, substanceOf } from '../substance'
+import { getDataOwner } from '../../storage/owner'
+
+/**
+ * Refuse to upload local work under an account that does not own it.
+ *
+ * The engine already wipes the device when a different person signs in, so in
+ * ordinary running this is never false. It exists because the consequence of
+ * that wipe failing — or being skipped by some future code path that calls
+ * publish directly — is one person's worksheets appearing in another person's
+ * account, which last-write-wins merging can then propagate over the original.
+ * A single `meta` read is a cheap price for making that outcome impossible from
+ * two independent directions rather than one.
+ */
+async function ownsLocalData(): Promise<boolean> {
+  // getSession, not getUser: getUser round-trips to the auth server, and this is
+  // consulted on a three-second cycle. The stored session's uid is the same uid.
+  const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } }
+  const uid = data.session?.user?.id
+  if (!uid) return false
+  const owner = await getDataOwner()
+  // Unstamped is permitted: a device nobody has claimed yet is being claimed by
+  // this sign-in, which is the ordinary "worked offline, then signed in" path.
+  return !owner.uid || owner.uid === uid
+}
 
 export interface SharedProject {
   project_id: string
@@ -118,6 +142,7 @@ export async function joinProject(code: string): Promise<JoinedProject> {
  */
 export async function publishOwnProjects(): Promise<number> {
   if (!supabase) return 0
+  if (!(await ownsLocalData())) return 0
 
   const already = await syncedProjectIds(true)
   const projects = await db.projects.toArray()
@@ -154,6 +179,9 @@ export async function publishActiveIfWorked(
 ): Promise<boolean> {
   if (!supabase || !activeProjectId || syncedIds.has(activeProjectId)) return false
   if (!hasWork(await substanceOf(activeProjectId))) return false
+  // After the cheap local checks, so the common "nothing new to publish" cycle
+  // never pays for it.
+  if (!(await ownsLocalData())) return false
   const project = await db.projects.get(activeProjectId)
   if (!project) return false
   try {

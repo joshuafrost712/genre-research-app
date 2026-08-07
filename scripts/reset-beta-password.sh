@@ -3,17 +3,16 @@
 #
 #   ./scripts/reset-beta-password.sh someone@example.org
 #
-# This exists because the project has no custom SMTP: Supabase's built-in mailer is
-# capped at two emails per hour project-wide, so the ordinary "forgot password"
-# email is not dependable, and the app deliberately does not offer one rather than
-# offering one that silently fails.
+# NO LONGER THE ROUTE. This was written when the project had no custom SMTP and
+# the built-in mailer's two-per-hour project-wide cap made a "forgot password"
+# email undeliverable often enough that the app deliberately did not offer one.
+# Custom SMTP (Brevo relay, 100/hour) is now configured, so the app has a real
+# self-serve reset: "Forgot your password?" in the sign-in dialog.
 #
-# That makes the maintainer the reset path. It is one command, and the person
-# changes the password again from the account menu once they are in.
-#
-# The real fix is custom SMTP (a free Brevo sender or a Gmail app password, no
-# domain required). Once that is set, Supabase's own resetPasswordForEmail works
-# and this script becomes a fallback rather than the route.
+# Kept as the fallback for the cases that flow cannot serve — someone locked out
+# of the email address on their account, or a delivery failure at a workshop with
+# no time to debug it. It hands over a readable temporary password; the person
+# changes it from the account menu once they are in.
 set -euo pipefail
 
 API="https://api.supabase.com/v1"

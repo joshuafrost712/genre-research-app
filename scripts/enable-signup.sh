@@ -52,6 +52,13 @@ if [[ -z "${SIGNUP_INVITE_CODE:-}" ]]; then
   # produced "unscrew-ayllu-geneat-pasang" on the first run: three of those four are
   # words nobody can copy off a phone screen without a typo. A code people mistype
   # is the same friction this whole change exists to remove.
+  #
+  # FORMAT IS QUOTED ELSEWHERE. Four words plus three digits is stated to users in
+  # two places that must be changed with it: the hint under the invite field
+  # (src/components/account/AccountDialog.tsx) and the rejection message in
+  # supabase/functions/signup/index.ts. Someone read "four words and a three-digit
+  # number" and found the digit they had dropped, so the wording earns its keep —
+  # but only while it is true.
   SIGNUP_INVITE_CODE="$(python3 - <<'PY'
 import secrets
 

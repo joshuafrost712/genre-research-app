@@ -131,6 +131,18 @@ const UI = {
   'account.storageProtected': { en: 'protected', id: 'terlindungi' },
   'account.storageBestEffort': { en: 'not guaranteed', id: 'tidak dijamin' },
 
+  // Handing a device from one person to another.
+  'account.switchedTo': {
+    en: 'Starting fresh for {email}. The previous account’s work is safe in that account.',
+    id: 'Memulai dari awal untuk {email}. Pekerjaan akun sebelumnya aman di akun tersebut.',
+  },
+  'account.deviceHolds': {
+    en: 'This device holds {email}’s work.',
+    id: 'Perangkat ini menyimpan pekerjaan {email}.',
+  },
+  'account.clearDevice': { en: 'Clear this device', id: 'Bersihkan perangkat ini' },
+  'account.dismiss': { en: 'Dismiss', id: 'Tutup' },
+
   // A teammate's edit replacing yours. The previous text is already kept in the
   // history table; this is what tells a person it happened.
   'overwrite.title': {

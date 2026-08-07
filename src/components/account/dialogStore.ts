@@ -5,7 +5,13 @@
  */
 import { useSyncExternalStore } from 'react'
 
-export type AccountDialogMode = 'signin' | 'create'
+/**
+ * `forgot` asks for the reset email; `recover` is where someone lands after
+ * following the link in it, to choose the new password. They are separate modes
+ * because they happen on different days, on possibly different devices, and only
+ * the second one has a session behind it.
+ */
+export type AccountDialogMode = 'signin' | 'create' | 'forgot' | 'recover'
 
 let mode: AccountDialogMode | null = null
 const subscribers = new Set<() => void>()

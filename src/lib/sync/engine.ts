@@ -31,6 +31,8 @@ import { getActiveProjectId } from '../storage/appState'
 import { initSyncMode, syncMode } from './mode'
 import { rememberAccount } from '../supabase/accountMemory'
 import { requestPersistentStorage } from '../storage/persist'
+import { getDataOwner, isDifferentPerson, setDataOwner } from '../storage/owner'
+import { resetLocalData } from '../storage/reset'
 
 export type SyncState = 'idle' | 'syncing' | 'offline' | 'error' | 'signed-out' | 'paused'
 
@@ -202,8 +204,16 @@ function detach(): void {
 }
 
 /**
- * Two things that must happen on every arrival at a signed-in state, whichever
- * route got us here (fresh sign-in, restored session, token refresh).
+ * Everything that must happen on arrival at a signed-in state, whichever route
+ * got us here (fresh sign-in, restored session, token refresh).
+ *
+ * Returns true if the device is being reset for a different account, in which
+ * case a reload is already in flight and the caller must NOT start syncing. That
+ * ordering is the entire fix for the account-switch bug: the first cycle after
+ * sign-in publishes local projects under the new `auth.uid()`, so if a cycle can
+ * start before ownership has been settled, one person's worksheets land in
+ * another person's account. Ownership is therefore decided before `attach()`,
+ * not alongside it.
  *
  * The marker is what lets a later boot tell "your session went missing" apart
  * from "you have never signed in" — see `supabase/accountMemory.ts`.
@@ -212,9 +222,39 @@ function detach(): void {
  * Chrome grants it on engagement heuristics that a just-opened app may not meet
  * yet, and a signed-in user is exactly the signal it is looking for.
  */
-function onSignedIn(email: string | undefined): void {
+let signedInFlight: Promise<boolean> | null = null
+
+function onSignedIn(user: { id: string; email?: string } | undefined): Promise<boolean> {
+  // Single-flight, the same shape `ensureActiveContext` uses. Two routes reach
+  // here at boot — the explicit getSession() below and the listener's
+  // INITIAL_SESSION — and on an account switch both would otherwise run the wipe
+  // and call reload(), burning the reload guard on a duplicate of itself.
+  if (signedInFlight) return signedInFlight
+  signedInFlight = resolveOwnership(user)
+  const clear = () => {
+    signedInFlight = null
+  }
+  signedInFlight.then(clear, clear)
+  return signedInFlight
+}
+
+async function resolveOwnership(user: { id: string; email?: string } | undefined): Promise<boolean> {
+  if (!user?.id) return false
+  const email = user.email ?? ''
+
+  const owner = await getDataOwner()
+  if (isDifferentPerson(owner, user.id, email)) {
+    await resetLocalData({ id: user.id, email })
+    return true
+  }
+  // Unstamped means unclaimed: a brand-new device, or one from before this
+  // existed. Claiming it is what keeps "worked offline, then signed in" working
+  // — that person's local project is theirs and should still be published.
+  if (!owner.uid) await setDataOwner(user.id, email)
+
   if (email) rememberAccount(email)
   void requestPersistentStorage()
+  return false
 }
 
 export const syncEngine = {
@@ -245,9 +285,13 @@ export const syncEngine = {
         return
       }
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
-        onSignedIn(session?.user?.email)
-        attach()
-        void syncOnce()
+        // Awaited, not fire-and-forget: nothing may sync until we know whose
+        // data this is. A reset returns true and a reload is already coming.
+        void onSignedIn(session?.user).then((reset) => {
+          if (reset) return
+          attach()
+          void syncOnce()
+        })
       }
     })
     unsubAuth = () => sub.subscription.unsubscribe()
@@ -256,7 +300,7 @@ export const syncEngine = {
     // stored session has been read. Kick a cycle for the already-signed-in case.
     const { data } = await supabase.auth.getSession()
     if (data.session) {
-      onSignedIn(data.session.user?.email)
+      if (await onSignedIn(data.session.user)) return
       attach()
       void syncOnce()
     } else {

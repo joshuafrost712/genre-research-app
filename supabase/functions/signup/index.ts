@@ -3,13 +3,16 @@
  *
  * Why this exists at all, rather than the client calling `supabase.auth.signUp()`:
  *
- * 1. The project has no custom SMTP, and the built-in mailer sends two emails per
- *    hour PROJECT-WIDE. A signup that waits on a confirmation email therefore fails
- *    silently for the third person in any hour. Creating the user through the Admin
- *    API with `email_confirm: true` sends no email at all, so the ceiling is gone.
- * 2. A valid Supabase JWT is what authorizes the `translate` function to spend a
+ * 1. A valid Supabase JWT is what authorizes the `translate` function to spend a
  *    metered API key. Open signup would make that key reachable by anyone on the
- *    internet. The invite code is the wall.
+ *    internet. The invite code is the wall. This is the load-bearing reason and it
+ *    is permanent.
+ * 2. Creating the user through the Admin API with `email_confirm: true` sends no
+ *    email at all, so signup cannot fail on mail delivery and nobody waits on an
+ *    inbox to start working. This began as a workaround for the built-in mailer's
+ *    two-per-hour project-wide ceiling; custom SMTP (Brevo) has since removed that
+ *    ceiling, but skipping the confirmation round trip is worth keeping on its own
+ *    merits for a room full of people signing up at once.
  *
  * Because callers have no JWT yet, this deploys with `--no-verify-jwt`. The platform
  * gate is OFF: the invite code and the per-IP throttle below are the entire
@@ -98,6 +101,34 @@ function clientIp(req: Request): string {
 }
 
 /**
+ * Make a hand-retyped code comparable, without making it guessable.
+ *
+ * A participant was locked out on 2026-08-07 by a code that was very nearly
+ * right, and the wall this is meant to be should stop attackers, not typists.
+ * Everything removed here is something a human or their software adds on the way
+ * from an email to a form field, and none of it carries any of the code's
+ * entropy: the generator (scripts/enable-signup.sh) emits lowercase ASCII words
+ * joined by plain hyphens, so lowercasing and repairing dashes cannot collide two
+ * different codes.
+ *
+ * The unicode dash class is not paranoia. Mail clients and word processors
+ * silently autocorrect `-` to an en dash, and the result is visually identical to
+ * the code that was sent.
+ *
+ * Applied to BOTH sides of the comparison, so the stored secret is normalised the
+ * same way the submitted one is. The client normalises too, for its own shape
+ * hint; if the two ever drift, this side is authoritative and is deliberately the
+ * more permissive of the two.
+ */
+function normalizeCode(value: string): string {
+  return value
+    .replace(/[‐-―−]/g, '-') // en/em dash, minus sign → hyphen
+    .replace(/[\s'"`‘’“”]/g, '') // spaces and any flavour of quote
+    .replace(/[.,;!]+$/, '') // a sentence's punctuation, pasted along with the code
+    .toLowerCase()
+}
+
+/**
  * Length-independent comparison. Both sides are hashed first so the comparison
  * runs over equal-length digests and cannot leak the code's length either.
  */
@@ -168,9 +199,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const password = typeof body.password === 'string' ? body.password : ''
   const code = typeof body.code === 'string' ? body.code.trim() : ''
 
-  if (!(await secretEquals(code, INVITE_CODE!))) {
+  if (!(await secretEquals(normalizeCode(code), normalizeCode(INVITE_CODE!)))) {
     console.warn('signup: wrong invite code', { ip, email })
-    return json(403, { error: 'That invite code is not right. Check the email it came in.' })
+    return json(403, {
+      error:
+        'That invite code is not right. It is four words and a three-digit number — check that none of it is missing.',
+    })
   }
 
   if (!name) return json(400, { error: 'Enter your name.' })

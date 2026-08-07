@@ -22,6 +22,7 @@ import { setFeedbackAuthor } from '../lib/feedback/identity'
 import { openAccountDialog } from './account/dialogStore'
 import { ProjectPicker } from './ProjectPicker'
 import { storageDurability, type Durability } from '../lib/storage/persist'
+import { clearLocalData } from '../lib/storage/reset'
 import { useLocale } from '../lib/i18n/LocaleContext'
 
 const SYNC_DOT: Record<string, string> = {
@@ -91,6 +92,29 @@ export function AccountMenu() {
   const accountSignOut = async () => {
     await signOutBeta()
     setMenu(null)
+  }
+
+  /**
+   * Wipe the browser and sign out. Confirms first and says plainly what survives:
+   * synced work is in the account and comes back on the next sign-in, unsynced
+   * work does not come back at all. Sync status is on screen right above this, so
+   * someone with a pending count can see the risk before they answer.
+   */
+  const clearDevice = async () => {
+    const pending = sync.pending
+    const warning = pending
+      ? `\n\nWARNING: ${pending} change${pending === 1 ? '' : 's'} have not synced yet and will be lost.`
+      : ''
+    const ok = window.confirm(
+      'This removes every worksheet, passage and recording from this browser.\n\n' +
+        'Anything already synced is safe in your account and returns when you sign in.' +
+        warning +
+        '\n\nClear this device?',
+    )
+    if (!ok) return
+    setMenu(null)
+    await signOutBeta()
+    await clearLocalData()
   }
 
   const open = (mode: 'signin' | 'create') => {
@@ -276,6 +300,17 @@ export function AccountMenu() {
                 className="block w-full px-3 py-1.5 text-left text-gray-700 hover:bg-gray-100"
               >
                 Sign out
+              </button>
+              {/* The deliberate answer to "I am handing this laptop to someone
+                  else." Signing out keeps local work on purpose, so without this
+                  there is no way to leave a clean device except waiting for the
+                  next person's sign-in to wipe it for them. */}
+              <button
+                type="button"
+                onClick={clearDevice}
+                className="block w-full px-3 py-1.5 text-left text-gray-500 hover:bg-gray-100"
+              >
+                Clear this device…
               </button>
               {error && <div className="px-3 py-1 text-xs text-red-600">{error}</div>}
             </div>

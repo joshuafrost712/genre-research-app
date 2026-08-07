@@ -10,9 +10,11 @@
  * server. VITE_SIGNUP_URL overrides it for local `supabase functions serve`.
  */
 import { supabase } from './client'
-import { signInWithPassword, type SignInResult } from './session'
+import { signInWithPassword, MIN_PASSWORD_LENGTH, type SignInResult } from './session'
 
-export const MIN_PASSWORD_LENGTH = 8
+// Re-exported so the existing callers keep their import path; the constant itself
+// now lives with the other auth rules in session.ts.
+export { MIN_PASSWORD_LENGTH }
 
 function endpoint(): string | null {
   const override = import.meta.env.VITE_SIGNUP_URL as string | undefined
@@ -28,6 +30,19 @@ export interface NewAccount {
   confirm: string
   code: string
 }
+
+/**
+ * Note on where invite-code tolerance lives: entirely on the server.
+ *
+ * A client-side shape rule was tried here and removed. It would have become a
+ * lockout the day `enable-signup.sh` changes format — someone holding a valid
+ * code, refused by a stale regex, with no way to tell anyone — and it duplicated
+ * a normalisation that then had two places to drift apart in. The Edge Function
+ * normalises what it receives and its rejection now names the format, so the
+ * person gets the same specific advice from the one component that actually
+ * knows the answer. The static hint under the input field does the proactive
+ * half; see AccountDialog.
+ */
 
 /**
  * Validate locally, create the account, then sign in with the credentials just

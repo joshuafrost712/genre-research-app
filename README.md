@@ -65,8 +65,15 @@ depth. Data is stored only on that device.
   free account. An account tags feedback to a person and authorizes live
   translation. It is unrelated to Google: Google sign-in is a separate, optional
   connection whose only job is saving a copy of the work to that person's Drive.
-  There is no self-serve password reset while the project has no custom SMTP; use
-  `scripts/reset-beta-password.sh`.
+  Forgotten passwords are self-serve: "Forgot your password?" in the sign-in
+  dialog emails a link, over the project's custom SMTP (Brevo relay, 100/hour).
+  `scripts/reset-beta-password.sh` remains as a maintainer fallback.
+- **One device, one account.** The local database is stamped with the account it
+  belongs to. A *different* account signing in on the same browser clears it first
+  and starts fresh, because otherwise the previous person's worksheets are both
+  shown to the newcomer and published into their cloud account. Signing out keeps
+  local work on purpose (so signing back in resumes); "Clear this device" in the
+  account menu is the deliberate handover.
 
 ## Testing
 

@@ -16,8 +16,12 @@ vi.mock('../src/lib/supabase/client', () => ({
   isSupabaseConfigured: () => true,
 }))
 
+// MIN_PASSWORD_LENGTH moved into session.ts when the reset flow started enforcing
+// it too, so the mock has to carry it: without the real value, every length check
+// in signup.ts silently compares against undefined and passes.
 vi.mock('../src/lib/supabase/session', () => ({
   signInWithPassword: mocks.signInWithPassword,
+  MIN_PASSWORD_LENGTH: 8,
 }))
 
 import { createAccount } from '../src/lib/supabase/signup'
