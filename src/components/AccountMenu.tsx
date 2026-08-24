@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react'
 import { isGoogleConfigured, forgetToken } from '../lib/google/auth'
 import { clearAccount, getAccount, type Account } from '../lib/google/account'
 import { signInWithGoogle } from '../lib/google/signIn'
-import { syncEngine, useSyncStatus } from '../lib/sync/engine'
+import { useSyncStatus } from '../lib/sync/engine'
 import { useSupabaseSession, signOutBeta, updatePassword } from '../lib/supabase/session'
 import { setFeedbackAuthor } from '../lib/feedback/identity'
 import { openAccountDialog } from './account/dialogStore'
@@ -32,7 +32,7 @@ const SYNC_DOT: Record<string, string> = {
   error: 'bg-red-500',
 }
 
-type OpenMenu = null | 'chooser' | 'account' | 'google'
+type OpenMenu = null | 'account' | 'google'
 
 export function AccountMenu() {
   const { configured, user } = useSupabaseSession()
@@ -81,7 +81,11 @@ export function AccountMenu() {
   }
 
   const disconnectGoogle = async () => {
-    syncEngine.stop()
+    // Deliberately does NOT stop the sync engine. It used to, from the era when
+    // the engine looked Google-owned — but the engine runs on the Supabase
+    // session (see engine.ts) and has nothing to do with Drive. Stopping it here
+    // meant a signed-in person tapping Disconnect silently froze their TEAM sync
+    // for the rest of the session while the chip kept saying "Saved".
     forgetToken()
     await clearAccount()
     setGoogleAccount(null)
@@ -149,63 +153,37 @@ export function AccountMenu() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* Signed out of both: one generic "Sign in" button with a chooser menu. */}
-      {!user && !googleAccount && (
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => toggle('chooser')}
-            className="rounded border border-sky-300 px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-50"
-          >
-            Sign in
-          </button>
-          {menu === 'chooser' && (
-            <div className="absolute right-0 z-30 mt-1 w-72 rounded border border-gray-200 bg-white py-1 text-sm shadow-lg">
-              {configured && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => open('create')}
-                    className="block w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-100"
-                  >
-                    Create an account
-                    <span className="block text-xs text-gray-500">
-                      Any email works, including your work address
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => open('signin')}
-                    className="block w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-100"
-                  >
-                    Sign in with your account
-                    <span className="block text-xs text-gray-500">Email &amp; password</span>
-                  </button>
-                </>
-              )}
-              {googleAvailable && (
-                <button
-                  type="button"
-                  onClick={connectGoogle}
-                  disabled={busy}
-                  className="block w-full border-t border-gray-100 px-3 py-2 text-left text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                >
-                  {busy ? 'Connecting…' : 'Save to Google Drive (optional)'}
-                  <span className="block text-xs text-gray-500">
-                    Keeps a copy in your own Drive. Not needed to use the app.
-                  </span>
-                </button>
-              )}
-              {!configured && !googleAvailable && (
-                <div className="px-3 py-2 text-xs text-gray-500">
-                  Sign-in isn't available in this build.
-                </div>
-              )}
-            </div>
-          )}
-          {error && <span className="mt-1 block text-xs text-red-600">{error}</span>}
-        </div>
+      {/* Signed out: ONE button, straight to the account dialog, and it never
+          disappears. It used to render only when no Google connection existed,
+          which is how the Psalms workshop got stuck: connect Drive (the familiar
+          button), your Gmail address appears up top, the Sign in button vanishes,
+          and the Team page still says "sign in first" with no visible way to do
+          it. Google is deliberately absent here — connecting Drive is offered
+          inside the signed-in account menu, where it cannot be mistaken for
+          logging in. */}
+      {!user && configured && (
+        <button
+          type="button"
+          onClick={() => open('signin')}
+          className="shrink-0 rounded border border-sky-300 px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-50"
+        >
+          Sign in
+        </button>
       )}
+      {/* A build with no account system at all (configured=false) keeps the old
+          direct Drive offer, since the signed-in menu that normally carries it
+          can never appear. */}
+      {!user && !configured && googleAvailable && !googleAccount && (
+        <button
+          type="button"
+          onClick={connectGoogle}
+          disabled={busy}
+          className="shrink-0 rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          {busy ? 'Connecting…' : 'Save to Google Drive'}
+        </button>
+      )}
+      {!user && error && <span className="text-xs text-red-600">{error}</span>}
 
       {/* Account identity (primary). */}
       {user && (
@@ -325,7 +303,7 @@ export function AccountMenu() {
             type="button"
             onClick={() => toggle('google')}
             className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-            title={googleAccount.email}
+            title={`Google Drive backup: ${googleAccount.email}`}
           >
             {googleAccount.photo ? (
               <img src={googleAccount.photo} alt="" className="h-6 w-6 rounded-full" />
@@ -334,10 +312,10 @@ export function AccountMenu() {
                 {(googleAccount.name ?? googleAccount.email).slice(0, 1).toUpperCase()}
               </span>
             )}
-            {/* When an account chip is already shown, keep the Google chip compact. */}
-            {!user && (
-              <span className="hidden max-w-[12rem] truncate sm:inline">{googleAccount.email}</span>
-            )}
+            {/* Labelled "Drive", NEVER the email address. Showing the Gmail
+                address here made a connected-but-signed-out person read as
+                logged in, which is the screenshot that opened this bug. */}
+            {!user && <span className="hidden text-xs text-gray-500 sm:inline">Drive</span>}
             <span
               className={`h-2 w-2 rounded-full ${SYNC_DOT[sync.state] ?? 'bg-gray-300'}`}
               title={syncTitle}

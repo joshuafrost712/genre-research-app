@@ -40,8 +40,9 @@ const REPLY = `Balasan penerjemah ${stamp}`
 
 console.log(`==> App ${APP_URL}`)
 
-let host, guest
+let host, guest, newcomer
 let projectId = null
+let newcomerEmail = null
 try {
   const facilitator = await acc.create('facilitator')
   const translator = await acc.create('translator')
@@ -255,13 +256,96 @@ try {
     `return document.body.innerText.includes(${JSON.stringify(TEAM_NAME)})`,
   )
   check('and it names the team to go back to', offersWayBack === true, 'team not offered')
+
+  // --- bringing earlier work into the team ------------------------------------
+  // The workshop's missing move: days of solo answers must be able to become the
+  // team's data. The guest is currently in their own starter (drift state) — the
+  // exact person this is for. They answer there, then import it into the team,
+  // and the facilitator must receive it.
+  console.log('==> Translator imports their solo work into the team')
+  const SOLO = `Pekerjaan lama ${stamp}`
+  const importCounts = await guest.evaluate(`
+    const { upsertEntry } = await import('/src/lib/storage/entries.ts')
+    const { ensureActiveContext } = await import('/src/lib/storage/appState.ts')
+    const { importProjectInto } = await import('/src/lib/team/importWork.ts')
+    const own = await ensureActiveContext()
+    // A REAL content node ('s1b.description', genre layer): the importer now
+    // refuses nodes the worksheet cannot render, so a made-up id would be
+    // (correctly) skipped rather than imported.
+    await upsertEntry(own, 's1b.description', 'genre', { text: ${JSON.stringify(SOLO)} })
+    const counts = await importProjectInto(own.projectId, ${JSON.stringify(projectId)})
+    const { syncEngine } = await import('/src/lib/sync/engine.ts')
+    syncEngine.syncNow()
+    return JSON.stringify(counts)
+  `)
+  const ic = JSON.parse(importCounts)
+  check('the import reports what it brought', ic.answers >= 1, importCounts)
+
+  const importedArrives = await host.until(
+    `(await (await import('/src/lib/storage/db.ts')).db.entries.filter(e => e.text === ${JSON.stringify(SOLO)} && e.project_id === ${JSON.stringify(projectId)}).count()) > 0`,
+    20000,
+  )
+  check(`the facilitator receives the imported answer (${importedArrives.ms}ms)`, importedArrives.ok, 'not within 20s')
+
+  // The solo starter's genre is a placeholder, so it must arrive as its own
+  // labelled container — never merged into the team's unrelated "Untitled genre".
+  const labelled = await host.evaluate(`
+    const { db } = await import('/src/lib/storage/db.ts')
+    const g = await db.genres.filter(g =>
+      g.project_id === ${JSON.stringify(projectId)} && g.name.includes('(')).first()
+    return g ? g.name : 'MISSING'
+  `)
+  check('placeholder-named work arrives as its own labelled genre', labelled !== 'MISSING', labelled)
+
+  // --- one code does everything: a stranger with only the join code -----------
+  console.log('==> Newcomer: no account, only the team code from the whiteboard')
+  newcomerEmail = `newcomer-${stamp}@example.com`
+  newcomer = await launch('newcomer')
+  await newcomer.goto(`${APP_URL}teams/join?code=${encodeURIComponent(shared)}`)
+
+  const gateShown = await newcomer.until(
+    `document.body.innerText.includes('creates your account')`,
+    15000,
+  )
+  check('the signed-out join link offers the one-code form', gateShown.ok, 'form absent')
+
+  const createdRes = await newcomer.evaluate(`
+    const { createAccount } = await import('/src/lib/supabase/signup.ts')
+    const res = await createAccount({
+      name: 'Newcomer', email: ${JSON.stringify(newcomerEmail)},
+      password: 'newcomer-pw-99', confirm: 'newcomer-pw-99',
+      code: ${JSON.stringify(shared)},
+    })
+    return JSON.stringify(res)
+  `)
+  check('the team join code creates the account', JSON.parse(createdRes).ok === true, createdRes)
+
+  // Signed in now; the join page is the one joiner. Reload it and it must land
+  // the newcomer INSIDE the team, pointed at the shared containers.
+  await newcomer.goto(`${APP_URL}teams/join?code=${encodeURIComponent(shared)}`)
+  const landed = await newcomer.until(
+    `((await (await import('/src/lib/storage/db.ts')).db.meta.get('activeProjectId'))?.value) === ${JSON.stringify(projectId)}`,
+    25000,
+  )
+  check(`the newcomer lands inside the team (${landed.ms}ms)`, landed.ok, 'never adopted the team project')
+
+  const roster = await newcomer.evaluate(`
+    const { listProjectMembers } = await import('/src/lib/sync/supabase/projects.ts')
+    const rows = await listProjectMembers(${JSON.stringify(projectId)})
+    return JSON.stringify(rows.map(r => r.email).sort())
+  `)
+  check('and appears on the team roster', roster.includes(newcomerEmail), roster)
 } catch (err) {
   failures++
   console.log(`    FAIL harness — ${err.message}`)
 } finally {
   await host?.close()
   await guest?.close()
+  await newcomer?.close()
   if (projectId) await acc.sql(`delete from public.shared_projects where project_id = '${projectId}'`)
+  // The newcomer was created through the signup function, not the accounts
+  // helper, so it needs its own cleanup.
+  if (newcomerEmail) await acc.sql(`delete from auth.users where email = '${newcomerEmail}'`)
   await acc.destroy()
 }
 

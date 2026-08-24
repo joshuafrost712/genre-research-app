@@ -266,12 +266,12 @@ export function AccountDialog() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && canSubmit && !busy) void submit()
                     }}
-                    placeholder="Invite code"
+                    placeholder="Team code or invite code"
                     className={FIELD}
                   />
                   <p className="text-xs text-gray-500">
-                    The invite code came in the email that pointed you here. It is four words and a
-                    three-digit number.
+                    Your team's join code works here (three words and a number). So does the invite
+                    code from your email.
                   </p>
                 </>
               )}

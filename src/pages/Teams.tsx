@@ -27,6 +27,8 @@ import { switchToProject } from '../lib/sync/adopt'
 import { syncEngine } from '../lib/sync/engine'
 import { openAccountDialog } from '../components/account/dialogStore'
 import { useTeam } from '../components/TeamProvider'
+import { OneCodeJoin } from '../components/team/OneCodeJoin'
+import { ImportWork } from '../components/team/ImportWork'
 import { TeamNameField } from '../components/team/TeamNameField'
 import { TeamMembers } from '../components/team/TeamMembers'
 import { JoinCodeRow } from '../components/team/JoinCodeRow'
@@ -67,16 +69,25 @@ export function Teams() {
       <div className="mx-auto max-w-2xl p-4">
         <h1 className="text-xl font-semibold">Team</h1>
         <p className="mt-3 text-sm text-gray-600">
-          Sign in first. Working in a team works with any email address; nothing here needs
-          Google.
+          Your team code does everything: it creates your account and puts you in the team.
+          Connecting Google Drive is not signing in — it only saves a backup copy.
         </p>
-        <button
-          type="button"
-          onClick={() => openAccountDialog('signin')}
-          className="mt-3 rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
-        >
-          Sign in
-        </button>
+        <div className="mt-4 rounded-lg border border-gray-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-gray-900">New here? Start with the code</h2>
+          <div className="mt-3">
+            <OneCodeJoin />
+          </div>
+        </div>
+        <p className="mt-4 text-sm text-gray-600">
+          Already have an account?{' '}
+          <button
+            type="button"
+            onClick={() => openAccountDialog('signin')}
+            className="font-medium text-sky-700 underline"
+          >
+            Sign in
+          </button>
+        </p>
       </div>
     )
   }
@@ -173,6 +184,11 @@ export function Teams() {
                     <JoinCodeRow code={current.joinCode ?? ''} />
                   </div>
                 </div>
+                <ImportWork
+                  targetId={current.projectId}
+                  teamName={current.named ? current.name : 'this team'}
+                  onImported={after}
+                />
               </div>
             ) : (
               <div className="space-y-2">

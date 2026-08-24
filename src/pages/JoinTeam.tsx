@@ -16,6 +16,9 @@ import { useSupabaseSession } from '../lib/supabase/session'
 import { joinAndAdopt } from '../lib/sync/team'
 import { syncEngine } from '../lib/sync/engine'
 import { openAccountDialog } from '../components/account/dialogStore'
+import { OneCodeJoin } from '../components/team/OneCodeJoin'
+import { ImportWork } from '../components/team/ImportWork'
+import { listImportSources } from '../lib/team/importWork'
 import { isNamedProject } from '../lib/storage/appState'
 
 type State = 'idle' | 'joining' | 'joined' | 'error'
@@ -29,6 +32,8 @@ export function JoinTeam() {
   const code = (params.get('code') ?? '').trim()
   const [state, setState] = useState<State>('idle')
   const [message, setMessage] = useState<string | null>(null)
+  const [joinedId, setJoinedId] = useState<string | null>(null)
+  const [canImport, setCanImport] = useState(false)
   // A re-render must not fire a second join for the same code.
   const attempted = useRef(false)
 
@@ -40,12 +45,18 @@ export function JoinTeam() {
       const res = await joinAndAdopt(code)
       reload()
       syncEngine.syncNow()
-      setState('joined')
       // A team published before names existed still has the placeholder sitting
       // in `shared_projects.name`, and "Opening Untitled project" is the exact
       // sentence that made people doubt they had joined the right thing.
       setMessage(isNamedProject(res.name) ? res.name : 'your team')
-      setTimeout(() => navigate('/'), 1200)
+      setJoinedId(res.projectId)
+      // The one moment "bring my earlier work in" is most wanted: they just
+      // arrived and their days of solo answers are a worksheet away. Only when
+      // there is actually something to bring — otherwise straight to work.
+      const sources = await listImportSources(res.projectId)
+      setCanImport(sources.length > 0)
+      setState('joined')
+      if (sources.length === 0) setTimeout(() => navigate('/'), 1200)
     } catch (e) {
       setState('error')
       setMessage(e instanceof Error ? e.message : 'Could not join.')
@@ -85,28 +96,29 @@ export function JoinTeam() {
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-md p-6 text-center">
-        <h1 className="text-lg font-semibold">Sign in to join</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          You are joining <code className="rounded bg-gray-100 px-1">{code}</code>. Any email
-          address works.
+      <div className="mx-auto max-w-md p-6">
+        <h1 className="text-center text-lg font-semibold">
+          Joining <code className="rounded bg-gray-100 px-1">{code}</code>
+        </h1>
+        <p className="mt-2 text-center text-sm text-gray-600">
+          This code also creates your account — pick an email and password and you are in.
         </p>
-        <div className="mt-4 flex justify-center gap-2">
+        <div className="mt-4">
+          {/* onCreated is a deliberate no-op: once the account signs in, `user`
+              appears and this page's own effect runs the one join. A second
+              joiner here would race it. */}
+          <OneCodeJoin code={code} onCreated={() => {}} />
+        </div>
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Already have an account?{' '}
           <button
             type="button"
             onClick={() => openAccountDialog('signin')}
-            className="rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
+            className="font-medium text-sky-700 underline"
           >
             Sign in
           </button>
-          <button
-            type="button"
-            onClick={() => openAccountDialog('create')}
-            className="rounded border border-sky-300 px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-50"
-          >
-            Create an account
-          </button>
-        </div>
+        </p>
       </div>
     )
   }
@@ -119,11 +131,28 @@ export function JoinTeam() {
           <p className="mt-2 text-sm text-gray-600">Bringing the team's work onto this device.</p>
         </>
       )}
-      {state === 'joined' && (
+      {state === 'joined' && !canImport && (
         <>
           <h1 className="text-lg font-semibold">You are in</h1>
           <p className="mt-2 text-sm text-gray-600">Opening {message}.</p>
         </>
+      )}
+      {state === 'joined' && canImport && joinedId && (
+        <div className="text-left">
+          <h1 className="text-center text-lg font-semibold">You are in {message}</h1>
+          <div className="mt-4">
+            <ImportWork targetId={joinedId} teamName={message ?? 'this team'} />
+          </div>
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700"
+            >
+              Go to the worksheet
+            </button>
+          </div>
+        </div>
       )}
       {state === 'error' && (
         <>

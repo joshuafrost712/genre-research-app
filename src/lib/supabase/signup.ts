@@ -71,7 +71,7 @@ export async function createAccount(input: NewAccount): Promise<SignInResult> {
   if (input.password !== input.confirm) {
     return { ok: false, error: 'The two passwords do not match.' }
   }
-  if (!code) return { ok: false, error: 'Enter the invite code from your email.' }
+  if (!code) return { ok: false, error: 'Enter your team code (or the invite code from your email).' }
 
   let res: Response
   try {
