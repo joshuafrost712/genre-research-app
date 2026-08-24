@@ -165,17 +165,19 @@ export async function joinProject(code: string): Promise<JoinedProject> {
 /**
  * Publish every local project worth syncing.
  *
- * "Worth syncing" excludes the bare starter every device makes for itself on
- * first run (appState.ensureActiveProject). Publishing those indiscriminately
- * fills an account with one "Untitled project" per browser the person has ever
- * opened, and it does something worse than clutter: an empty published project
- * competes for the device's attention with the real one. That is precisely how a
- * passage typed in Safari reached Chrome and stayed invisible there.
+ * "Worth syncing" excludes the bare pre-gate starters old devices made for
+ * themselves on first run. Publishing those indiscriminately fills an account
+ * with one "Untitled project" per browser the person has ever opened, and it
+ * does something worse than clutter: an empty published project competes for
+ * the device's attention with the real one. That is precisely how a passage
+ * typed in Safari reached Chrome and stayed invisible there.
  *
- * So there is no `includeEmptyActive` escape hatch any more. A brand-new account
- * simply publishes nothing until its owner does something, which costs nothing:
- * the moment they name a passage or type an answer, `publishActiveIfWorked`
- * catches it on the very next cycle.
+ * A project created through the onboarding gate carries a culture/language
+ * scope, which counts as work (substance.ts): declaring it was a deliberate
+ * act, and the scope has to reach the cloud to reach the person's other
+ * devices. So there is no `includeEmptyActive` escape hatch any more. A
+ * brand-new account publishes nothing until its owner does something — and
+ * creating a scoped project IS doing something.
  */
 export async function publishOwnProjects(): Promise<number> {
   if (!supabase) return 0

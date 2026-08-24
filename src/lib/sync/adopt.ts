@@ -4,14 +4,15 @@
  * This is the least obvious part of cloud sync and the easiest to get wrong in a
  * way that looks like sync being broken.
  *
- * Every device auto-creates its own starter project, focus text, genre and
- * worksheet on first run (appState.ensureActiveProject / ensureActiveContext),
- * and the pointers naming which of those is "active" live in the Dexie `meta`
- * table, which is NOT replicated. So a second device pulls your real project
- * down perfectly and then carries on showing you the empty starter it made a
- * moment earlier. Rows arrived, the status chip is green, and your work is
- * invisible. Adoption is what closes that gap: after a pull, point the device at
- * the project that actually has the work in it.
+ * The pointers naming which project/containers are "active" live in the Dexie
+ * `meta` table, which is NOT replicated. So a second device can pull your real
+ * project down perfectly and carry on showing whatever it was pointed at (or,
+ * behind the onboarding gate, nothing at all). Rows arrived, the status chip is
+ * green, and your work is invisible. Adoption is what closes that gap: after a
+ * pull, point the device at the project that actually has the work in it.
+ * (Until 2026-08 every device also auto-created its own empty starter on first
+ * run — the onboarding gate replaced that, so a fresh device now adopts from a
+ * blank slate; a scoped-but-empty project counts as work, see substance.ts.)
  *
  * The same move serves joining a team, where the shared project's container ids
  * come back from `join_project` rather than being guessed.

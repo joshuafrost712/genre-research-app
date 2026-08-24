@@ -26,6 +26,8 @@ interface Row {
   entries: number
   /** The passages in it, which is how a person actually tells two apart. */
   passages: string[]
+  /** Culture/language declared for it (onboarding gate or Team page). */
+  scoped: boolean
 }
 
 export function ProjectPicker({ onDone }: { onDone?: () => void }) {
@@ -58,13 +60,16 @@ export function ProjectPicker({ onDone }: { onDone?: () => void }) {
         passages: (await db.focusTexts.where('project_id').equals(p.id).toArray())
           .map((f) => (f.reference ?? '').trim())
           .filter((r) => r && r !== 'Untitled focus text'),
+        scoped: Boolean((p.culture ?? '').trim() || (p.language ?? '').trim()),
       })),
     )
-    // Bare starters are hidden unless you are standing in one. Every browser
-    // makes one, and listing them turns a two-item menu into a wall of
-    // identically-named projects with nothing in them.
+    // Legacy bare starters are hidden unless you are standing in one: every
+    // pre-gate browser made one, and listing them turns a two-item menu into a
+    // wall of identically-named empties. A scoped project stays listed even
+    // with no answers yet — the gate made the person create it, so hiding it
+    // would read as the app discarding it.
     const worth = withCounts.filter(
-      (r) => r.id === active || r.entries > 0 || r.passages.length > 0,
+      (r) => r.id === active || r.entries > 0 || r.passages.length > 0 || r.scoped,
     )
     worth.sort((a, b) => b.entries - a.entries || b.passages.length - a.passages.length)
     setRows(worth)
