@@ -68,10 +68,15 @@ export async function setActiveProject(id: string): Promise<void> {
 export const UNNAMED_PROJECT = 'Untitled project'
 
 /**
- * Returns the active project, creating a starter one on first run so the app is
- * usable immediately.
+ * Returns the active project, or adopts the most recently updated one if the
+ * active pointer is stale. Returns null when no project exists at all: first
+ * run no longer mints a starter here — the OnboardingGate blocks until the
+ * person either joins a team or creates a scoped project via
+ * `createScopedProject`. (Until 2026-08, this function silently created an
+ * 'Untitled project' instead, which is why every Psalms-workshop worksheet was
+ * indistinguishable.)
  */
-export async function ensureActiveProject(): Promise<Project> {
+export async function resolveActiveProject(): Promise<Project | null> {
   const activeId = await getActiveProjectId()
   if (activeId) {
     const existing = await db.projects.get(activeId)
@@ -84,9 +89,41 @@ export async function ensureActiveProject(): Promise<Project> {
     return first
   }
 
+  return null
+}
+
+/** Trim, collapse inner whitespace, cap at 40 so the composed project name
+ * ("{culture} genres in {language}") fits cleanProjectName's 80-char cap. */
+export function cleanScopeField(value: string): string {
+  return value.replace(/\s+/g, ' ').trim().slice(0, 40)
+}
+
+/**
+ * Create the project the onboarding gate's "Start a new project" path asked
+ * for: scoped to a culture and a language, named by the caller (normally the
+ * composed "{culture} genres in {language}").
+ *
+ * Deliberately NOT pinned: if this person later signs into an account holding
+ * real work, `adoptBestProject` stays free to weigh this project against it.
+ * Re-checks for an existing project inside the call so two racing tabs (or a
+ * pull landing mid-submit) adopt the winner instead of minting a duplicate.
+ */
+export async function createScopedProject(
+  culture: string,
+  language: string,
+  name: string,
+): Promise<Project> {
+  const existing = await db.projects.orderBy('updated_at').last()
+  if (existing) {
+    await setActiveProject(existing.id)
+    return existing
+  }
+
   const project: Project = {
     id: uid(),
-    name: UNNAMED_PROJECT,
+    name: cleanProjectName(name) || UNNAMED_PROJECT,
+    culture: cleanScopeField(culture),
+    language: cleanScopeField(language),
     languages: [],
     team_members: [],
     scope: 'narrow',
@@ -99,6 +136,26 @@ export async function ensureActiveProject(): Promise<Project> {
   await trackUpsert('projects', project)
   await setActiveProject(project.id)
   return project
+}
+
+/**
+ * Set a project's culture/language scope. Local half only: the row replicates
+ * wholesale through the outbox, so there is no server mirror to order against
+ * (unlike renameProject, whose display name also lives in shared_projects).
+ * UI code should call setTeamScope in lib/team/scope.ts, which wraps this.
+ */
+export async function setProjectScope(
+  id: string,
+  culture: string,
+  language: string,
+): Promise<void> {
+  await db.projects.update(id, {
+    culture: cleanScopeField(culture),
+    language: cleanScopeField(language),
+    updated_at: now(),
+  })
+  const updated = await db.projects.get(id)
+  if (updated) await trackUpsert('projects', updated)
 }
 
 /**
@@ -145,8 +202,9 @@ export async function setLastNode(projectId: string, nodeId: string): Promise<vo
  * The active editing context. Entries attach to a container chosen by the node's
  * layer: genre answers to the active Genre, focus-text answers to the active
  * FocusText, synthesis answers to the active TranslationWorksheet (a focus-text
- * and genre pairing). Starter rows are created on first run so capture works
- * immediately; full setup and a genre bank with switching arrive in later steps.
+ * and genre pairing). Starter containers are minted the moment a project exists;
+ * the project itself comes from the onboarding gate (join a team, or create a
+ * scoped project), never silently. Resolves null while no project exists.
  */
 export interface ActiveContext {
   projectId: string
@@ -160,12 +218,23 @@ export interface ActiveContext {
 // interleaved runs each saw "nothing exists yet" and both created starter
 // records / re-ran the inventory migration, duplicating every genre
 // (feedback 2026-07-20 #3/#4).
-let ensureInFlight: Promise<ActiveContext> | null = null
+let ensureInFlight: Promise<ActiveContext | null> | null = null
 
-export function ensureActiveContext(): Promise<ActiveContext> {
+export function ensureActiveContext(): Promise<ActiveContext | null> {
   if (ensureInFlight) return ensureInFlight
-  ensureInFlight = (async () => {
-    const project = await ensureActiveProject()
+  const run = (async () => {
+    const project = await resolveActiveProject()
+    if (!project) {
+      // A null resolve must never be shared: a retry issued right after a
+      // project row lands (gate submit, or a pull mid-resolve) needs a fresh
+      // run, not this one's stale answer. Clearing here, before the promise
+      // settles, is what makes the provider's state-based retry sound.
+      // Unconditional on purpose: while this body runs, this run IS the
+      // registered in-flight promise (callers only ever share it, never
+      // replace it), so there is nothing else to clobber.
+      ensureInFlight = null
+      return null
+    }
     const projectId = project.id
 
     // One-time: promote any genres entered in the old free-text 1A list into real
@@ -178,11 +247,12 @@ export function ensureActiveContext(): Promise<ActiveContext> {
 
     return { projectId, focusTextId: focusText.id, genreId: genre.id, worksheetId: worksheet.id }
   })()
+  ensureInFlight = run
   const clear = () => {
-    ensureInFlight = null
+    if (ensureInFlight === run) ensureInFlight = null
   }
-  ensureInFlight.then(clear, clear)
-  return ensureInFlight
+  run.then(clear, clear)
+  return run
 }
 
 async function ensureActiveFocusText(projectId: string): Promise<FocusText> {

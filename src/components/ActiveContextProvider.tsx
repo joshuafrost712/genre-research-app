@@ -6,6 +6,8 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../lib/storage/db'
 import { ensureActiveContext, type ActiveContext } from '../lib/storage/appState'
 import { onActiveProjectAdopted } from '../lib/sync/adopt'
 
@@ -24,12 +26,18 @@ const Ctx = createContext<Value | null>(null)
  */
 export function ActiveContextProvider({ children }: { children: ReactNode }) {
   const [ctx, setCtx] = useState<ActiveContext | null>(null)
+  // True only after a resolve actually returned null (no project exists yet) —
+  // distinct from the initial "not yet resolved" null, so the retry effect
+  // below cannot fire a spurious reload on every ordinary mount.
+  const [settledEmpty, setSettledEmpty] = useState(false)
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     ensureActiveContext().then((c) => {
-      if (!cancelled) setCtx(c)
+      if (cancelled) return
+      setCtx(c)
+      setSettledEmpty(c === null)
     })
     return () => {
       cancelled = true
@@ -39,10 +47,23 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(() => setTick((t) => t + 1), [])
 
   // Sync can move the active project underneath us: signing in on a fresh device
-  // pulls down real work and adopts it in place of the empty starter this browser
-  // just created. Without re-resolving here, the person keeps staring at the
-  // starter while their answers sit in Dexie one project over.
+  // pulls down real work and adopts it in place of the project this browser
+  // holds. Without re-resolving here, the person keeps staring at the old
+  // project while their answers sit in Dexie one project over.
   useEffect(() => onActiveProjectAdopted(reload), [reload])
+
+  // Behind the onboarding gate, ensureActiveContext resolves null. When the
+  // first project row lands (gate submit, team join's pull, or a signed-in
+  // pull of cloud work), re-resolve so the app becomes usable without a manual
+  // page reload. State-based on purpose, not edge-based on the 0→n count
+  // transition: an edge can be consumed while a stale null-resolving run is
+  // still in flight, which would leave every page on "Loading…" forever.
+  // Cannot spin: once the retry resolves a context, settledEmpty goes false
+  // and the deps stop changing.
+  const projectCount = useLiveQuery(() => db.projects.count())
+  useEffect(() => {
+    if (settledEmpty && (projectCount ?? 0) > 0) reload()
+  }, [settledEmpty, projectCount, reload])
 
   return <Ctx.Provider value={{ ctx, reload }}>{children}</Ctx.Provider>
 }

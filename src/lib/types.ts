@@ -13,6 +13,15 @@ export type RoutingStatus = 'auto' | 'needs_review' | 'confirmed'
 export interface Project {
   id: string
   name: string
+  // The research scope declared at first run (or backfilled later): the culture
+  // whose genres this project documents, and the language under study. Absent on
+  // legacy rows. Free text; capped at 40 chars each so the composed project name
+  // ("{culture} genres in {language}") fits the shared 80-char name cap.
+  culture?: string
+  language?: string
+  // Dead legacy field: written as [] since v1 and never read. Kept because the
+  // whole row replicates through sync_records and stale clients still write it;
+  // removing it would change the replicated row shape for no gain.
   languages: string[]
   team_members: string[]
   scope: ScopeSetting
