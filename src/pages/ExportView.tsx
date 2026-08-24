@@ -18,12 +18,34 @@ export function ExportView() {
   const entries = useAllEntries(ctx)
   const names = useLiveQuery(async (): Promise<ExportNames | null> => {
     if (!ctx) return null
-    const [focusText, genre] = await Promise.all([
+    const [focusText, genre, focusTexts, genres, worksheets] = await Promise.all([
       db.focusTexts.get(ctx.focusTextId),
       db.genres.get(ctx.genreId),
+      db.focusTexts.where('project_id').equals(ctx.projectId).toArray(),
+      db.genres.where('project_id').equals(ctx.projectId).toArray(),
+      db.worksheets.where('project_id').equals(ctx.projectId).toArray(),
     ])
-    return { focusText: focusText?.reference ?? '—', genre: genre?.name ?? '—', mode }
-  }, [ctx?.focusTextId, ctx?.genreId, mode])
+
+    // Every container in the project, by id, so each exported row can name the
+    // passage or genre it actually came from. The export has always covered the
+    // whole project; only the labels were wrong.
+    const containers: Record<string, string> = {}
+    const passageName = new Map(focusTexts.map((f) => [f.id, f.reference]))
+    const genreName = new Map(genres.map((g) => [g.id, g.name]))
+    for (const f of focusTexts) containers[f.id] = f.reference
+    for (const g of genres) containers[g.id] = g.name
+    for (const w of worksheets) {
+      containers[w.id] =
+        `${passageName.get(w.focus_text_id) ?? '—'} × ${genreName.get(w.genre_id) ?? '—'}`
+    }
+
+    return {
+      focusText: focusText?.reference ?? '—',
+      genre: genre?.name ?? '—',
+      mode,
+      containers,
+    }
+  }, [ctx?.projectId, ctx?.focusTextId, ctx?.genreId, mode])
 
   const [sheetState, setSheetState] = useState<
     { status: 'idle' | 'working' } | { status: 'done'; url: string } | { status: 'error'; message: string }
@@ -91,10 +113,12 @@ export function ExportView() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold">Export</h1>
+        {/* The old sentence said "for {passage} × {genre}", which was not true:
+            the export covers every passage and genre in the worksheet. Saying so
+            is the honest version, and now each row names its own. */}
         <p className="mt-1 text-sm text-gray-500">
-          {rows.length} answered cell{rows.length === 1 ? '' : 's'} for{' '}
-          <span className="text-sky-700">{names.focusText}</span> ×{' '}
-          <span className="text-emerald-700">{names.genre}</span>. Works offline, no
+          {rows.length} answered cell{rows.length === 1 ? '' : 's'} from every passage and
+          genre in this worksheet. Each row says which one it belongs to. Works offline, no
           account needed.
         </p>
       </div>

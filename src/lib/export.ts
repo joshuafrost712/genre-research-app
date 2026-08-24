@@ -28,6 +28,20 @@ export interface ExportNames {
   focusText: string
   genre: string
   mode: string
+  /**
+   * Container id -> its own display name, for every passage, genre and pairing in
+   * the project.
+   *
+   * Load-bearing. `buildRows` receives every entry in the PROJECT, not just the
+   * active pairing, and the `container` column used to be labelled from the active
+   * names — so an export of a team with four genres said all four were the one
+   * genre that happened to be open. A facilitator reading the CSV had no way to
+   * see it, which makes it worse than a missing column.
+   *
+   * Optional so the other callers (report model, sheet tabs, tests) keep working;
+   * absent, labelling falls back to the old active-names behaviour.
+   */
+  containers?: Record<string, string>
 }
 
 export interface ExportRow {
@@ -58,6 +72,9 @@ function layerOf(e: Entry): Layer {
 }
 
 function containerLabel(e: Entry, names: ExportNames): string {
+  // The entry's OWN container, whenever the caller supplied the map.
+  const own = names.containers?.[containerIdOf(e)]
+  if (own) return own
   if (e.genre_id) return names.genre
   if (e.focus_text_id) return names.focusText
   return `${names.focusText} × ${names.genre}`

@@ -16,6 +16,7 @@ import { useSupabaseSession } from '../lib/supabase/session'
 import { joinAndAdopt } from '../lib/sync/team'
 import { syncEngine } from '../lib/sync/engine'
 import { openAccountDialog } from '../components/account/dialogStore'
+import { isNamedProject } from '../lib/storage/appState'
 
 type State = 'idle' | 'joining' | 'joined' | 'error'
 
@@ -40,7 +41,10 @@ export function JoinTeam() {
       reload()
       syncEngine.syncNow()
       setState('joined')
-      setMessage(res.name || 'the shared worksheet')
+      // A team published before names existed still has the placeholder sitting
+      // in `shared_projects.name`, and "Opening Untitled project" is the exact
+      // sentence that made people doubt they had joined the right thing.
+      setMessage(isNamedProject(res.name) ? res.name : 'your team')
       setTimeout(() => navigate('/'), 1200)
     } catch (e) {
       setState('error')
@@ -57,7 +61,7 @@ export function JoinTeam() {
       <div className="mx-auto max-w-md p-6 text-center">
         <h1 className="text-lg font-semibold">No code in this link</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Ask the facilitator to send it again, or type the code on the shared worksheets page.
+          Ask the facilitator to send it again, or type the code on the team page.
         </p>
         <button
           type="button"

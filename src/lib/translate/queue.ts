@@ -7,8 +7,15 @@
  * The queue is local-only and deliberately not synced. The translation it produces
  * lands on the Entry, which IS synced, so replicating the request as well would let
  * two devices translate the same answer and pay for the work twice.
+ *
+ * Local-only did NOT mean project-blind, though it was until 2026-08-24. This was
+ * the only store with no project dimension, so on a device belonging to several
+ * teams the pending count mixed them together and the handoff bundle could carry
+ * one team's answers into a Claude session opened for another. Rows now carry
+ * `project_id` and every read is scoped to the active team.
  */
 import { db } from '../storage/db'
+import { getActiveProjectId } from '../storage/appState'
 import { entryTranslation, saveEntryTranslation } from '../storage/entries'
 import { now } from '../util'
 import type { TranslationQueueRow } from '../types'
@@ -47,6 +54,10 @@ export async function enqueueTranslation(args: EnqueueArgs): Promise<void> {
 
   const row: TranslationQueueRow = {
     entry_id: args.entryId,
+    // Stamped from the ENTRY, not from whatever project happens to be active
+    // when this runs: the entry is where the answer actually lives, and the two
+    // can differ if a switch lands between the save and the enqueue.
+    project_id: (await db.entries.get(args.entryId))?.project_id,
     source_text: args.text,
     target_locale: args.targetLocale,
     question: args.question,
@@ -57,13 +68,42 @@ export async function enqueueTranslation(args: EnqueueArgs): Promise<void> {
   await db.translationQueue.add(row)
 }
 
-/** Work waiting to be translated, oldest first. */
+/**
+ * Keep only the rows belonging to the team the device is standing in.
+ *
+ * The filter lives here rather than at the call sites on purpose. The queue is
+ * local-only working state and every caller wants the same thing — this device,
+ * this team — so a parameter would be one more thing a future caller can forget,
+ * and forgetting it means a handoff bundle carrying another team's answers into a
+ * Claude session. A row queued before `project_id` existed is resolved from its
+ * entry rather than dropped, so a queue built this morning still drains.
+ */
+async function forActiveProject(rows: TranslationQueueRow[]): Promise<TranslationQueueRow[]> {
+  const active = await getActiveProjectId()
+  if (!active) return rows
+  const kept: TranslationQueueRow[] = []
+  for (const row of rows) {
+    const projectId = row.project_id ?? (await db.entries.get(row.entry_id))?.project_id
+    if (projectId === active) kept.push(row)
+  }
+  return kept
+}
+
+/** Work waiting to be translated for the current team, oldest first. */
 export async function pendingTranslations(limit = 100): Promise<TranslationQueueRow[]> {
-  return db.translationQueue.where('status').equals('pending').limit(limit).toArray()
+  // Read wider than `limit`, then filter, so a queue holding several teams'
+  // work still yields a full batch for this one.
+  const rows = await db.translationQueue
+    .where('status')
+    .equals('pending')
+    .limit(limit * 4)
+    .toArray()
+  return (await forActiveProject(rows)).slice(0, limit)
 }
 
 export async function pendingCount(): Promise<number> {
-  return db.translationQueue.where('status').equals('pending').count()
+  const rows = await db.translationQueue.where('status').equals('pending').toArray()
+  return (await forActiveProject(rows)).length
 }
 
 /**

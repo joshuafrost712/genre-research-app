@@ -92,6 +92,35 @@ try {
   const containersBefore = await countContainers()
   check('the shared worksheet has containers to adopt', containersBefore > 0, `${containersBefore}`)
 
+  // --- the team gets a name --------------------------------------------------
+  // The Psalms-workshop failure in one line: on the live project all 27 published
+  // worksheets were called "Untitled project", because nothing in the app could
+  // set a name and the team list reads shared_projects.name, which
+  // create_shared_project writes once and never revisits.
+  console.log('==> Facilitator names the team')
+  const TEAM_NAME = `Walak team ${stamp}`
+  await host.evaluate(`
+    const { renameTeam } = await import('/src/lib/team/rename.ts')
+    await renameTeam(${JSON.stringify(projectId)}, ${JSON.stringify(TEAM_NAME)}, { shared: true })
+    return true
+  `)
+  const namedRow = await acc.rest(
+    facilitator,
+    `/rpc/my_projects`,
+    { method: 'POST', body: '{}' },
+  ).then((r) => r.json())
+  check(
+    'the name is stored where every member reads it (shared_projects.name)',
+    Array.isArray(namedRow) && namedRow.some((p) => p.name === TEAM_NAME),
+    JSON.stringify(namedRow?.map?.((p) => p.name)),
+  )
+
+  const chipShows = await host.until(
+    `document.body.innerText.includes(${JSON.stringify(TEAM_NAME)})`,
+    15000,
+  )
+  check('and the facilitator sees it in the header', chipShows.ok, 'name never rendered')
+
   // --- a second person joins by code ----------------------------------------
   console.log('==> Translator: a different account, a different browser, joins by code')
   await guest.goto(APP_URL)
@@ -100,6 +129,13 @@ try {
   // Let the guest's own bootstrap finish first, so the test covers the hard case:
   // joining a team when this browser already made a starter project of its own.
   await sleep(4000)
+
+  // Keep the guest's OWN starter id: switching back to it later is how the drift
+  // banner is provoked, and it is the exact situation ~25 workshop participants
+  // were in without being told.
+  const guestOwnProject = (await guest.readTable('meta')).find(
+    (m) => m.key === 'activeProjectId',
+  )?.value
 
   const joined = await guest.evaluate(`
     const { joinAndAdopt } = await import('/src/lib/sync/team.ts')
@@ -166,6 +202,59 @@ try {
     history.some((h) => h.prev_text === ANSWER && h.source === 'sync-overwrite'),
     `${history.length} history rows`,
   )
+
+  // --- the joiner can tell whose worksheet they are in -----------------------
+  console.log('==> Translator can see which team they are in, and who is on it')
+  await guest.goto(APP_URL)
+  const guestSeesName = await guest.until(
+    `document.body.innerText.includes(${JSON.stringify(TEAM_NAME)})`,
+    15000,
+  )
+  check('the joiner sees the team name, not "Untitled project"', guestSeesName.ok, 'name absent')
+
+  const members = await guest.evaluate(`
+    const { listProjectMembers } = await import('/src/lib/sync/supabase/projects.ts')
+    const rows = await listProjectMembers(${JSON.stringify(projectId)})
+    return JSON.stringify(rows.map(r => r.email).sort())
+  `)
+  check(
+    'and can see who else is on the team',
+    members.includes(facilitator.email) && members.includes(translator.email),
+    members,
+  )
+
+  // A non-member must be refused, loudly. If this filtered to zero rows instead
+  // of raising, a stranger's empty list would be indistinguishable from an empty
+  // team.
+  const strangerBlocked = await guest.evaluate(`
+    const { supabase } = await import('/src/lib/supabase/client.ts')
+    const { error } = await supabase.rpc('project_members_list', {
+      p_project: '00000000-0000-0000-0000-000000000000',
+    })
+    return error ? 'refused' : 'ALLOWED'
+  `)
+  check('a non-member is refused the team list', strangerBlocked === 'refused', strangerBlocked)
+
+  // --- the drift warning ----------------------------------------------------
+  // The quiet, expensive failure: working in your own copy while your team is
+  // elsewhere. Everything saves and syncs, and reaches nobody.
+  console.log('==> Translator switches back to their own worksheet; the app must say so')
+  await guest.evaluate(`
+    const { switchToProject } = await import('/src/lib/sync/adopt.ts')
+    await switchToProject(${JSON.stringify(guestOwnProject)})
+    return true
+  `)
+  await guest.goto(APP_URL)
+  const warned = await guest.until(
+    `document.body.innerText.includes('working in your own worksheet')`,
+    15000,
+  )
+  check('the drift warning appears when they are not in the team', warned.ok, 'no warning shown')
+
+  const offersWayBack = await guest.evaluate(
+    `return document.body.innerText.includes(${JSON.stringify(TEAM_NAME)})`,
+  )
+  check('and it names the team to go back to', offersWayBack === true, 'team not offered')
 } catch (err) {
   failures++
   console.log(`    FAIL harness — ${err.message}`)

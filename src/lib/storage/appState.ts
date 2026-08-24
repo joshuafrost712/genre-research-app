@@ -58,8 +58,18 @@ export async function setActiveProject(id: string): Promise<void> {
 }
 
 /**
+ * The name every project is born with, until somebody names their team.
+ *
+ * Kept as a constant because it is a sentinel as much as a label: the header
+ * chip, the team page and the share button all need to know "this has not been
+ * named yet", and comparing against a loose string literal in five places is how
+ * that check rots.
+ */
+export const UNNAMED_PROJECT = 'Untitled project'
+
+/**
  * Returns the active project, creating a starter one on first run so the app is
- * usable immediately. Full project setup UI arrives in a later build step.
+ * usable immediately.
  */
 export async function ensureActiveProject(): Promise<Project> {
   const activeId = await getActiveProjectId()
@@ -76,7 +86,7 @@ export async function ensureActiveProject(): Promise<Project> {
 
   const project: Project = {
     id: uid(),
-    name: 'Untitled project',
+    name: UNNAMED_PROJECT,
     languages: [],
     team_members: [],
     scope: 'narrow',
@@ -89,6 +99,38 @@ export async function ensureActiveProject(): Promise<Project> {
   await trackUpsert('projects', project)
   await setActiveProject(project.id)
   return project
+}
+
+/**
+ * Name a project, i.e. name a team.
+ *
+ * Writes the local row and syncs it. For a project the cloud knows about, the
+ * team list reads `shared_projects.name` instead, so the caller must also push
+ * the name to the server — see `renameTeam` in lib/team/rename.ts, which is the
+ * function the UI should use. This one is the local half.
+ */
+export async function renameProject(id: string, name: string): Promise<string> {
+  const clean = cleanProjectName(name)
+  if (!clean) return ''
+  await db.projects.update(id, { name: clean, updated_at: now() })
+  const updated = await db.projects.get(id)
+  if (updated) await trackUpsert('projects', updated)
+  return clean
+}
+
+/** Trim, collapse whitespace, cap at 80. Mirrors rename_shared_project in SQL. */
+export function cleanProjectName(name: string): string {
+  return name.replace(/\s+/g, ' ').trim().slice(0, 80)
+}
+
+/**
+ * Whether a project has a name a person chose, as opposed to the placeholder
+ * every project is born with. The placeholder is what made every worksheet in
+ * the Psalms workshop indistinguishable, so several surfaces need to ask.
+ */
+export function isNamedProject(name: string | undefined): boolean {
+  const n = (name ?? '').trim()
+  return n !== '' && n !== UNNAMED_PROJECT
 }
 
 export async function getLastNode(projectId: string): Promise<string | undefined> {

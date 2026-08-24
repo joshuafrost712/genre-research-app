@@ -4,6 +4,7 @@ import { LocaleProvider } from './lib/i18n/LocaleContext'
 import { DepthModeProvider } from './components/DepthModeContext'
 import { ActiveContextProvider } from './components/ActiveContextProvider'
 import { SyncEngineProvider } from './components/SyncEngineProvider'
+import { TeamProvider } from './components/TeamProvider'
 import { TourProvider } from './components/tour/TourProvider'
 import { Dashboard } from './pages/Dashboard'
 import { WorksheetView } from './pages/WorksheetView'
@@ -69,9 +70,14 @@ export default function App() {
       <DepthModeProvider>
         <ActiveContextProvider>
           <SyncEngineProvider>
-            <TourProvider>
-              <RouterProvider router={router} />
-            </TourProvider>
+            {/* Inside ActiveContextProvider (it needs the active project) and
+                outside the router, so the header chip, the drift banner and every
+                page read one answer to "which team am I in". */}
+            <TeamProvider>
+              <TourProvider>
+                <RouterProvider router={router} />
+              </TourProvider>
+            </TeamProvider>
           </SyncEngineProvider>
         </ActiveContextProvider>
       </DepthModeProvider>

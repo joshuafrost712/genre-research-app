@@ -33,6 +33,11 @@ const DEPTH_KEYS: Record<DepthMode, UiKey> = {
 // leaving it English would make a translated worksheet feel like a veneer.
 const QUICK_LINKS: { to: string; key: UiKey; end?: boolean }[] = [
   { to: '/', key: 'nav.home', end: true },
+  // Second, not tenth. At the Psalms workshop this was the last link in the list,
+  // below nine others and above two large collapsible trees, and teams could not
+  // find the feature they had been told to use. Which team you are in is the
+  // second thing anybody needs after Home. Needs a Supabase project.
+  ...(isSupabaseConfigured() ? [{ to: '/teams', key: 'nav.team' as UiKey }] : []),
   { to: '/wizard', key: 'nav.wizard' },
   { to: '/capture', key: 'nav.capture' },
   { to: '/routing', key: 'nav.routing' },
@@ -41,8 +46,6 @@ const QUICK_LINKS: { to: string; key: UiKey; end?: boolean }[] = [
   { to: '/follow-up', key: 'nav.followUp' },
   { to: '/export', key: 'nav.export' },
   { to: '/help', key: 'nav.help' },
-  // Shared worksheets: needs a Supabase project, not a Google account.
-  ...(isSupabaseConfigured() ? [{ to: '/teams', key: 'nav.teams' as UiKey }] : []),
 ]
 
 const WORKSPACE_ACCENT: Record<string, string> = {

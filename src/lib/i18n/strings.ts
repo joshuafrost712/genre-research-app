@@ -35,7 +35,9 @@ const UI = {
   'nav.followUp': { en: 'Follow up', id: 'Tindak lanjut' },
   'nav.export': { en: 'Export', id: 'Ekspor' },
   'nav.help': { en: 'Help', id: 'Bantuan' },
-  'nav.teams': { en: 'Teams', id: 'Tim' },
+  // Singular, and second in the menu rather than last. "Teams" plural read as a
+  // directory of other people's teams; what people want is the one they are in.
+  'nav.team': { en: 'Team', id: 'Tim' },
   'nav.openMenu': { en: 'Open menu', id: 'Buka menu' },
   'nav.progress': { en: 'Progress', id: 'Kemajuan' },
   'nav.depth': { en: 'Depth', id: 'Kedalaman' },
@@ -154,6 +156,43 @@ const UI = {
   'overwrite.view': { en: 'View', id: 'Lihat' },
   'overwrite.dismiss': { en: 'Dismiss', id: 'Tutup' },
   'overwrite.restored': { en: 'Your answer is back.', id: 'Jawaban Anda telah dikembalikan.' },
+
+  // Teams. The workshop failure these exist to fix: every shared worksheet read
+  // "Untitled project", so nobody could tell which team's data they were in, and
+  // several teams gave up on the feature. One word — "team" — is used for it
+  // everywhere now; the menu, the header and the page used to say three different
+  // things. Team NAMES themselves are free text in whatever language people type.
+  'team.nameless': { en: 'Team with no name yet', id: 'Tim yang belum diberi nama' },
+  'team.solo': { en: 'Just you — not shared', id: 'Hanya Anda — belum dibagikan' },
+  'team.people': { en: '{n} people', id: '{n} orang' },
+  // The bare noun, for the header chip: on a phone it shows "· 4" and the word
+  // only appears once there is room for it.
+  'team.peopleWord': { en: 'people', id: 'orang' },
+  'team.justYou': { en: 'just you', id: 'hanya Anda' },
+  'team.openTeamPage': { en: 'Open the team page', id: 'Buka halaman tim' },
+
+  // The drift warning. This is the one Joshua asked for by name: nobody should be
+  // unsure whether their typing reaches the team or a private copy.
+  'team.driftTitle': {
+    en: 'You are working in your own worksheet.',
+    id: 'Anda sedang bekerja di lembar kerja pribadi Anda.',
+  },
+  'team.driftBody': {
+    en: 'Nothing you type here reaches your team.',
+    id: 'Apa pun yang Anda tulis di sini tidak sampai ke tim Anda.',
+  },
+  'team.driftOpen': { en: 'Open {name}', id: 'Buka {name}' },
+
+  // Provenance, shown where people add things.
+  'team.belongsTo': {
+    en: 'These passages and genres belong to {name} ({people}). Anything you add here goes to that team.',
+    id: 'Perikop dan genre ini milik {name} ({people}). Apa pun yang Anda tambahkan di sini masuk ke tim itu.',
+  },
+  'team.belongsToSolo': {
+    en: 'These passages and genres are in your own worksheet ({people}). Nothing here is shared with a team.',
+    id: 'Perikop dan genre ini ada di lembar kerja pribadi Anda ({people}). Tidak ada yang dibagikan ke tim.',
+  },
+  'team.addGenreTo': { en: 'Add genre to {name}', id: 'Tambahkan genre ke {name}' },
 } satisfies Record<string, UiEntry>
 
 export type UiKey = keyof typeof UI
