@@ -235,6 +235,96 @@ const UI = {
     id: 'Perikop dan genre ini ada di lembar kerja pribadi Anda ({people}). Tidak ada yang dibagikan ke tim.',
   },
   'team.addGenreTo': { en: 'Add genre to {name}', id: 'Tambahkan genre ke {name}' },
+
+  // First-run onboarding gate. Plain and Google-Translate-robust, like the
+  // tours. Never the word "workspace" for the project/team container — that
+  // word belongs to the Workspace 1/2 methodology phases.
+  'onboard.title': {
+    en: 'Welcome — set up your research',
+    id: 'Selamat datang — siapkan penelitian Anda',
+  },
+  'onboard.lead': {
+    en: 'This app documents the songs, poems, stories and other genres of one culture in one language. Choose how to begin.',
+    id: 'Aplikasi ini mendokumentasikan lagu, puisi, cerita, dan genre lain dari satu budaya dalam satu bahasa. Pilih cara memulai.',
+  },
+  'onboard.joinTeam': { en: 'Join a team', id: 'Gabung tim' },
+  'onboard.joinTeamHint': {
+    en: 'Someone gave you a team code. Joining needs the internet.',
+    id: 'Anda menerima kode tim. Bergabung memerlukan internet.',
+  },
+  'onboard.startProject': { en: 'Start a new project', id: 'Mulai proyek baru' },
+  'onboard.startProjectHint': {
+    en: 'Document the genres of one culture in one language. Works without internet.',
+    id: 'Dokumentasikan genre satu budaya dalam satu bahasa. Bisa tanpa internet.',
+  },
+  'onboard.haveAccount': {
+    en: 'Used this app before on another device? Sign in',
+    id: 'Pernah memakai aplikasi ini di perangkat lain? Masuk',
+  },
+  'onboard.cultureLabel': {
+    en: "Which culture's genres will you document?",
+    id: 'Genre budaya mana yang akan Anda dokumentasikan?',
+  },
+  'onboard.culturePlaceholder': { en: 'Example: Common USA', id: 'Contoh: Jawa pesisir' },
+  'onboard.languageLabel': { en: 'In which language?', id: 'Dalam bahasa apa?' },
+  'onboard.languagePlaceholder': {
+    en: 'Example: American English',
+    id: 'Contoh: bahasa Jawa',
+  },
+  'onboard.nameTemplate': {
+    en: '{culture} genres in {language}',
+    id: 'Genre {culture} dalam bahasa {language}',
+  },
+  'onboard.namePreview': {
+    en: 'Your project will be called: {name}',
+    id: 'Proyek Anda akan bernama: {name}',
+  },
+  'onboard.changeLater': {
+    en: 'You can change this later on the Team page.',
+    id: 'Anda dapat mengubahnya nanti di halaman Tim.',
+  },
+  'onboard.start': { en: 'Start', id: 'Mulai' },
+  'onboard.back': { en: 'Back', id: 'Kembali' },
+  'onboard.enterCode': {
+    en: 'Type your team code',
+    id: 'Ketik kode tim Anda',
+  },
+  'onboard.join': { en: 'Join', id: 'Gabung' },
+  'onboard.offlineJoin': {
+    en: 'No connection right now. Joining a team needs the internet — you can start a project on this device instead.',
+    id: 'Tidak ada koneksi saat ini. Bergabung dengan tim memerlukan internet — Anda bisa mulai proyek di perangkat ini.',
+  },
+  'onboard.checkingCloud': {
+    en: 'Signed in as {email} — looking for work saved to your account…',
+    id: 'Masuk sebagai {email} — mencari pekerjaan yang tersimpan di akun Anda…',
+  },
+  'onboard.signInInstead': {
+    en: 'Already have an account? Sign in',
+    id: 'Sudah punya akun? Masuk',
+  },
+
+  // Culture/language scope fields (Team page + Dashboard backfill card).
+  'scope.cultureLabel': { en: 'Culture', id: 'Budaya' },
+  'scope.languageLabel': { en: 'Language of study', id: 'Bahasa yang diteliti' },
+  'scope.promptTitle': {
+    en: 'Which culture and language is this project about?',
+    id: 'Proyek ini tentang budaya dan bahasa apa?',
+  },
+  'scope.promptBody': {
+    en: 'Naming them helps your team and appears in exports.',
+    id: 'Menamainya membantu tim Anda dan muncul di ekspor.',
+  },
+  'scope.teamScopeHint': {
+    en: 'This team documents {culture} genres in {language}.',
+    id: 'Tim ini mendokumentasikan genre {culture} dalam bahasa {language}.',
+  },
+  'scope.alsoRename': {
+    en: 'Also name the project "{name}"',
+    id: 'Juga beri nama proyek "{name}"',
+  },
+  'scope.save': { en: 'Save', id: 'Simpan' },
+  'scope.later': { en: 'Later', id: 'Nanti' },
+  'scope.saved': { en: 'Saved.', id: 'Tersimpan.' },
 } satisfies Record<string, UiEntry>
 
 export type UiKey = keyof typeof UI
