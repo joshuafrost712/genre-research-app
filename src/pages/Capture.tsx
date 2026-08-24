@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { findNode, routableNodes } from '../lib/content/loader'
 import {
   createCapturedNote,
@@ -6,6 +6,7 @@ import {
   useEntriesForNote,
   useNotes,
 } from '../lib/storage/notes'
+import { getMetaValue, setMetaValue } from '../lib/storage/appState'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import type { CapturedNote } from '../lib/types'
 
@@ -15,11 +16,62 @@ import type { CapturedNote } from '../lib/types'
  * one or more worksheet nodes. Routing is manual for the MVP; the AI proposes it
  * later. Nothing files silently.
  */
+
+/**
+ * Where the in-progress draft is parked between keystrokes.
+ *
+ * This screen used to hold the draft in React state alone, so it reached the
+ * database only when someone tapped "Save note". Everything typed before that
+ * click lived in memory and nowhere else: a crash, a closed tab, a dead battery
+ * or a storage eviction took the whole dictation, and having an account did not
+ * help, because nothing had been written for the account to receive. Every
+ * worksheet field on the other screens has autosaved for months (`AutosaveText`,
+ * 400ms plus a blur flush); the longest single piece of text in the app was the
+ * one place that did not.
+ *
+ * The DRAFT is persisted, not a note. "Nothing files silently" above is still
+ * true: an unsaved draft is working text that reappears where you left it, and it
+ * becomes a `CapturedNote` only when a person says so.
+ *
+ * `AutosaveText` is the wrong tool here despite the overlap — it saves through to
+ * an `Entry`, and a draft is not one yet.
+ */
+const CAPTURE_DRAFT = 'captureDraft'
+const DRAFT_DEBOUNCE_MS = 400
+
 export function Capture() {
   const { ctx } = useActiveContext()
   const notes = useNotes(ctx)
   const [draft, setDraft] = useState('')
   const [activeNote, setActiveNote] = useState<CapturedNote | null>(null)
+  // Until the stored draft has been read, an empty box means "not loaded yet",
+  // not "the person cleared it". Writing before then would erase the very draft
+  // this is meant to restore.
+  const loaded = useRef(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      const saved = await getMetaValue(CAPTURE_DRAFT)
+      if (!alive) return
+      // Only adopt the stored draft if nothing has been typed in the meantime.
+      if (saved) setDraft((current) => (current === '' ? saved : current))
+      loaded.current = true
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  const changeDraft = (next: string) => {
+    setDraft(next)
+    if (!loaded.current) return
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => void setMetaValue(CAPTURE_DRAFT, next), DRAFT_DEBOUNCE_MS)
+  }
 
   if (!ctx) return <p className="text-sm text-gray-400">Loading…</p>
 
@@ -27,6 +79,11 @@ export function Capture() {
     const text = draft.trim()
     if (!text) return
     const note = await createCapturedNote(ctx, text)
+    // Clear the parked draft only after the note exists, and cancel any pending
+    // debounced write first, or a timer that fires a moment later resurrects the
+    // text the person has just filed.
+    clearTimeout(timer.current)
+    await setMetaValue(CAPTURE_DRAFT, '')
     setDraft('')
     setActiveNote(note)
   }
@@ -45,7 +102,15 @@ export function Capture() {
         <textarea
           rows={4}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => changeDraft(e.target.value)}
+          onBlur={() => {
+            // Flush immediately on blur, matching AutosaveText: leaving the field
+            // is the moment a person expects their text to be safe.
+            if (loaded.current) {
+              clearTimeout(timer.current)
+              void setMetaValue(CAPTURE_DRAFT, draft)
+            }
+          }}
           placeholder="Dictate the observation here…"
           className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
         />

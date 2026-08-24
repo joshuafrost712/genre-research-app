@@ -6,6 +6,7 @@ import { AccountMenu } from './AccountMenu'
 import { SyncChip } from './SyncChip'
 import { AccountDialog } from './account/AccountDialog'
 import { SignedOutNotice, LocalOnlyBanner } from './account/SignedOutNotice'
+import { StorageWarning } from './account/StorageWarning'
 import { DeviceOwnerNotice } from './account/DeviceOwnerNotice'
 import { OverwriteToast } from './OverwriteToast'
 import { TeamChip } from './TeamChip'
@@ -43,6 +44,10 @@ export function Layout() {
     <SignedOutNotice />
     <FeedbackHighlight />
     <div key={locale} className="flex h-dvh flex-col bg-gray-50 text-gray-900">
+      {/* First, and above the team banner: "this browser may delete your work" is
+          the most urgent thing the app can say, and it is the one thing nobody
+          told the participant who lost a session's notes in Bali. */}
+      <StorageWarning />
       <LocalOnlyBanner />
       <DeviceOwnerNotice />
       <TeamBanner />
