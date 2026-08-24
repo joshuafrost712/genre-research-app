@@ -4,6 +4,7 @@ import { db } from '../lib/storage/db'
 import { useAllEntries } from '../lib/storage/entries'
 import { buildAiPrompt, buildRows, buildSheetTabs, toCsv, type ExportNames } from '../lib/export'
 import { exportToGoogleSheets, isSheetsConfigured } from '../lib/googleSheets'
+import { BackupPanel } from '../components/account/BackupPanel'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import { useDepthMode } from '../components/DepthModeContext'
 import { useLocale } from '../lib/i18n/LocaleContext'
@@ -57,7 +58,16 @@ export function ExportView() {
   const [bilingual, setBilingual] = useState(true)
 
   if (!ctx || entries === undefined || !names) {
-    return <p className="text-sm text-gray-400">Loading…</p>
+    // The backup renders even here, on purpose. It needs no active context, and
+    // a device stuck on this branch is exactly the device whose owner most needs
+    // a copy of their work — gating the one recovery tool behind the state that
+    // is failing is how a bad afternoon becomes a lost one.
+    return (
+      <div className="flex flex-col gap-6">
+        <p className="text-sm text-gray-400">Loading…</p>
+        <BackupPanel />
+      </div>
+    )
   }
 
   // The paired language is simply the other one, from one shared definition rather
@@ -239,6 +249,8 @@ export function ExportView() {
           Nothing to export yet. Answer some prompts first.
         </p>
       )}
+
+      <BackupPanel />
     </div>
   )
 }

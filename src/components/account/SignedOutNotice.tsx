@@ -23,6 +23,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { useSupabaseSession } from '../../lib/supabase/session'
 import { rememberedAccount } from '../../lib/supabase/accountMemory'
 import { openAccountDialog } from './dialogStore'
+import { useStorageWarning } from './StorageWarning'
 import { useLocale } from '../../lib/i18n/LocaleContext'
 
 const ACK_KEY = 'genre.signedOutAck'
@@ -123,9 +124,14 @@ export function SignedOutNotice() {
 export function LocalOnlyBanner() {
   const lost = useSessionLost()
   const isDismissed = useDismissed()
+  const { show: storageWarned } = useStorageWarning()
   const { t } = useLocale()
 
-  if (!lost || !isDismissed) return null
+  // Stand down when the storage warning is up. Both are amber strips about work
+  // that is only on this device, and that one says everything this one says plus
+  // the risk and the remedy, so showing both stacks two banners and buries the
+  // more urgent message under the milder one.
+  if (!lost || !isDismissed || storageWarned) return null
 
   return (
     <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900 print:hidden">

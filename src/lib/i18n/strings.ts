@@ -133,6 +133,48 @@ const UI = {
   'account.storageProtected': { en: 'protected', id: 'terlindungi' },
   'account.storageBestEffort': { en: 'not guaranteed', id: 'tidak dijamin' },
 
+  // Storage that the browser has not promised to keep. Written after a Bali
+  // participant opened the app from a chat link on an iPhone, typed a session's
+  // notes, and found the app empty: it knew his storage was disposable and had no
+  // way to say so. The copy names the risk and offers the two things that end it,
+  // in the order of least commitment.
+  'storage.atRisk': {
+    en: 'Your work is saved on this phone only. This browser may delete it. Save a backup file, or sign in to keep it safe.',
+    id: 'Pekerjaan Anda hanya tersimpan di ponsel ini. Peramban ini bisa menghapusnya. Simpan berkas cadangan, atau masuk agar tetap aman.',
+  },
+  // Hedged on purpose. The device looks emptied and a mark says work was here,
+  // but the app cannot prove what emptied it, so it must not accuse.
+  'storage.lost': {
+    en: 'Work saved here earlier is not on this device now. This browser may be deleting it. Save a backup file, or sign in to keep your work safe.',
+    id: 'Pekerjaan yang tersimpan sebelumnya sudah tidak ada di perangkat ini. Peramban ini mungkin menghapusnya. Simpan berkas cadangan, atau masuk agar pekerjaan Anda aman.',
+  },
+  'storage.inAppBrowser': {
+    en: 'You are in another app’s browser, which keeps its own separate copy. Tap the ⋯ menu, choose Open in Safari, then Add to Home Screen so your work is kept.',
+    id: 'Anda berada di peramban dalam aplikasi lain, yang menyimpan salinannya sendiri. Ketuk menu ⋯, pilih Buka di Safari, lalu Tambahkan ke Layar Utama agar pekerjaan Anda tersimpan.',
+  },
+  'storage.saveBackup': { en: 'Save backup', id: 'Simpan cadangan' },
+  'storage.saving': { en: 'Saving…', id: 'Menyimpan…' },
+  'storage.saved': { en: 'Backup saved.', id: 'Cadangan tersimpan.' },
+  'storage.signIn': { en: 'Sign in', id: 'Masuk' },
+
+  // The whole-device backup on the Export page.
+  'backup.title': {
+    en: 'Backup of everything on this device',
+    id: 'Cadangan seluruh isi perangkat ini',
+  },
+  'backup.body': {
+    en: 'One file holding every project, passage, genre, answer and note on this device, including projects the export above does not cover. Voice recordings are not included. Keep it somewhere safe, or use it to move your work to another device.',
+    id: 'Satu berkas yang memuat semua proyek, perikop, genre, jawaban, dan catatan di perangkat ini, termasuk proyek yang tidak tercakup ekspor di atas. Rekaman suara tidak disertakan. Simpan di tempat yang aman, atau gunakan untuk memindahkan pekerjaan Anda ke perangkat lain.',
+  },
+  'backup.save': { en: 'Save backup file', id: 'Simpan berkas cadangan' },
+  'backup.restore': { en: 'Restore from a backup file', id: 'Pulihkan dari berkas cadangan' },
+  'backup.restored': { en: 'Restored {n} records.', id: 'Memulihkan {n} catatan.' },
+  'backup.nothing': {
+    en: 'That backup had nothing to restore.',
+    id: 'Tidak ada yang bisa dipulihkan dari cadangan itu.',
+  },
+  'backup.failed': { en: 'Could not restore that file.', id: 'Tidak bisa memulihkan berkas itu.' },
+
   // Handing a device from one person to another.
   'account.switchedTo': {
     en: 'Starting fresh for {email}. The previous account’s work is safe in that account.',
