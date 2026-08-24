@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../src/lib/storage/db'
-import { ensureActiveContext } from '../src/lib/storage/appState'
+import { testContext } from './helpers/context'
 import { entryTranslation, findEntry, upsertEntry } from '../src/lib/storage/entries'
 import { enqueueTranslation, pendingCount, pendingTranslations } from '../src/lib/translate/queue'
 import {
@@ -26,7 +26,7 @@ async function clearDb() {
 }
 
 async function queueOne(text = 'sung only by women at funerals') {
-  const ctx = await ensureActiveContext()
+  const ctx = await testContext()
   const e = await upsertEntry(ctx, NODE, LAYER, { text })
   await enqueueTranslation({ text, targetLocale: 'id', entryId: e.id, question: 'Who takes part?' })
   const [row] = await pendingTranslations()
@@ -119,7 +119,7 @@ describe('importing a Claude reply', () => {
   })
 
   it('applies a multi-item reply and counts each outcome', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const a = await upsertEntry(ctx, 's0.purpose.general', LAYER, { text: 'first answer' })
     const b = await upsertEntry(ctx, 's0.purpose.specific', LAYER, { text: 'second answer' })
     await enqueueTranslation({ text: 'first answer', targetLocale: 'id', entryId: a.id })

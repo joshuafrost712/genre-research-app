@@ -12,7 +12,8 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../src/lib/storage/db'
-import { ensureActiveContext, type ActiveContext } from '../src/lib/storage/appState'
+import { type ActiveContext } from '../src/lib/storage/appState'
+import { testContext } from './helpers/context'
 import { upsertEntry, findEntry, getRowIds, ROWS_KEY } from '../src/lib/storage/entries'
 import { importProjectInto, listImportSources } from '../src/lib/team/importWork'
 import type { Genre } from '../src/lib/types'
@@ -74,7 +75,7 @@ beforeEach(clearDb)
 
 describe('container matching', () => {
   it('merges genres by normalized name instead of creating duplicates', async () => {
-    const target = await ensureActiveContext()
+    const target = await testContext()
     await db.genres.update(target.genreId, { name: '  lullaby ' })
     const src = await makeSource('My worksheet', 'Lullaby')
     await upsertEntry(src.ctx, TABLE, 'genre', { text: 'sung softly' }, 'row1__col1')
@@ -94,7 +95,7 @@ describe('container matching', () => {
   })
 
   it('creates missing genres with deterministic ids so two imports converge', async () => {
-    const target = await ensureActiveContext()
+    const target = await testContext()
     const srcA = await makeSource('A', 'Lament')
     const srcB = await makeSource('B', 'Lament')
     await upsertEntry(srcA.ctx, TABLE, 'genre', { text: 'from A' }, 'ra__c')
@@ -112,7 +113,7 @@ describe('container matching', () => {
   })
 
   it('never matches placeholder names; imports them as their own labelled container', async () => {
-    const target = await ensureActiveContext() // target genre is 'Untitled genre'
+    const target = await testContext() // target genre is 'Untitled genre'
     const src = await makeSource('Bali notes', 'Untitled genre')
     await upsertEntry(src.ctx, TABLE, 'genre', { text: 'real work under a placeholder' }, 'r__c')
 
@@ -134,7 +135,7 @@ describe('container matching', () => {
 
 describe('the append rule', () => {
   it('appends below the team answer with a source marker, exactly once', async () => {
-    const target = await ensureActiveContext()
+    const target = await testContext()
     await upsertEntry(target, SCALAR, 'focusText', { text: 'Team answer.' })
     const src = await makeSource('My worksheet', 'Lullaby', 'Untitled focus text')
     // Same placeholder reference on both sides -> focusTexts merge is blocked by
@@ -157,7 +158,7 @@ describe('the append rule', () => {
   })
 
   it('identical answers are recognized, not appended', async () => {
-    const target = await ensureActiveContext()
+    const target = await testContext()
     await db.focusTexts.update(target.focusTextId, { reference: 'Psalm 13' })
     await upsertEntry(target, SCALAR, 'focusText', { text: 'Same words.' })
     const src = await makeSource('Mine', 'Lullaby', 'Psalm 13')
@@ -170,7 +171,7 @@ describe('the append rule', () => {
   })
 
   it('fills an empty team cell and takes values only when the team has none', async () => {
-    const target = await ensureActiveContext()
+    const target = await testContext()
     await db.focusTexts.update(target.focusTextId, { reference: 'Psalm 13' })
     await upsertEntry(target, SCALAR, 'focusText', { text: '', value: 'kept' })
     const src = await makeSource('Mine', 'Lullaby', 'Psalm 13')
@@ -183,7 +184,7 @@ describe('the append rule', () => {
   })
 
   it('extends cached translations on append instead of dropping them', async () => {
-    const target = await ensureActiveContext()
+    const target = await testContext()
     await db.focusTexts.update(target.focusTextId, { reference: 'Psalm 13' })
     await upsertEntry(target, SCALAR, 'focusText', { text: 'Team answer.' })
     await upsertEntry(target, SCALAR, 'focusText', { translations: { id: 'Jawaban tim.' } })
@@ -198,7 +199,7 @@ describe('the append rule', () => {
 
 describe('tables and rows', () => {
   it('unions row order so imported table rows are visible, once', async () => {
-    const target = await ensureActiveContext()
+    const target = await testContext()
     await db.genres.update(target.genreId, { name: 'Lullaby' })
     // The team already has one row.
     await upsertEntry(target, TABLE, 'genre', { value: JSON.stringify(['t-row']) }, ROWS_KEY)
@@ -221,7 +222,7 @@ describe('tables and rows', () => {
 
 describe('safety rails', () => {
   it('dry run counts exactly what the real run does and writes nothing', async () => {
-    const target = await ensureActiveContext()
+    const target = await testContext()
     await db.focusTexts.update(target.focusTextId, { reference: 'Psalm 13' })
     await upsertEntry(target, SCALAR, 'focusText', { text: 'Team answer.' })
     const src = await makeSource('Mine', 'Lament', 'Psalm 13')
@@ -240,7 +241,7 @@ describe('safety rails', () => {
   })
 
   it('skips (and counts) entries whose worksheet node no longer exists', async () => {
-    const target = await ensureActiveContext()
+    const target = await testContext()
     await db.focusTexts.update(target.focusTextId, { reference: 'Psalm 13' })
     const src = await makeSource('Mine', 'Lullaby', 'Psalm 13')
     await upsertEntry(src.ctx, 'node.that.never.existed', 'focusText', { text: 'orphan' })
@@ -251,7 +252,7 @@ describe('safety rails', () => {
   })
 
   it('lists only projects that hold real work, never the team itself', async () => {
-    const target = await ensureActiveContext()
+    const target = await testContext()
     const empty = await makeSource('Empty one')
     const busy = await makeSource('Busy one')
     await upsertEntry(busy.ctx, TABLE, 'genre', { text: 'something' }, 'r__c')

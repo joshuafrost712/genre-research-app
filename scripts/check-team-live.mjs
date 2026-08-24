@@ -34,15 +34,57 @@ const check = (name, ok, detail = '') => {
   if (!ok) failures++
 }
 
-/** Click the first button whose visible text matches. */
-const clickButton = (page, pattern) =>
+/** Click the first button whose visible text matches. Scoped to <main> by
+ * default so a full-screen overlay (the onboarding gate) can never capture a
+ * click aimed at the page. */
+const clickButton = (page, pattern, scope = 'main') =>
   page.evaluate(`
-    const el = [...document.querySelectorAll('button')]
+    const root = document.querySelector(${JSON.stringify(scope)}) || document
+    const el = [...root.querySelectorAll('button')]
       .find(b => ${pattern}.test(b.textContent || ''))
     if (!el) return 'not-found'
     el.click()
     return 'clicked'
   `)
+
+/**
+ * Drive the first-run onboarding gate's "Start a new project" path, the way a
+ * real person would, so the rest of the scenario runs on a normal page. Returns
+ * 'no-gate' when the gate is not up (a project already exists), 'passed' when
+ * the gate was filled in and dismissed itself.
+ */
+const passGate = async (page, culture, language) => {
+  const up = await page.until(`Boolean(document.querySelector('[data-onboarding-gate]'))`, 8000)
+  if (!up.ok) return 'no-gate'
+  const chose = await page.evaluate(`
+    const root = document.querySelector('[data-onboarding-gate]')
+    const btn = [...root.querySelectorAll('button')].find(b => /Start a new project/i.test(b.textContent || ''))
+    if (!btn) return 'no-start-choice'
+    btn.click()
+    return 'chose'
+  `)
+  if (chose !== 'chose') return chose
+  const filled = await page.evaluate(`
+    const root = document.querySelector('[data-onboarding-gate]')
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+    const fill = (id, v) => {
+      const input = root.querySelector('#' + id)
+      if (!input) return false
+      setter.call(input, v)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      return true
+    }
+    if (!fill('onboard-culture', ${JSON.stringify(culture)})) return 'no-culture-field'
+    if (!fill('onboard-language', ${JSON.stringify(language)})) return 'no-language-field'
+    const start = [...root.querySelectorAll('button')].find(b => /^Start$/.test((b.textContent || '').trim()))
+    if (!start || start.disabled) return 'start-unavailable'
+    start.click()
+    return 'submitted'
+  `)
+  if (filled !== 'submitted') return filled
+  const gone = await page.until(`!document.querySelector('[data-onboarding-gate]')`, 8000)
+  return gone.ok ? 'passed' : 'gate-stuck'
+}
 
 const acc = await accounts(REF, PAT)
 const stamp = Date.now().toString(36)
@@ -125,6 +167,11 @@ try {
   console.log('==> Facilitator opens Shared worksheets and reads the code')
   await host.goto(APP_URL)
   await host.signIn(REF, facilitator.session)
+  await host.goto(APP_URL, 3000)
+  // The facilitator's project was seeded to their cloud account: the sign-in
+  // pull must land it, adopt it, and take the first-run gate down on its own.
+  const hostGate = await host.until(`!document.querySelector('[data-onboarding-gate]')`, 25000)
+  check(`the pulled project dismisses the first-run gate (${hostGate.ms}ms)`, hostGate.ok)
   await host.goto(`${APP_URL}teams`, 5000)
 
   const teamsText = await host.evaluate(`return document.body.innerText`)
@@ -145,10 +192,17 @@ try {
   console.log(`==> Translator types ${code} into the join form`)
   await guest.goto(APP_URL)
   await guest.signIn(REF, translator.session)
+  await guest.goto(APP_URL, 3000)
+  // A brand-new account holds nothing, so the first-run gate is up. Walk its
+  // "Start a new project" path the way a translator with solo work would; the
+  // join then happens from the Teams page as before, which keeps this the
+  // drift-state rehearsal it always was.
+  const gateResult = await passGate(guest, 'Budaya penerjemah', 'Bahasa uji')
+  check('the translator passes the first-run gate', gateResult === 'passed' || gateResult === 'no-gate', String(gateResult))
   await guest.goto(`${APP_URL}teams`, 5000)
 
   const typed = await guest.evaluate(`
-    const input = [...document.querySelectorAll('input')]
+    const input = [...(document.querySelector('main') || document).querySelectorAll('input')]
       .find(i => /summit|code/i.test(i.placeholder || ''))
     if (!input) return 'no-input'
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set

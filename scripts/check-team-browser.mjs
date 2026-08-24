@@ -59,7 +59,13 @@ try {
 
   projectId = await host.evaluate(`
     const { upsertEntry } = await import('/src/lib/storage/entries.ts')
-    const { ensureActiveContext } = await import('/src/lib/storage/appState.ts')
+    const { createScopedProject, ensureActiveContext } = await import('/src/lib/storage/appState.ts')
+    const { db } = await import('/src/lib/storage/db.ts')
+    // The onboarding gate replaced the auto-starter: seed the scoped project
+    // its Start panel would create, or ensureActiveContext resolves null.
+    if ((await db.projects.count()) === 0) {
+      await createScopedProject('Budaya fasilitator', 'Bahasa uji', 'Budaya fasilitator genres in Bahasa uji')
+    }
     const ctx = await ensureActiveContext()
     await upsertEntry(ctx, 'team-check', 'genre', { text: ${JSON.stringify(ANSWER)} })
     return ctx.projectId
@@ -127,13 +133,23 @@ try {
   await guest.goto(APP_URL)
   await guest.signIn(REF, translator.session)
   await guest.goto(APP_URL)
-  // Let the guest's own bootstrap finish first, so the test covers the hard case:
-  // joining a team when this browser already made a starter project of its own.
+  // The auto-starter is gone (onboarding gate), so create the guest's own solo
+  // project the way the gate's Start panel would. The test still covers the
+  // hard case: joining a team when this browser already holds a project of its
+  // own — the drift state the rest of the scenario depends on.
+  await guest.evaluate(`
+    const { createScopedProject } = await import('/src/lib/storage/appState.ts')
+    const { db } = await import('/src/lib/storage/db.ts')
+    if ((await db.projects.count()) === 0) {
+      await createScopedProject('Budaya penerjemah', 'Bahasa uji', 'Budaya penerjemah genres in Bahasa uji')
+    }
+    return 1
+  `)
   await sleep(4000)
 
-  // Keep the guest's OWN starter id: switching back to it later is how the drift
-  // banner is provoked, and it is the exact situation ~25 workshop participants
-  // were in without being told.
+  // Keep the guest's OWN solo project id: switching back to it later is how the
+  // drift banner is provoked, and it is the exact situation ~25 workshop
+  // participants were in without being told.
   const guestOwnProject = (await guest.readTable('meta')).find(
     (m) => m.key === 'activeProjectId',
   )?.value

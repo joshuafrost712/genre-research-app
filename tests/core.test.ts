@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../src/lib/storage/db'
-import { ensureActiveContext } from '../src/lib/storage/appState'
+import { testContext } from './helpers/context'
 import {
   addRow,
   findEntry,
@@ -34,7 +34,7 @@ describe('Entry CRUD + container resolution', () => {
   beforeEach(clearDb)
 
   it('saves a scalar focus-text answer to the focus-text container', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await upsertEntry(ctx, 's0.purpose.general', 'focusText', { text: 'to encourage' })
     const e = await findEntry(ctx, 's0.purpose.general', 'focusText')
     expect(e?.text).toBe('to encourage')
@@ -43,7 +43,7 @@ describe('Entry CRUD + container resolution', () => {
   })
 
   it('adds and removes repeatable rows, cascading cell deletes', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const rowId = await addRow(ctx, 's1b.inventory', 'genre')
     await upsertEntry(ctx, 's1b.inventory', 'genre', { text: 'Sung lament' }, `${rowId}__genreName`)
     expect(await getRowIds(ctx, 's1b.inventory', 'genre')).toEqual([rowId])
@@ -56,7 +56,7 @@ describe('Entry CRUD + container resolution', () => {
   })
 
   it('not-applicable flag persists', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await setBlockNotApplicable(ctx, 's2a.how', 'genre', true)
     expect((await findEntry(ctx, 's2a.how', 'genre'))?.is_not_applicable).toBe(true)
   })
@@ -66,7 +66,7 @@ describe('Capture + routing', () => {
   beforeEach(clearDb)
 
   it('routes a note into a scalar field and records provenance', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const note = await createCapturedNote(ctx, 'Performed only at funerals')
     const node = findNode('s2a.how')!.node
     await routeNoteToNode(ctx, note, node)
@@ -76,7 +76,7 @@ describe('Capture + routing', () => {
   })
 
   it('routes a note into a repeatable list as a new item', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const note = await createCapturedNote(ctx, 'Ask the song leader')
     // s1a.whom is a plain repeatable_list. (s1a.inventory is now a genre_bank —
     // genres are managed as entities in 1A, not routed into as list entries.)
@@ -93,7 +93,7 @@ describe('Progress + export', () => {
   beforeEach(clearDb)
 
   it('counts answered against the visible set and exports tidy rows', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await upsertEntry(ctx, 's0.purpose.general', 'focusText', { text: 'to encourage' })
     await upsertEntry(ctx, 's0.purpose.broad_genre', 'focusText', { value: 'lament' })
     await setBlockNotApplicable(ctx, 's2a.how', 'genre', true)
@@ -151,7 +151,7 @@ describe('AI routing (GitHub / copy-paste, no API)', () => {
   })
 
   it('imports Claude placements as needs_review, then confirms and discards', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const reply = JSON.stringify({
       results: [
         {

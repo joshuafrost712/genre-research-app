@@ -73,17 +73,46 @@ try {
   await browser.signIn(REF, ada.session)
   await browser.goto(APP_URL, 4000)
 
-  // A passage typed into the starter project this browser made for itself. This
-  // is what turns an empty starter into "work", and therefore into something
-  // publishAtiveIfWorked will carry up to the account.
+  // The onboarding gate replaced the auto-starter: a fresh browser holds no
+  // project until a person creates one. Seed the scoped project the gate's
+  // Start panel would have written (the exact shape createScopedProject +
+  // trackUpsert write), then the passage that turns it into "work" — which is
+  // what publishActiveIfWorked will carry up to the account.
   await browser.evaluate(`
-    const active = await new Promise((resolve) => {
+    let active = await new Promise((resolve) => {
       const req = indexedDB.open('genre-research')
       req.onsuccess = () => {
         const all = req.result.transaction('meta','readonly').objectStore('meta').getAll()
         all.onsuccess = () => resolve((all.result.find(m => m.key === 'activeProjectId') || {}).value)
       }
     })
+    if (!active) {
+      active = crypto.randomUUID()
+      await new Promise((resolve) => {
+        const req = indexedDB.open('genre-research')
+        req.onsuccess = () => {
+          const tx = req.result.transaction(['projects','outbox','meta'],'readwrite')
+          const project = {
+            id: active,
+            name: 'Budaya uji genres in Bahasa uji',
+            culture: 'Budaya uji',
+            language: 'Bahasa uji',
+            languages: [], team_members: [], scope: 'narrow',
+            config_version: '1', is_sensitive: false,
+            created_at: ${JSON.stringify(nowIso)}, updated_at: ${JSON.stringify(nowIso)},
+          }
+          tx.objectStore('projects').put(project)
+          // Field names match src/lib/sync/types.ts OutboxRow ('table'/'recordId'),
+          // which is what push.ts dedups and sends on.
+          tx.objectStore('outbox').add({
+            table: 'projects', recordId: active, op: 'upsert',
+            project_id: active, updated_at: ${JSON.stringify(nowIso)}, data: project,
+          })
+          tx.objectStore('meta').put({ key: 'activeProjectId', value: active })
+          tx.oncomplete = () => resolve(1)
+        }
+      })
+    }
     await new Promise((resolve) => {
       const req = indexedDB.open('genre-research')
       req.onsuccess = () => {

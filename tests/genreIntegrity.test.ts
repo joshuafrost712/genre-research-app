@@ -4,10 +4,12 @@ import { db } from '../src/lib/storage/db'
 import {
   createGenre,
   deleteGenre,
+  createScopedProject,
   ensureActiveContext,
   ensureWorksheetFor,
   mergeGenres,
 } from '../src/lib/storage/appState'
+import { testContext } from './helpers/context'
 import { upsertEntry } from '../src/lib/storage/entries'
 import { duplicatePairs, editDistance, findDuplicate } from '../src/lib/genreNames'
 
@@ -57,7 +59,7 @@ describe('delete + merge genres', () => {
   beforeEach(clearDb)
 
   it('deleteGenre removes the genre, its answers, and its worksheets', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const g = await createGenre(ctx.projectId, 'Doomed genre')
     const gctx = { ...ctx, genreId: g.id }
     await upsertEntry(gctx, 's1b.content', 'genre', { text: 'about endings' })
@@ -75,7 +77,7 @@ describe('delete + merge genres', () => {
   })
 
   it('mergeGenres moves non-conflicting answers and keeps the survivor on conflicts', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const keep = await createGenre(ctx.projectId, 'Lullaby')
     const fold = await createGenre(ctx.projectId, 'Lullabye')
     await upsertEntry({ ...ctx, genreId: keep.id }, 's1b.content', 'genre', { text: 'keeper answer' })
@@ -100,11 +102,38 @@ describe('delete + merge genres', () => {
 describe('starter-record race guard (feedback 2026-07-20 #3/#4)', () => {
   beforeEach(clearDb)
 
-  it('concurrent ensureActiveContext calls share one run and create one starter set', async () => {
+  it('resolves null and creates nothing while no project exists', async () => {
+    // The onboarding gate owns first-run: neither resolve call may mint a
+    // project or starter containers on its own.
     const [a, b] = await Promise.all([ensureActiveContext(), ensureActiveContext()])
-    expect(a.genreId).toBe(b.genreId)
-    expect(a.focusTextId).toBe(b.focusTextId)
+    expect(a).toBeNull()
+    expect(b).toBeNull()
+    expect(await db.projects.count()).toBe(0)
+    expect(await db.genres.count()).toBe(0)
+    expect(await db.focusTexts.count()).toBe(0)
+  })
+
+  it('concurrent calls share one run and create one starter set once a project exists', async () => {
+    await createScopedProject('Test culture', 'Test language', 'Test culture genres in Test language')
+    const [a, b] = await Promise.all([ensureActiveContext(), ensureActiveContext()])
+    expect(a).not.toBeNull()
+    expect(a!.genreId).toBe(b!.genreId)
+    expect(a!.focusTextId).toBe(b!.focusTextId)
     expect(await db.genres.count()).toBe(1)
     expect(await db.focusTexts.count()).toBe(1)
+  })
+
+  it('a resolve issued after a project lands never inherits a stale null', async () => {
+    // Regression for the null-run single-flight fix: a run that will resolve
+    // null must not stay registered as the shared in-flight promise, or a
+    // retry issued after the first project row lands (gate submit, pull)
+    // would inherit its stale null and the app would sit on "Loading…".
+    const inFlight = ensureActiveContext()
+    await createScopedProject('Test culture', 'Test language', 'Test culture genres in Test language')
+    await inFlight // may be null (stale run) or a context, depending on timing
+    const retry = await ensureActiveContext()
+    expect(retry).not.toBeNull()
+    expect(await db.projects.count()).toBe(1)
+    expect(await db.genres.count()).toBe(1)
   })
 })

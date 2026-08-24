@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../src/lib/storage/db'
-import { ensureActiveContext } from '../src/lib/storage/appState'
+import { testContext } from './helpers/context'
 import { addRow, setBlockNotApplicable, upsertEntry } from '../src/lib/storage/entries'
 import { buildRows, type ExportNames } from '../src/lib/export'
 import { buildReportModel } from '../src/lib/report/model'
@@ -27,7 +27,7 @@ describe('buildReportModel', () => {
   beforeEach(clearDb)
 
   it('groups answers into sections/subsections/questions with a title block', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await upsertEntry(ctx, 's0.purpose.general', 'focusText', { text: 'to encourage' })
     const entries = await db.entries.where('project_id').equals(ctx.projectId).toArray()
 
@@ -47,7 +47,7 @@ describe('buildReportModel', () => {
   })
 
   it('marks not-applicable questions', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await setBlockNotApplicable(ctx, 's2a.how', 'genre', true)
     const rowId = await addRow(ctx, 's3a.features', 'genre')
     await upsertEntry(ctx, 's3a.features', 'genre', { text: 'Refrain repetition' }, `${rowId}__featureName`)
@@ -63,7 +63,7 @@ describe('buildReportModel', () => {
   })
 
   it('shapes a grid question with columns and rows', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const rowId = await addRow(ctx, 's0.genre_choice.candidates', 'synthesis')
     await upsertEntry(ctx, 's0.genre_choice.candidates', 'synthesis', { text: 'Sung lament' }, `${rowId}__name`)
 
@@ -80,7 +80,7 @@ describe('buildReportModel', () => {
   })
 
   it('renders a non-empty .docx blob from the model', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await upsertEntry(ctx, 's0.purpose.general', 'focusText', { text: 'to encourage' })
     const entries = await db.entries.where('project_id').equals(ctx.projectId).toArray()
     const model = buildReportModel(buildRows(entries, names), names, meta)

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../src/lib/storage/db'
-import { ensureActiveContext } from '../src/lib/storage/appState'
+import { testContext } from './helpers/context'
 import { saveEntryTranslation, upsertEntry } from '../src/lib/storage/entries'
 import { buildRows, toCsv, type ExportNames } from '../src/lib/export'
 import { buildReportModel } from '../src/lib/report/model'
@@ -30,7 +30,7 @@ describe('bilingual export', () => {
   })
 
   it('leaves a monolingual export exactly as it was', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     const entries = await db.entries.toArray()
 
@@ -43,7 +43,7 @@ describe('bilingual export', () => {
   })
 
   it('pairs the question in both languages', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     const entries = await db.entries.toArray()
 
@@ -59,7 +59,7 @@ describe('bilingual export', () => {
   })
 
   it("keeps the team's own words as the answer and the translation as the pair", async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const e = await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     await saveEntryTranslation(e.id, 'id', 'untuk menguatkan')
     const entries = await db.entries.toArray()
@@ -73,7 +73,7 @@ describe('bilingual export', () => {
   })
 
   it('emits bilingual CSV columns beside the ones they pair with', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const e = await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     await saveEntryTranslation(e.id, 'id', 'untuk menguatkan')
     const entries = await db.entries.toArray()
@@ -85,7 +85,7 @@ describe('bilingual export', () => {
   })
 
   it('leaves answerAlt empty when an answer has no translation yet', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     const entries = await db.entries.toArray()
 
@@ -97,7 +97,7 @@ describe('bilingual export', () => {
   })
 
   it('carries the pair through to the report model the Word and PDF renderers share', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const e = await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     await saveEntryTranslation(e.id, 'id', 'untuk menguatkan')
     const entries = await db.entries.toArray()

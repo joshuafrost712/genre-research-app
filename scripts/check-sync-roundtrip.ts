@@ -77,6 +77,10 @@ function project(): Project {
   return {
     id: PROJECT_ID,
     name: 'Round-trip project',
+    // The scope fields ride the replicated row wholesale (no server columns),
+    // so the round-trip is the proof they reach another device at all.
+    culture: 'Budaya uji',
+    language: 'Bahasa uji',
     languages: ['id'],
     team_members: [],
     scope: 'narrow',
@@ -156,7 +160,13 @@ try {
     arrived?.text === 'Saya menulis jawaban ini di Bali',
     JSON.stringify(arrived?.text),
   )
-  check('B has the project row too', (await db.projects.get(PROJECT_ID))?.name === 'Round-trip project')
+  const bProject = await db.projects.get(PROJECT_ID)
+  check('B has the project row too', bProject?.name === 'Round-trip project')
+  check(
+    'and the culture/language scope survived the round-trip',
+    bProject?.culture === 'Budaya uji' && bProject?.language === 'Bahasa uji',
+    `culture=${bProject?.culture} language=${bProject?.language}`,
+  )
   check(`B pulled in under 5s (${ms}ms)`, ms < 5000)
 
   // ------------------------------------------------- B edits, A sees it back

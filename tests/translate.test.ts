@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../src/lib/storage/db'
-import { ensureActiveContext } from '../src/lib/storage/appState'
+import { testContext } from './helpers/context'
 import { entryTranslation, findEntry, upsertEntry } from '../src/lib/storage/entries'
 import {
   completeTranslation,
@@ -116,7 +116,7 @@ describe('deferred translation queue', () => {
   })
 
   it('queues one row per entry and locale, idempotently', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const e = await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     const args = { text: 'to encourage', targetLocale: 'id' as const, entryId: e.id }
     await enqueueTranslation(args)
@@ -127,7 +127,7 @@ describe('deferred translation queue', () => {
   })
 
   it('replaces a queued request when the answer has since been rewritten', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const e = await upsertEntry(ctx, NODE, LAYER, { text: 'first' })
     await enqueueTranslation({ text: 'first', targetLocale: 'id', entryId: e.id })
     await enqueueTranslation({ text: 'second', targetLocale: 'id', entryId: e.id })
@@ -137,7 +137,7 @@ describe('deferred translation queue', () => {
   })
 
   it('applies a completed translation to the entry', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const e = await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     await enqueueTranslation({ text: 'to encourage', targetLocale: 'id', entryId: e.id })
     const [row] = await pendingTranslations()
@@ -148,7 +148,7 @@ describe('deferred translation queue', () => {
   })
 
   it('refuses to apply a translation of text the team has since replaced', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const e = await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     await enqueueTranslation({ text: 'to encourage', targetLocale: 'id', entryId: e.id })
     const [row] = await pendingTranslations()
@@ -162,7 +162,7 @@ describe('deferred translation queue', () => {
   })
 
   it('drops work whose entry has been deleted', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const e = await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     await enqueueTranslation({ text: 'to encourage', targetLocale: 'id', entryId: e.id })
     const [row] = await pendingTranslations()
@@ -171,7 +171,7 @@ describe('deferred translation queue', () => {
   })
 
   it('retries a few times then gives up', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const e = await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     await enqueueTranslation({ text: 'to encourage', targetLocale: 'id', entryId: e.id })
     const [row] = await pendingTranslations()
@@ -186,7 +186,7 @@ describe('deferred translation queue', () => {
   })
 
   it('prunes work that is already done or no longer needed', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const done = await upsertEntry(ctx, NODE, LAYER, { text: 'to encourage' })
     await enqueueTranslation({ text: 'to encourage', targetLocale: 'id', entryId: done.id })
     const [row] = await pendingTranslations()

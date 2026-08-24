@@ -240,7 +240,13 @@ try {
   // and merge rules are all the real ones.
   const wrote = await A.evaluate(`
     const { upsertEntry } = await import('/src/lib/storage/entries.ts')
-    const { ensureActiveContext } = await import('/src/lib/storage/appState.ts')
+    const { createScopedProject, ensureActiveContext } = await import('/src/lib/storage/appState.ts')
+    const { db } = await import('/src/lib/storage/db.ts')
+    // The onboarding gate replaced the auto-starter: seed the scoped project
+    // its Start panel would create, or ensureActiveContext resolves null.
+    if ((await db.projects.count()) === 0) {
+      await createScopedProject('Budaya uji', 'Bahasa uji', 'Budaya uji genres in Bahasa uji')
+    }
     const ctx = await ensureActiveContext()
     await upsertEntry(ctx, 'browser-check', 'genre', { text: ${JSON.stringify(ANSWER)} })
     return ctx.projectId

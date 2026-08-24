@@ -13,12 +13,12 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../src/lib/storage/db'
 import {
   cleanProjectName,
-  ensureActiveContext,
   isNamedProject,
   renameProject,
   setActiveProject,
   UNNAMED_PROJECT,
 } from '../src/lib/storage/appState'
+import { testContext } from './helpers/context'
 import { upsertEntry } from '../src/lib/storage/entries'
 import { enqueueTranslation, pendingCount, pendingTranslations } from '../src/lib/translate/queue'
 import { buildTranslationBundle } from '../src/lib/translate/handoff'
@@ -43,7 +43,7 @@ async function clearDb() {
 
 /** A second team on the same device: its own project, its own containers. */
 async function makeSecondTeam() {
-  const first = await ensureActiveContext()
+  const first = await testContext()
   const second = crypto.randomUUID()
   await db.projects.put({
     id: second,
@@ -57,23 +57,35 @@ async function makeSecondTeam() {
     updated_at: new Date().toISOString(),
   })
   await setActiveProject(second)
-  const secondCtx = await ensureActiveContext()
+  const secondCtx = await testContext()
   return { first, second: secondCtx }
 }
 
 describe('a project can be named', () => {
   beforeEach(clearDb)
 
-  it('starts unnamed, and the placeholder is recognised as "not named"', async () => {
-    const ctx = await ensureActiveContext()
+  it('a new project is born named after its scope, and reads as named', async () => {
+    // The onboarding gate composes the name from culture + language, so the
+    // Psalms-workshop failure (every team indistinguishable as 'Untitled
+    // project') can no longer happen on a fresh install.
+    const ctx = await testContext()
     const project = await db.projects.get(ctx.projectId)
-    expect(project?.name).toBe(UNNAMED_PROJECT)
-    // The whole workshop failure in one assertion: every team looked like this.
-    expect(isNamedProject(project?.name)).toBe(false)
+    expect(project?.name).toBe('Test culture genres in Test language')
+    expect(isNamedProject(project?.name)).toBe(true)
+    expect(project?.culture).toBe('Test culture')
+    expect(project?.language).toBe('Test language')
+  })
+
+  it('the legacy placeholder is still recognised as "not named"', () => {
+    // Existing installs still hold pre-gate 'Untitled project' rows; several
+    // surfaces (share button, backfill card) key off this check.
+    expect(isNamedProject(UNNAMED_PROJECT)).toBe(false)
+    expect(isNamedProject('')).toBe(false)
+    expect(isNamedProject('Walak team')).toBe(true)
   })
 
   it('renames, bumps updated_at, and reports itself named', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const before = (await db.projects.get(ctx.projectId))!.updated_at
 
     await renameProject(ctx.projectId, '  Walak   team  ')
@@ -93,10 +105,10 @@ describe('a project can be named', () => {
   })
 
   it('refuses a blank name rather than storing one', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await renameProject(ctx.projectId, '   ')
     const project = await db.projects.get(ctx.projectId)
-    expect(project?.name).toBe(UNNAMED_PROJECT)
+    expect(project?.name).toBe('Test culture genres in Test language')
   })
 })
 
@@ -133,7 +145,7 @@ describe('the translation queue belongs to one team', () => {
   })
 
   it('still drains rows queued before project_id existed', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     const e = await upsertEntry(ctx, NODE, LAYER, { text: 'queued this morning' })
     // A row from the previous build: no project_id on it at all.
     await db.translationQueue.add({

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../src/lib/storage/db'
-import { ensureActiveContext } from '../src/lib/storage/appState'
+import { testContext } from './helpers/context'
 import { findEntry, upsertEntry, upsertEntryWithHistory } from '../src/lib/storage/entries'
 import { macroDecisions } from '../src/lib/content/sectionRecall'
 import {
@@ -118,7 +118,7 @@ describe('version history (recover lost information)', () => {
   })
 
   it('records the prior value on change and supports restore', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await upsertEntry(ctx, 's2b.organization', 'genre', { text: 'call, verses, blessing' })
     // First history-recording edit stores the old value.
     await upsertEntryWithHistory(ctx, 's2b.organization', 'genre', { text: 'verses only' })
@@ -142,7 +142,7 @@ describe('version history (recover lost information)', () => {
   })
 
   it('does not record history for unchanged or first writes', async () => {
-    const ctx = await ensureActiveContext()
+    const ctx = await testContext()
     await upsertEntryWithHistory(ctx, 's2b.music', 'genre', { text: 'one tune per line' })
     await upsertEntryWithHistory(ctx, 's2b.music', 'genre', { text: 'one tune per line' })
     expect(await db.history.count()).toBe(0)
