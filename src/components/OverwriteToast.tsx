@@ -18,6 +18,7 @@ import { subscribeOverwrites, type OverwriteNotice } from '../lib/sync/notices'
 import { restoreEntryText } from '../lib/storage/entries'
 import { findNode, navTree } from '../lib/content/loader'
 import { useLocale } from '../lib/i18n/LocaleContext'
+import { useActiveContext } from './ActiveContextProvider'
 
 /** How long a notice stays up before it stops being useful and starts being noise. */
 const DISMISS_MS = 12_000
@@ -53,16 +54,24 @@ export function OverwriteToast() {
   const [restored, setRestored] = useState(false)
   const { t } = useLocale()
   const navigate = useNavigate()
+  const { ctx } = useActiveContext()
+  const activeProjectId = ctx?.projectId
 
   useEffect(
     () =>
       subscribeOverwrites((n) => {
+        // Only for the team you are looking at. The sync engine merges EVERY
+        // project this account belongs to on the same cycle, so without this a
+        // teammate editing team A pops a toast over team B's worksheet — showing
+        // team A's answer text, with an Undo that writes back into team A. That is
+        // the one thing a person in a workshop cannot be asked to reason about.
+        if (activeProjectId && n.projectId && n.projectId !== activeProjectId) return
         // Newest wins the slot. A burst of merges is one event to a person, and a
         // stack of toasts over the worksheet would hide the work it is about.
         setRestored(false)
         setNotice(n)
       }),
-    [],
+    [activeProjectId],
   )
 
   useEffect(() => {

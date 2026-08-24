@@ -48,7 +48,12 @@ export function SyncChip() {
         type="button"
         onClick={() => openAccountDialog('signin')}
         title={t('sync.localOnlyDetail')}
-        className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-800"
+        // Hidden on phones, deliberately: at 390px this chip pushed the header's
+        // "Sign in" button off the screen — the one control that fixes the state
+        // it warns about. The narrow header still says it twice: the amber team
+        // chip on the second row reads "Just you — not shared", and the Sign in
+        // button is the remedy, now visible.
+        className="hidden shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-800 sm:flex"
       >
         <span className="font-medium">{t('sync.localOnly')}</span>
       </button>

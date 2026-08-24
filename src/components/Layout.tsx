@@ -8,6 +8,8 @@ import { AccountDialog } from './account/AccountDialog'
 import { SignedOutNotice, LocalOnlyBanner } from './account/SignedOutNotice'
 import { DeviceOwnerNotice } from './account/DeviceOwnerNotice'
 import { OverwriteToast } from './OverwriteToast'
+import { TeamChip } from './TeamChip'
+import { TeamBanner } from './TeamBanner'
 import { BetaWelcome } from './beta/BetaWelcome'
 import { FeedbackHighlight } from './feedback/FeedbackHighlight'
 import { GenreNameProvider } from './GenreNameProvider'
@@ -43,25 +45,42 @@ export function Layout() {
     <div key={locale} className="flex h-dvh flex-col bg-gray-50 text-gray-900">
       <LocalOnlyBanner />
       <DeviceOwnerNotice />
-      <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 print:hidden">
-        <button
-          type="button"
-          className="rounded p-2 hover:bg-gray-100 lg:hidden"
-          onClick={() => setDrawerOpen(true)}
-          aria-label={t('nav.openMenu')}
-        >
-          <span className="block h-0.5 w-5 bg-gray-700" />
-          <span className="mt-1 block h-0.5 w-5 bg-gray-700" />
-          <span className="mt-1 block h-0.5 w-5 bg-gray-700" />
-        </button>
-        <Link to="/" className="font-semibold">
-          Local Genres Research
-        </Link>
-        <div className="ml-auto flex min-w-0 items-center gap-2">
+      <TeamBanner />
+      {/* Two rows on a phone, one on a laptop.
+          At 390px a single row could not hold the brand, the team, the passage ×
+          genre, sync, language and the account menu: the passage and genre were
+          silently squeezed out of existence, which is the opposite of the point.
+          Both must be legible on the device most of the workshop actually uses, so
+          narrow screens get a dedicated context strip and the brand stops wrapping
+          to three lines. */}
+      <header className="border-b border-gray-200 bg-white print:hidden">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <button
+            type="button"
+            className="shrink-0 rounded p-2 hover:bg-gray-100 lg:hidden"
+            onClick={() => setDrawerOpen(true)}
+            aria-label={t('nav.openMenu')}
+          >
+            <span className="block h-0.5 w-5 bg-gray-700" />
+            <span className="mt-1 block h-0.5 w-5 bg-gray-700" />
+            <span className="mt-1 block h-0.5 w-5 bg-gray-700" />
+          </button>
+          <Link to="/" className="min-w-0 truncate font-semibold">
+            Local Genres Research
+          </Link>
+          <div className="ml-auto flex min-w-0 items-center gap-2">
+            {/* Before the sync chip: "which team" is a more urgent question than
+                "is it saved", and it is the one nothing used to answer. */}
+            <TeamChip className="hidden sm:flex" />
+            <ContextBar className="hidden sm:flex" />
+            <SyncChip />
+            <LanguageSwitcher />
+            <AccountMenu />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 border-t border-gray-100 px-4 py-1.5 sm:hidden">
+          <TeamChip />
           <ContextBar />
-          <SyncChip />
-          <LanguageSwitcher />
-          <AccountMenu />
         </div>
       </header>
 

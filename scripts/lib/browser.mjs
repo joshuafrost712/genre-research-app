@@ -12,7 +12,7 @@
  * checks exist to prove is fixed.
  */
 import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -115,6 +115,32 @@ export async function launch(label, { headful = process.env.HEADFUL === '1' } = 
         if (Date.now() - started > timeoutMs) return { ok: false, value: v, ms: Date.now() - started }
         await sleep(everyMs)
       }
+    },
+
+    /**
+     * Pretend to be a phone.
+     *
+     * Most of the people this app is built for are on one, and the header is
+     * where the team indicator lives — the surface most likely to be squeezed.
+     * A layout claim about mobile that was checked at 1200px is not a claim.
+     */
+    async emulate({ width = 390, height = 844, scale = 2 } = {}) {
+      await send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: scale,
+        mobile: width < 768,
+      })
+    },
+
+    /** PNG to disk, so an appearance claim can be looked at rather than asserted. */
+    async screenshot(path, { fullPage = false } = {}) {
+      const { data } = await send('Page.captureScreenshot', {
+        format: 'png',
+        captureBeyondViewport: fullPage,
+      })
+      writeFileSync(path, Buffer.from(data, 'base64'))
+      return path
     },
 
     /** Plant the session supabase-js would have written, for the reload path. */

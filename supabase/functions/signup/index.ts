@@ -1,5 +1,6 @@
 /**
- * Self-serve account creation, gated by a shared invite code.
+ * Self-serve account creation, gated by a shared invite code OR a team join code
+ * (see isTeamJoinCode for the one-code rationale and its security accounting).
  *
  * Why this exists at all, rather than the client calling `supabase.auth.signUp()`:
  *
@@ -49,6 +50,27 @@ const MAX_EMAIL_LENGTH = 254
 const RATE_LIMIT_PER_WINDOW = 200
 const RATE_WINDOW_MS = 10 * 60_000
 
+/**
+ * A separate, much tighter bucket for join-code lookups only. The invite code is
+ * checked locally in constant time and costs nothing; a join-code guess costs a
+ * PostgREST round trip and, before 2026-08-24, was not possible at all without a
+ * signed-in session. Thirty per IP per window is a whole table of people
+ * mistyping, and a rounding error against the ~2^29 code space. The invite-code
+ * signups of a busy room never touch this bucket.
+ */
+const JOIN_LOOKUP_LIMIT_PER_WINDOW = 30
+
+/** gen_join_code() emits exactly three lowercase words and three digits. */
+const JOIN_CODE_SHAPE = /^[a-z]+-[a-z]+-[a-z]+-\d{3}$/
+
+/**
+ * A join code opens signup only while its team is recent. Codes never expire for
+ * JOINING (that is deliberate; see the migration), but every team ever published
+ * would otherwise permanently widen the set of codes that can mint accounts, so
+ * the wall would only ever decay. Fourteen days comfortably covers a workshop.
+ */
+const JOIN_CODE_MAX_AGE_DAYS = 14
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type',
@@ -81,18 +103,27 @@ function readiness(): string | null {
  * code is ever shortened, or if this ever guards something worth real money.
  */
 const hits = new Map<string, number[]>()
+const joinHits = new Map<string, number[]>()
 
-function rateLimited(ip: string): boolean {
+function bumpWindow(map: Map<string, number[]>, ip: string, limit: number): boolean {
   const now = Date.now()
   const cutoff = now - RATE_WINDOW_MS
-  const recent = (hits.get(ip) ?? []).filter((t) => t > cutoff)
+  const recent = (map.get(ip) ?? []).filter((t) => t > cutoff)
   recent.push(now)
-  hits.set(ip, recent)
+  map.set(ip, recent)
   // Bound the map so a long-lived isolate cannot grow it without limit.
-  if (hits.size > 500) {
-    for (const [k, v] of hits) if (!v.some((t) => t > cutoff)) hits.delete(k)
+  if (map.size > 500) {
+    for (const [k, v] of map) if (!v.some((t) => t > cutoff)) map.delete(k)
   }
-  return recent.length > RATE_LIMIT_PER_WINDOW
+  return recent.length > limit
+}
+
+function rateLimited(ip: string): boolean {
+  return bumpWindow(hits, ip, RATE_LIMIT_PER_WINDOW)
+}
+
+function joinLookupLimited(ip: string): boolean {
+  return bumpWindow(joinHits, ip, JOIN_LOOKUP_LIMIT_PER_WINDOW)
 }
 
 function clientIp(req: Request): string {
@@ -150,6 +181,49 @@ function looksLikeEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+/**
+ * A TEAM JOIN CODE also opens this door (added 2026-08-24, for the Psalms
+ * workshop). A participant used to need two codes from two channels: the
+ * app-wide invite code to exist, then their team's join code to belong. The one
+ * on the whiteboard is the join code, so it is the one they have.
+ *
+ * Security accounting, so nobody has to redo it: a join code is three words and
+ * a number (~28 bits) against the invite code's four (~36). But the join code
+ * already unlocks the thing worth having — the team's data, via join_project —
+ * so honouring it here adds account creation to a capability it effectively
+ * implied. The throttle above still applies before this lookup runs, and the
+ * invite code keeps working unchanged.
+ *
+ * The lookup is a PostgREST equality match on the normalised code with the
+ * service key. `eq` takes the value verbatim (no pattern operators), and the
+ * URL-encoding below keeps a hostile code from smuggling extra query
+ * parameters. Stored codes come from gen_join_code() already in normal form
+ * (lowercase hyphenated words + digits), so normalise-then-eq is exact. The
+ * response never says which team matched: the same yes/no join_project already
+ * gives, and nothing more.
+ */
+async function isTeamJoinCode(code: string): Promise<boolean> {
+  const oldest = new Date(Date.now() - JOIN_CODE_MAX_AGE_DAYS * 86_400_000).toISOString()
+  const url =
+    `${SUPABASE_URL}/rest/v1/shared_projects?select=project_id` +
+    `&join_code=eq.${encodeURIComponent(code)}` +
+    `&created_at=gte.${encodeURIComponent(oldest)}&limit=1`
+  const res = await fetch(url, {
+    headers: {
+      apikey: SERVICE_ROLE_KEY!,
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+    },
+  })
+  if (!res.ok) {
+    // Fail CLOSED: an unreachable table must read as "not a join code", never
+    // as an open door. The invite-code path is unaffected either way.
+    console.error('signup: join-code lookup failed', res.status)
+    return false
+  }
+  const rows = (await res.json()) as unknown[]
+  return Array.isArray(rows) && rows.length === 1
+}
+
 interface AdminResult {
   status: number
   body: string
@@ -199,14 +273,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const password = typeof body.password === 'string' ? body.password : ''
   const code = typeof body.code === 'string' ? body.code.trim() : ''
 
-  if (!(await secretEquals(normalizeCode(code), normalizeCode(INVITE_CODE!)))) {
-    console.warn('signup: wrong invite code', { ip, email })
-    return json(403, {
-      error:
-        'That invite code is not right. It is four words and a three-digit number — check that none of it is missing.',
-    })
-  }
-
+  // Field validation runs BEFORE any join-code lookup, on purpose. If the code
+  // were checked first, a request carrying only {code} would answer 403 for a
+  // wrong guess and 400 ("enter your name") for a right one — a free oracle that
+  // creates nothing. This way every probe needs a full, valid registration, so a
+  // confirmed guess costs the attacker an account creation, which is loud.
   if (!name) return json(400, { error: 'Enter your name.' })
   if (!email || email.length > MAX_EMAIL_LENGTH || !looksLikeEmail(email)) {
     return json(400, { error: 'Enter a valid email address.' })
@@ -216,6 +287,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   if (new TextEncoder().encode(password).length > MAX_PASSWORD_BYTES) {
     return json(400, { error: 'That password is too long. Use 72 characters or fewer.' })
+  }
+
+  // Invite code first (constant-time, local, free). Only a non-match goes on to
+  // the join-code path, which pays a PostgREST round trip and therefore sits
+  // behind its own tighter throttle plus a shape pre-filter, so malformed
+  // guesses never leave this isolate.
+  const normalized = normalizeCode(code)
+  const wrongCode = () =>
+    json(403, {
+      error:
+        'That code is not right. Use your team code (three words and a number) or the invite code from your email — check that none of it is missing.',
+    })
+  if (!(await secretEquals(normalized, normalizeCode(INVITE_CODE!)))) {
+    if (!JOIN_CODE_SHAPE.test(normalized)) {
+      console.warn('signup: malformed code', { ip, email })
+      return wrongCode()
+    }
+    if (joinLookupLimited(ip)) {
+      return json(429, { error: 'Too many attempts. Wait a few minutes and try again.' })
+    }
+    if (!(await isTeamJoinCode(normalized))) {
+      console.warn('signup: unknown join code', { ip, email })
+      return wrongCode()
+    }
+    // Distinct log line so a code-grinding attempt is visible in function logs.
+    console.log('signup: join-code signup', { ip, email })
   }
 
   let result: AdminResult

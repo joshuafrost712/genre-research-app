@@ -99,6 +99,43 @@ export async function publishProject(projectId: string, name: string): Promise<s
   return data as string
 }
 
+/**
+ * Set the name the whole team sees.
+ *
+ * This has to be a server call, not just a synced `projects` row, because the
+ * team list reads `shared_projects.name` — a column `create_shared_project`
+ * writes once and never touches again. That is why every worksheet in the Psalms
+ * workshop read "Untitled project" no matter what any device did locally.
+ */
+export async function renameSharedProject(projectId: string, name: string): Promise<string> {
+  if (!supabase) throw new Error('Cloud sync is not configured.')
+  const { data, error } = await supabase.rpc('rename_shared_project', {
+    p_project: projectId,
+    p_name: name,
+  })
+  if (error) throw new Error(error.message)
+  invalidateProjectCache()
+  return (data as string) ?? name
+}
+
+export interface TeamMember {
+  user_id: string
+  email: string
+  role: 'owner' | 'member'
+  joined_at: string
+}
+
+/**
+ * Who is on the team. "4 members" cannot answer the question a facilitator
+ * actually has, which is whether the four are the right four.
+ */
+export async function listProjectMembers(projectId: string): Promise<TeamMember[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase.rpc('project_members_list', { p_project: projectId })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as TeamMember[]
+}
+
 export interface JoinedProject {
   project_id: string
   name: string

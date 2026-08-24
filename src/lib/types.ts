@@ -155,6 +155,13 @@ export interface MetaRecord {
 export interface TranslationQueueRow {
   seq?: number
   entry_id: string
+  /**
+   * Which team's work this is. Optional only because rows queued before this
+   * field existed do not have it; readers resolve those from the entry. Without
+   * it the queue was the one store with no project dimension, so a handoff
+   * bundle pasted into Claude could carry another team's answers off-device.
+   */
+  project_id?: string
   /** The answer text at enqueue time; compared on write-back to detect an edit. */
   source_text: string
   target_locale: string

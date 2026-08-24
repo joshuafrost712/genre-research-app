@@ -86,7 +86,18 @@ export async function signInWithPassword(email: string, password: string): Promi
   const clean = email.trim()
   if (!clean || !password) return { ok: false, error: 'Enter your email and password.' }
   const { error } = await supabase.auth.signInWithPassword({ email: clean, password })
-  return error ? { ok: false, error: error.message } : { ok: true }
+  if (!error) return { ok: true }
+  // Supabase's stock wording gives a stuck person nothing to do next. Most
+  // "invalid credentials" at a workshop are someone who never made an account,
+  // so point at the door that fixes that.
+  if (/invalid login credentials/i.test(error.message)) {
+    return {
+      ok: false,
+      error:
+        'That email and password do not match an account here. New to the app? Create an account with your team code.',
+    }
+  }
+  return { ok: false, error: error.message }
 }
 
 /**

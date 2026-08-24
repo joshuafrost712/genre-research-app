@@ -4,7 +4,7 @@ import { db } from '../lib/storage/db'
 import { useActiveContext } from './ActiveContextProvider'
 
 /** Shows what the worksheet is currently editing: active focus text x genre. */
-export function ContextBar() {
+export function ContextBar({ className = '' }: { className?: string }) {
   const { ctx } = useActiveContext()
   const labels = useLiveQuery(async () => {
     if (!ctx) return null
@@ -20,7 +20,7 @@ export function ContextBar() {
   return (
     <Link
       to="/genres"
-      className="flex items-center gap-2 truncate text-xs text-gray-500 hover:text-gray-800"
+      className={`flex min-w-0 items-center gap-2 truncate text-xs text-gray-500 hover:text-gray-800 ${className}`}
       title="Switch focus text or genre"
     >
       <span className="truncate">

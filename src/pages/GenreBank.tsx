@@ -17,6 +17,9 @@ import { useDepthMode } from '../components/DepthModeContext'
 import { useAllEntries } from '../lib/storage/entries'
 import { Tour, ReplayTourButton } from '../components/tour/TourProvider'
 import { GENRES_TOUR, GENRES_TOUR_STEPS } from '../components/tour/tours'
+import { useTeam } from '../components/TeamProvider'
+import { TeamProvenance } from '../components/team/TeamProvenance'
+import { useLocale } from '../lib/i18n/LocaleContext'
 
 /**
  * Genres hub. The genre list is the spine of the work: each genre is a card that
@@ -31,6 +34,15 @@ export function GenreBank() {
   const { mode } = useDepthMode()
   const navigate = useNavigate()
   const entries = useAllEntries(ctx)
+  const { current: team } = useTeam()
+  const { t } = useLocale()
+
+  // Name the destination on the button itself. "Add genre" is where somebody
+  // hesitates; "Add genre to Walak team" is the same click with the doubt removed.
+  const addGenreLabel =
+    team?.shared && team.memberCount > 1 && team.named
+      ? t('team.addGenreTo', { name: team.name })
+      : 'Add genre'
 
   const focusTexts = useLiveQuery(
     async () => (ctx ? await db.focusTexts.where('project_id').equals(ctx.projectId).toArray() : []),
@@ -75,6 +87,14 @@ export function GenreBank() {
         </p>
       </div>
 
+      {/* Where these belong. The app has always filtered passages and genres to
+          the active project, so a Walak genre and an English genre can never
+          appear in one list — but it never SAID so, and an invariant nobody can
+          see is one nobody trusts. Joshua's question was precisely "if I add a
+          genre, am I sure it goes to this team?" This is the answer, at the point
+          of adding rather than in a help page. */}
+      <TeamProvenance />
+
       <EntityList
         title="Passages (the text you are translating)"
         addLabel="Add a passage (e.g. Psalm 13)"
@@ -108,7 +128,7 @@ export function GenreBank() {
             />
           ))}
         </div>
-        <AddRow addLabel="Add genre" onCreate={async (label) => {
+        <AddRow addLabel={addGenreLabel} onCreate={async (label) => {
           await createGenre(ctx.projectId, label)
           reload()
         }} />

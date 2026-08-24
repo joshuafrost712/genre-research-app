@@ -12,7 +12,8 @@
  */
 import { useEffect, useState } from 'react'
 import { db } from '../lib/storage/db'
-import { getActiveProjectId } from '../lib/storage/appState'
+import { getActiveProjectId, isNamedProject } from '../lib/storage/appState'
+import { describePassages } from '../lib/team/describe'
 import { switchToProject } from '../lib/sync/adopt'
 import { listMyProjects, publishProject } from '../lib/sync/supabase/projects'
 import { syncEngine } from '../lib/sync/engine'
@@ -25,13 +26,6 @@ interface Row {
   entries: number
   /** The passages in it, which is how a person actually tells two apart. */
   passages: string[]
-}
-
-/** "Psalm 124, Psalm 1 +3 more" — enough to recognise, short enough to read. */
-function describe(passages: string[]): string {
-  if (passages.length === 0) return 'no passages yet'
-  const shown = passages.slice(0, 2).join(', ')
-  return passages.length > 2 ? `${shown} +${passages.length - 2} more` : shown
 }
 
 export function ProjectPicker({ onDone }: { onDone?: () => void }) {
@@ -48,10 +42,17 @@ export function ProjectPicker({ onDone }: { onDone?: () => void }) {
       user ? listMyProjects(true).catch(() => []) : Promise.resolve([]),
     ])
     const syncedIds = new Set(mine.map((p) => p.project_id))
+    const serverNames = new Map(mine.map((p) => [p.project_id, p.name]))
     const withCounts = await Promise.all(
       projects.map(async (p) => ({
         id: p.id,
-        name: p.name || 'Untitled project',
+        // Same resolution rule as TeamProvider: the server's name is what
+        // everybody else sees, so it wins when it is a real name.
+        name: isNamedProject(serverNames.get(p.id))
+          ? serverNames.get(p.id)!
+          : isNamedProject(p.name)
+            ? p.name
+            : 'No name yet',
         synced: syncedIds.has(p.id),
         entries: await db.entries.where('project_id').equals(p.id).count(),
         passages: (await db.focusTexts.where('project_id').equals(p.id).toArray())
@@ -75,7 +76,10 @@ export function ProjectPicker({ onDone }: { onDone?: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
-  if (!rows || rows.length < 2) return null
+  // Shown even with one project. It used to hide below two, which meant the
+  // account menu said nothing at all about where you were standing — and "nothing
+  // at all" is exactly what the Psalms workshop was left to guess from.
+  if (!rows || rows.length === 0) return null
 
   const choose = async (id: string) => {
     if (id === activeId) return
@@ -106,7 +110,7 @@ export function ProjectPicker({ onDone }: { onDone?: () => void }) {
 
   return (
     <div className="border-t border-gray-100 py-1">
-      <div className="px-3 py-1 text-xs font-medium text-gray-500">Projects</div>
+      <div className="px-3 py-1 text-xs font-medium text-gray-500">Teams &amp; worksheets</div>
       {rows.map((row) => (
         <div key={row.id} className="flex items-center gap-1 px-1">
           <button
@@ -121,7 +125,9 @@ export function ProjectPicker({ onDone }: { onDone?: () => void }) {
               {row.id === activeId ? '✓ ' : ''}
               {row.name}
             </span>
-            <span className="block truncate text-xs text-gray-500">{describe(row.passages)}</span>
+            <span className="block truncate text-xs text-gray-500">
+              {describePassages(row.passages)}
+            </span>
             <span className="block text-xs text-gray-500">
               {row.entries} answer{row.entries === 1 ? '' : 's'}
               {row.synced ? ' · synced' : ' · this device only'}

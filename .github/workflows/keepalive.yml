@@ -41,16 +41,34 @@ jobs:
           fi
 
           # PostgREST's root endpoint: authenticated, counts as project activity,
-          # and reads no rows. `-f` makes an HTTP error a non-zero exit so a
-          # project that has ALREADY paused fails the run loudly instead of
-          # reporting a cheerful green tick every two days while asleep.
-          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+          # and reads no rows.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             "$SUPABASE_URL/rest/v1/")
 
           echo "HTTP $code from $SUPABASE_URL/rest/v1/"
+
+          # 401 and 403 mean AWAKE, and getting that wrong made this workflow cry
+          # wolf every two days from 2026-08-06 to 2026-08-24.
+          #
+          # That is the day the team-sync migration revoked every privilege from
+          # the `anon` role by name, which is the correct posture and is asserted
+          # by scripts/enable-team-sync.sh. A project that answers "permission
+          # denied" has answered: a request reached Postgres, was authenticated,
+          # and was refused on privilege. The activity clock is reset either way,
+          # so the keepalive was still working the whole time; only its verdict
+          # was wrong.
+          #
+          # The cost of the wrong verdict is the thing worth avoiding. A monitor
+          # that fails on every run cannot report the event it exists for, so a
+          # genuine pause would have looked exactly like the eighteen days of
+          # noise before it. A paused project does not answer at all: Supabase
+          # serves a 503 from its edge, and curl reports 000 on a timeout or a
+          # refused connection.
           case "$code" in
-            2*|3*) echo "Project is awake." ;;
-            *) echo "::error::Supabase did not answer normally (HTTP $code) — it may be paused. Restore it from the dashboard."; exit 1 ;;
+            2*|3*)    echo "Project is awake." ;;
+            401|403)  echo "Project is awake (anon is correctly denied; the request still reached Postgres)." ;;
+            000|5*)   echo "::error::Supabase did not answer (HTTP $code) — it may be paused. Restore it from the dashboard."; exit 1 ;;
+            *)        echo "::error::Unexpected response (HTTP $code) from Supabase; check the project."; exit 1 ;;
           esac

@@ -14,6 +14,7 @@ import {
 import { useActiveContext } from '../components/ActiveContextProvider'
 import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 import { useProgress } from '../components/useProgress'
+import { TeamCard } from '../components/team/TeamCard'
 import type { ProgressReport } from '../lib/progress'
 
 /**
@@ -59,6 +60,11 @@ export function Dashboard() {
           Two workspaces: first learn your people's genres, then create with them. Tap any step.
         </p>
       </div>
+
+      {/* Above "working on", because which team owns the work is the outer
+          question: the passage and genre only mean something once you know whose
+          set of them you are looking at. */}
+      <TeamCard />
 
       <WorkingOn passage={labels?.passage} genre={labels?.genre} />
 
