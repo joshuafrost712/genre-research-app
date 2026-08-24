@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Outlet } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { NavShell } from './NavShell'
 import { ContextBar } from './ContextBar'
 import { AccountMenu } from './AccountMenu'
@@ -17,6 +17,7 @@ import { GenreNameProvider } from './GenreNameProvider'
 import { QuickJot } from './QuickJot'
 import { Tour } from './tour/TourProvider'
 import { APP_TOUR, APP_TOUR_STEPS } from './tour/tours'
+import { OnboardingGate, useOnboardingComplete } from './onboarding/OnboardingGate'
 import { DevFeedbackRoot } from '../devfeedback/DevFeedbackRoot'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { useLocale } from '../lib/i18n/LocaleContext'
@@ -28,6 +29,16 @@ import { useLocale } from '../lib/i18n/LocaleContext'
 export function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { locale, t } = useLocale()
+  const onboarded = useOnboardingComplete()
+  const { pathname } = useLocation()
+  // The app tour auto-opens on mount whenever it is unseen (TourProvider), with
+  // no idea what it is opening over. Two moments it must not fire: while the
+  // onboarding gate is up (first project not yet created), and mid-join on
+  // /teams/join — the first project row lands there DURING the join, and the
+  // tour would open on top of the ImportWork decision. Mounting late = opening
+  // late; unmounting resets nothing, so an unseen tour still opens on the next
+  // ordinary route.
+  const tourAllowed = onboarded && pathname !== '/teams/join'
 
   // Keying the shell on the locale remounts the page tree when the language
   // changes. The loader reads the active locale from module state (see
@@ -38,7 +49,8 @@ export function Layout() {
   // focusing the switcher blurs any open field first, which flushes AutosaveText.
   return (
     <GenreNameProvider>
-    <Tour id={APP_TOUR} steps={APP_TOUR_STEPS} />
+    <OnboardingGate />
+    {tourAllowed && <Tour id={APP_TOUR} steps={APP_TOUR_STEPS} />}
     <BetaWelcome />
     <AccountDialog />
     <SignedOutNotice />
