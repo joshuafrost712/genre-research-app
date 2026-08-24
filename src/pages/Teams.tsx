@@ -30,6 +30,7 @@ import { useTeam } from '../components/TeamProvider'
 import { OneCodeJoin } from '../components/team/OneCodeJoin'
 import { ImportWork } from '../components/team/ImportWork'
 import { TeamNameField } from '../components/team/TeamNameField'
+import { ProjectScopeFields } from '../components/team/ProjectScopeFields'
 import { TeamMembers } from '../components/team/TeamMembers'
 import { JoinCodeRow } from '../components/team/JoinCodeRow'
 import { describeMembers, describePassages } from '../lib/team/describe'
@@ -167,6 +168,7 @@ export function Teams() {
         ) : (
           <div className="mt-2 space-y-3">
             <TeamNameField />
+            <ProjectScopeFields />
 
             <p className="text-xs text-gray-600">{describePassages(current.passages)}</p>
 

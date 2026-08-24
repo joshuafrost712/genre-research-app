@@ -15,6 +15,7 @@ import { useActiveContext } from '../components/ActiveContextProvider'
 import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 import { useProgress } from '../components/useProgress'
 import { TeamCard } from '../components/team/TeamCard'
+import { ScopeBackfillCard } from '../components/onboarding/ScopeBackfillCard'
 import type { ProgressReport } from '../lib/progress'
 
 /**
@@ -65,6 +66,8 @@ export function Dashboard() {
           question: the passage and genre only mean something once you know whose
           set of them you are looking at. */}
       <TeamCard />
+
+      <ScopeBackfillCard />
 
       <WorkingOn passage={labels?.passage} genre={labels?.genre} />
 
