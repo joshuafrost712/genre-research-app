@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { findNode, routableNodes } from '../lib/content/loader'
 import {
   createCapturedNote,
+  noteAuthorOf,
   routeNoteToNode,
   useEntriesForNote,
   useNotes,
 } from '../lib/storage/notes'
 import { getMetaValue, setMetaValue } from '../lib/storage/appState'
+import { useSupabaseSession } from '../lib/supabase/session'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import type { CapturedNote } from '../lib/types'
 
@@ -41,6 +43,7 @@ const DRAFT_DEBOUNCE_MS = 400
 
 export function Capture() {
   const { ctx } = useActiveContext()
+  const { user } = useSupabaseSession()
   const notes = useNotes(ctx)
   const [draft, setDraft] = useState('')
   const [activeNote, setActiveNote] = useState<CapturedNote | null>(null)
@@ -78,7 +81,7 @@ export function Capture() {
   const saveNote = async () => {
     const text = draft.trim()
     if (!text) return
-    const note = await createCapturedNote(ctx, text)
+    const note = await createCapturedNote(ctx, text, undefined, noteAuthorOf(user))
     // Clear the parked draft only after the note exists, and cancel any pending
     // debounced write first, or a timer that fires a moment later resurrects the
     // text the person has just filed.

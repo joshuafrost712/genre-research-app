@@ -7,7 +7,16 @@
  *  - A record currently dirty in the local outbox is never overwritten — the
  *    local edit will flush and the global LWW resolves it next round. This is
  *    what keeps a pull from eating local unsynced edits.
- *  - capturedNotes are immutable provenance: insert-once, ignore update/delete.
+ *  - capturedNotes are immutable provenance with exactly one sanctioned mutation,
+ *    archive/restore. Deletes are still ignored. Precedence is PRESENCE-based:
+ *    only archive/restore ever writes `updated_at` onto the row itself, so a row
+ *    carrying it beats a plain row in both directions, and two carrying rows
+ *    LWW between themselves. `updated_at` is never compared against
+ *    `created_at` for this table — `created_at` came from the capturer's clock,
+ *    which in a workshop room may run minutes fast, and that comparison would
+ *    let an old-client replay resurrect an archived note (or stop an archive
+ *    from ever propagating). `raw_text`/`created_at` are always pinned to the
+ *    local copy, so the immutable half stays immutable even against a bad shard.
  *  - Row-order sidecars (`cell_key === '__rows'`) UNION instead of replacing, so
  *    two people adding a table row at once keep both rows rather than one
  *    silently losing theirs.
@@ -22,7 +31,7 @@ import { db } from '../storage/db'
 import { dirtyKeys } from './outbox'
 import { emitOverwrite } from './notices'
 import type { Shard, ShardRecord, SyncTable } from './types'
-import type { Entry } from '../types'
+import type { CapturedNote, Entry } from '../types'
 
 interface Timestamped {
   updated_at?: string
@@ -81,8 +90,22 @@ export async function mergeShards(shards: Shard[]): Promise<void> {
 
     if (rec.table === 'capturedNotes') {
       if (rec.op === 'delete') continue // immutable: never delete provenance
-      const exists = await table.get(id)
-      if (!exists && rec.data) await table.put(rec.data)
+      const local = (await table.get(id)) as CapturedNote | undefined
+      const incoming = rec.data as CapturedNote | undefined
+      if (!local) {
+        if (incoming) await table.put(incoming)
+        continue
+      }
+      // Presence-based archive/restore precedence. NOTE: this reads the row's
+      // own updated_at, not the outbox envelope's (trackUpsert stamps the
+      // envelope with created_at as a fallback, so the envelope always has one).
+      if (!incoming?.updated_at) continue // plain replay: never overwrites anything
+      if (local.updated_at && local.updated_at >= incoming.updated_at) continue
+      await table.put({
+        ...incoming,
+        raw_text: local.raw_text,
+        created_at: local.created_at,
+      })
       continue
     }
 

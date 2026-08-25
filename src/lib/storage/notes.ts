@@ -14,10 +14,29 @@ import type { ActiveContext } from './appState'
 import type { CapturedNote } from '../types'
 import type { GuideNode } from '../../schema/types'
 
+/** Who captured a note. Computed by the caller from the Supabase session. */
+export interface NoteAuthor {
+  id: string
+  label: string
+}
+
+/**
+ * Derive the author stamp from a session user. Kept here (pure, no React) so
+ * QuickJot and Capture stamp identically. Guests/offline return undefined and
+ * the note simply carries no author.
+ */
+export function noteAuthorOf(
+  user: { id: string; email: string; name?: string } | null | undefined,
+): NoteAuthor | undefined {
+  if (!user) return undefined
+  return { id: user.id, label: user.name?.trim() || user.email }
+}
+
 export async function createCapturedNote(
   ctx: ActiveContext,
   rawText: string,
   sourceLanguage?: string,
+  author?: NoteAuthor,
 ): Promise<CapturedNote> {
   const note: CapturedNote = {
     id: uid(),
@@ -25,10 +44,37 @@ export async function createCapturedNote(
     raw_text: rawText,
     source_language: sourceLanguage,
     created_at: now(),
+    author_id: author?.id,
+    author_label: author?.label,
   }
   await db.capturedNotes.put(note)
   await trackUpsert('capturedNotes', note) // insert-once; merge treats notes as immutable
   return note
+}
+
+/**
+ * Archive ("delete" in the UI). The note disappears from pickers and the recent
+ * list but the record stays: entries routed from it keep their provenance, and
+ * the merge rule can never resurrect it from an old client's replay. Stamping
+ * `updated_at` is what gives the row archive/restore precedence in the merge —
+ * see the presence-based rule in sync/merge.ts.
+ */
+export async function dismissCapturedNote(note: CapturedNote): Promise<CapturedNote> {
+  const stamp = now()
+  await db.capturedNotes.update(note.id, { dismissed_at: stamp, updated_at: stamp })
+  const updated = (await db.capturedNotes.get(note.id)) ?? { ...note, dismissed_at: stamp, updated_at: stamp }
+  await trackUpsert('capturedNotes', updated)
+  return updated
+}
+
+/** Undo an archive. Keeps `updated_at`, so a later archive elsewhere still wins. */
+export async function restoreCapturedNote(note: CapturedNote): Promise<CapturedNote> {
+  // Dexie deletes a key set to undefined in update(), which is exactly what we
+  // want: a restored row carries no dismissed_at at all.
+  await db.capturedNotes.update(note.id, { dismissed_at: undefined, updated_at: now() })
+  const updated = (await db.capturedNotes.get(note.id)) ?? note
+  await trackUpsert('capturedNotes', updated)
+  return updated
 }
 
 export function useNotes(ctx: ActiveContext | null): CapturedNote[] | undefined {
@@ -37,6 +83,12 @@ export function useNotes(ctx: ActiveContext | null): CapturedNote[] | undefined 
     const rows = await db.capturedNotes.where('project_id').equals(ctx.projectId).toArray()
     return rows.sort((a, b) => b.created_at.localeCompare(a.created_at))
   }, [ctx?.projectId])
+}
+
+/** Notes the pickers should offer: everything not archived, newest first. */
+export function useActiveNotes(ctx: ActiveContext | null): CapturedNote[] | undefined {
+  const notes = useNotes(ctx)
+  return notes?.filter((n) => !n.dismissed_at)
 }
 
 /** Entries derived from a given note (for showing where a note went). */
