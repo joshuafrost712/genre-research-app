@@ -170,12 +170,19 @@ try {
   await host.goto(APP_URL, 3000)
   // The facilitator's project was seeded to their cloud account: the sign-in
   // pull must land it, adopt it, and take the first-run gate down on its own.
+  // Wait for the shell to render before asserting the gate is absent — an
+  // empty document has no gate either, and that proves nothing.
+  await host.until(`Boolean(document.querySelector('main'))`, 20000)
   const hostGate = await host.until(`!document.querySelector('[data-onboarding-gate]')`, 25000)
   check(`the pulled project dismisses the first-run gate (${hostGate.ms}ms)`, hostGate.ok)
   await host.goto(`${APP_URL}teams`, 5000)
 
+  // There is no auto-starter to paint the page instantly any more: the Team
+  // page reads "Loading…" until the pull lands and adoption points the device
+  // at the seeded project. Wait for it rather than asserting on first paint.
+  const teamsReady = await host.until(`/You are working in/i.test(document.body.innerText)`, 25000)
+  check(`the Team page renders once the pull lands (${teamsReady.ms}ms)`, teamsReady.ok, 'still loading after 25s')
   const teamsText = await host.evaluate(`return document.body.innerText`)
-  check('the Shared worksheets page renders on the deployed build', /Shared worksheets/i.test(teamsText))
   check(
     'and it leads with the one-person-shares rule',
     /One person shares, everyone else joins/i.test(teamsText),
