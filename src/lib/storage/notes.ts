@@ -53,6 +53,25 @@ export async function createCapturedNote(
 }
 
 /**
+ * A stamp guaranteed to sort after `prev`, even when the wall clock says
+ * otherwise. The client merge rule is presence-based, but the SERVER's
+ * push_records still does tuple LWW on the envelope's updated_at — and a plain
+ * jot's envelope carries its created_at from the CAPTURER's clock. If that
+ * clock runs minutes fast (workshop condition, see pull.ts), a bare now() from
+ * a correct clock compares lower, the server skips the DO UPDATE, and the
+ * archive silently never replicates. Bumping past the row's own stamp makes
+ * archive/restore monotone regardless of whose clock is wrong.
+ */
+function stampAfter(prev: string | undefined): string {
+  const current = now()
+  if (!prev) return current
+  const parsed = Date.parse(prev)
+  if (Number.isNaN(parsed)) return current
+  const bumped = new Date(parsed + 1).toISOString()
+  return bumped > current ? bumped : current
+}
+
+/**
  * Archive ("delete" in the UI). The note disappears from pickers and the recent
  * list but the record stays: entries routed from it keep their provenance, and
  * the merge rule can never resurrect it from an old client's replay. Stamping
@@ -60,7 +79,7 @@ export async function createCapturedNote(
  * see the presence-based rule in sync/merge.ts.
  */
 export async function dismissCapturedNote(note: CapturedNote): Promise<CapturedNote> {
-  const stamp = now()
+  const stamp = stampAfter(note.updated_at ?? note.created_at)
   await db.capturedNotes.update(note.id, { dismissed_at: stamp, updated_at: stamp })
   const updated = (await db.capturedNotes.get(note.id)) ?? { ...note, dismissed_at: stamp, updated_at: stamp }
   await trackUpsert('capturedNotes', updated)
@@ -70,8 +89,13 @@ export async function dismissCapturedNote(note: CapturedNote): Promise<CapturedN
 /** Undo an archive. Keeps `updated_at`, so a later archive elsewhere still wins. */
 export async function restoreCapturedNote(note: CapturedNote): Promise<CapturedNote> {
   // Dexie deletes a key set to undefined in update(), which is exactly what we
-  // want: a restored row carries no dismissed_at at all.
-  await db.capturedNotes.update(note.id, { dismissed_at: undefined, updated_at: now() })
+  // want: a restored row carries no dismissed_at at all. The monotone stamp
+  // matters here too: a restore must out-sort the archive it undoes, or the
+  // server rejects it the same way it rejects a skewed archive.
+  await db.capturedNotes.update(note.id, {
+    dismissed_at: undefined,
+    updated_at: stampAfter(note.updated_at ?? note.created_at),
+  })
   const updated = (await db.capturedNotes.get(note.id)) ?? note
   await trackUpsert('capturedNotes', updated)
   return updated

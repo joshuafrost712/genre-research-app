@@ -103,6 +103,41 @@ describe('Jot archive/restore', () => {
     expect(guest.author_label).toBeUndefined()
   })
 
+  it('archive of a future-created_at note stamps past it (skewed capturer clock)', async () => {
+    // The server's push_records does tuple LWW on the envelope's updated_at,
+    // and a plain jot's envelope carries created_at from the CAPTURER's clock.
+    // If archive stamped bare now(), a capture from a fast clock would out-sort
+    // it server-side and the archive would silently never replicate.
+    const ctx = await testContext()
+    const note = await createCapturedNote(ctx, 'from a fast clock')
+    const future = new Date(Date.now() + 10 * 60_000).toISOString()
+    await db.capturedNotes.update(note.id, { created_at: future })
+    const skewed = (await db.capturedNotes.get(note.id))!
+
+    const archived = await dismissCapturedNote(skewed)
+    expect(archived.updated_at! > future).toBe(true)
+
+    // The replication envelope must carry the bumped stamp too.
+    const rows = await db.outbox.toArray()
+    const last = rows[rows.length - 1]
+    expect(last.updated_at > future).toBe(true)
+  })
+
+  it('restore stamps past the archive it undoes', async () => {
+    const ctx = await testContext()
+    const note = await createCapturedNote(ctx, 'archive then restore')
+    const futureArchive = new Date(Date.now() + 10 * 60_000).toISOString()
+    await db.capturedNotes.update(note.id, {
+      dismissed_at: futureArchive,
+      updated_at: futureArchive,
+    })
+    const archived = (await db.capturedNotes.get(note.id))!
+
+    const restored = await restoreCapturedNote(archived)
+    expect(restored.dismissed_at).toBeUndefined()
+    expect(restored.updated_at! > futureArchive).toBe(true)
+  })
+
   it('archive and restore both enqueue the whole row for replication', async () => {
     const ctx = await testContext()
     const note = await createCapturedNote(ctx, 'sync me')

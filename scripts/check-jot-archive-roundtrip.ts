@@ -153,6 +153,60 @@ try {
   await pullProject(PROJECT_ID, 'device-b')
   const onBAfterReplay = await db.capturedNotes.get(note.id)
   check('the replay did not resurrect the note on B', !!onBAfterReplay?.dismissed_at)
+
+  // ------------- skew: a fast-clock capture must not out-LWW a real archive
+  // The client merge is presence-based, but the SERVER's push_records guard is
+  // tuple LWW on the envelope's updated_at, and a plain jot's envelope carries
+  // the capturer's created_at. This is the case the 13-check run above cannot
+  // see: both simulated devices share one process clock.
+  console.log('==> Skew: fast-clock capture, correct-clock archive')
+  const fastNote = {
+    id: crypto.randomUUID(),
+    project_id: PROJECT_ID,
+    raw_text: 'Jam saya terlalu cepat',
+    source_language: 'id',
+    created_at: new Date(Date.now() + 10 * 60_000).toISOString(), // 10 min fast
+  }
+  await db.capturedNotes.put(fastNote)
+  await trackUpsert('capturedNotes', fastNote)
+  const pushedFast = await pushOutbox(new Set([PROJECT_ID]))
+  check('B (fast clock) pushes the capture', pushedFast.pushed >= 1)
+
+  await becomeDevice('device-a')
+  await pullProject(PROJECT_ID, 'device-a')
+  const fastOnA = await db.capturedNotes.get(fastNote.id)
+  check('A receives the fast-clock note', fastOnA?.raw_text === 'Jam saya terlalu cepat')
+  const fastArchived = await dismissCapturedNote(fastOnA!)
+  check(
+    'the archive stamp out-sorts the fast created_at',
+    !!fastArchived.updated_at && fastArchived.updated_at > fastNote.created_at,
+  )
+  const pushedArchive = await pushOutbox(new Set([PROJECT_ID]))
+  check('A pushes the archive', pushedArchive.pushed >= 1)
+
+  // The server guard is the thing under test: the archive must actually have
+  // replaced the capture row in sync_records, not been silently skipped.
+  const serverRows = (await (
+    await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${PAT}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `select data->>'dismissed_at' as dismissed_at from public.sync_records where record_id = '${fastNote.id}'`,
+      }),
+    })
+  ).json()) as Array<{ dismissed_at: string | null }>
+  check(
+    'the archive landed server-side (LWW guard did not skip it)',
+    Array.isArray(serverRows) && !!serverRows[0]?.dismissed_at,
+    JSON.stringify(serverRows),
+  )
+
+  await becomeDevice('device-b')
+  // Shared fake-indexeddb again: restore B's real local state (the plain row).
+  await db.capturedNotes.put({ ...fastNote })
+  await pullProject(PROJECT_ID, 'device-b')
+  const fastOnB = await db.capturedNotes.get(fastNote.id)
+  check('the archive reached the fast-clock device', !!fastOnB?.dismissed_at)
 } catch (err) {
   failures++
   console.log(`    FAIL harness error — ${(err as Error).message}`)
