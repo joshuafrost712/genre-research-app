@@ -39,6 +39,7 @@ const UI = {
   // directory of other people's teams; what people want is the one they are in.
   'nav.team': { en: 'Team', id: 'Tim' },
   'nav.openMenu': { en: 'Open menu', id: 'Buka menu' },
+  'nav.quickLinks': { en: 'Shortcuts', id: 'Pintasan' },
   'nav.progress': { en: 'Progress', id: 'Kemajuan' },
   'nav.depth': { en: 'Depth', id: 'Kedalaman' },
   'nav.workspace': { en: 'Workspace {n}', id: 'Ruang Kerja {n}' },

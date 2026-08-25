@@ -31,12 +31,16 @@ const DEPTH_KEYS: Record<DepthMode, UiKey> = {
  */
 // Labels are keys, not text: the menu is the most-read surface in the app, so
 // leaving it English would make a translated worksheet feel like a veneer.
+//
+// Home stays outside the fold below as the escape hatch; everything else lives
+// in a "Shortcuts" disclosure that starts COLLAPSED. Interview feedback
+// (2026-08-25): during a session people hop between questionnaire pages
+// constantly and touch these links rarely, so the page tree gets the vertical
+// space by default. Team keeps first place INSIDE the fold — the Psalms-workshop
+// lesson (teams could not find the link when it sat below nine others) is about
+// ordering, and the fold header keeps the whole block one tap away.
+const HOME_LINK: { to: string; key: UiKey; end?: boolean } = { to: '/', key: 'nav.home', end: true }
 const QUICK_LINKS: { to: string; key: UiKey; end?: boolean }[] = [
-  { to: '/', key: 'nav.home', end: true },
-  // Second, not tenth. At the Psalms workshop this was the last link in the list,
-  // below nine others and above two large collapsible trees, and teams could not
-  // find the feature they had been told to use. Which team you are in is the
-  // second thing anybody needs after Home. Needs a Supabase project.
   ...(isSupabaseConfigured() ? [{ to: '/teams', key: 'nav.team' as UiKey }] : []),
   { to: '/wizard', key: 'nav.wizard' },
   { to: '/capture', key: 'nav.capture' },
@@ -48,6 +52,12 @@ const QUICK_LINKS: { to: string; key: UiKey; end?: boolean }[] = [
   { to: '/help', key: 'nav.help' },
 ]
 
+// Device preference, not project data — same treatment as DepthModeContext.
+// Read synchronously in the initializer so there is no flicker on first paint;
+// both NavShell mounts (aside + drawer) re-read on mount, which is consistent
+// enough for a toggle this coarse.
+const QUICK_LINKS_COLLAPSED_KEY = 'navQuickLinksCollapsed'
+
 const WORKSPACE_ACCENT: Record<string, string> = {
   w1: 'text-emerald-700',
   w2: 'text-sky-700',
@@ -58,6 +68,14 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
   const progress = useProgress()
   const tokens = useNameTokens()
   const { t } = useLocale()
+  const [linksCollapsed, setLinksCollapsed] = useState(
+    () => localStorage.getItem(QUICK_LINKS_COLLAPSED_KEY) !== '0',
+  )
+  const toggleLinks = () => {
+    const next = !linksCollapsed
+    localStorage.setItem(QUICK_LINKS_COLLAPSED_KEY, next ? '1' : '0')
+    setLinksCollapsed(next)
+  }
 
   const pct =
     progress && progress.overall.total > 0
@@ -74,24 +92,50 @@ export function NavShell({ onNavigate }: { onNavigate?: () => void }) {
         <LanguageSwitcher variant="block" />
       </div>
 
-      <ul className="grid grid-cols-1 gap-0.5 shrink-0 short:grid-cols-2 short:gap-x-2">
-        {QUICK_LINKS.map((l) => (
-          <li key={l.to}>
-            <NavLink
-              to={l.to}
-              end={l.end}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                `block truncate rounded px-2 py-1.5 short:py-1 ${
-                  isActive ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-100'
-                }`
-              }
-            >
-              {t(l.key)}
-            </NavLink>
-          </li>
-        ))}
-      </ul>
+      <div className="shrink-0">
+        <div className="flex items-stretch gap-1">
+          <NavLink
+            to={HOME_LINK.to}
+            end={HOME_LINK.end}
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              `block flex-1 truncate rounded px-2 py-1.5 short:py-1 ${
+                isActive ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-100'
+              }`
+            }
+          >
+            {t(HOME_LINK.key)}
+          </NavLink>
+          <button
+            type="button"
+            onClick={toggleLinks}
+            aria-expanded={!linksCollapsed}
+            className="flex shrink-0 items-center gap-1 rounded px-2 text-xs text-gray-500 hover:bg-gray-100"
+          >
+            {t('nav.quickLinks')} <span className="text-gray-400">{linksCollapsed ? '+' : '−'}</span>
+          </button>
+        </div>
+        {!linksCollapsed && (
+          <ul className="mt-0.5 grid grid-cols-1 gap-0.5 short:grid-cols-2 short:gap-x-2">
+            {QUICK_LINKS.map((l) => (
+              <li key={l.to}>
+                <NavLink
+                  to={l.to}
+                  end={l.end}
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    `block truncate rounded px-2 py-1.5 short:py-1 ${
+                      isActive ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-100'
+                    }`
+                  }
+                >
+                  {t(l.key)}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {progress && progress.overall.total > 0 && (
         <div className="shrink-0">
@@ -172,7 +216,10 @@ function StageNav({
   const { nodeId } = useParams()
   const progress = useProgress()
   const genre = useNameTokens()
-  const [collapsed, setCollapsed] = useState(true)
+  // Expanded by default (2026-08-25): every questionnaire page should be one
+  // direct tap during an interview, not hidden behind a stage toggle. Manual
+  // collapse still works, and the active route still forces its stage open.
+  const [collapsed, setCollapsed] = useState(false)
 
   // A multi-group stage (describe: 1b/1c/1d/1e) renders as a nested tree with a
   // landing link, its 1d/1e groups nesting their sub-pages one level deeper.
@@ -197,7 +244,7 @@ function StageNav({
           to={to}
           onClick={onNavigate}
           className={({ isActive }) =>
-            `flex items-center justify-between rounded px-2 py-1.5 ${
+            `flex items-center justify-between rounded px-2 py-1.5 lg:py-1 ${
               isActive || (subs[0] && nodeId === subs[0].id)
                 ? 'bg-gray-800 text-white'
                 : 'text-gray-700 hover:bg-gray-100'
@@ -224,7 +271,7 @@ function StageNav({
       <button
         type="button"
         onClick={() => setCollapsed((v) => !v)}
-        className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left font-medium text-gray-700 hover:bg-gray-100"
+        className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left font-medium text-gray-700 hover:bg-gray-100 lg:py-1"
         aria-expanded={!collapsed && !containsActive ? false : undefined}
       >
         <span className="truncate" data-dfb-node={stage.titleNodeId} data-dfb-field="label">
@@ -242,7 +289,7 @@ function StageNav({
                   to={`/worksheet/${sub.id}`}
                   onClick={onNavigate}
                   className={({ isActive }) =>
-                    `flex items-center justify-between rounded px-2 py-1.5 ${
+                    `flex items-center justify-between rounded px-2 py-1.5 lg:py-1 ${
                       isActive || nodeId === sub.id
                         ? 'bg-gray-800 text-white'
                         : 'text-gray-600 hover:bg-gray-100'
@@ -285,7 +332,7 @@ function NestedStageNav({
   const genre = useNameTokens()
   const landing = stage.route ?? stageRoute(stage)
   const active = pathname.startsWith('/describe') || (!!nodeId && stage.subIds.includes(nodeId))
-  const [collapsed, setCollapsed] = useState(true)
+  const [collapsed, setCollapsed] = useState(false) // expanded by default, see StageNav
   const open = !collapsed || active
 
   return (
@@ -296,7 +343,7 @@ function NestedStageNav({
           onClick={onNavigate}
           end
           className={({ isActive }) =>
-            `flex flex-1 items-center truncate rounded px-2 py-1.5 font-medium ${
+            `flex flex-1 items-center truncate rounded px-2 py-1.5 font-medium lg:py-1 ${
               isActive ? 'bg-gray-800 text-white' : 'text-gray-700 hover:bg-gray-100'
             }`
           }
@@ -340,7 +387,7 @@ function GroupNav({
   const genre = useNameTokens()
   // Declared before any early return so hook order stays stable (rules-of-hooks);
   // only the nested-group branch below actually uses it.
-  const [collapsed, setCollapsed] = useState(true)
+  const [collapsed, setCollapsed] = useState(false) // expanded by default, see StageNav
   const node = findNode(group.nodeId)?.node
   if (!node) return null
 
@@ -352,7 +399,7 @@ function GroupNav({
           to={group.route}
           onClick={onNavigate}
           className={({ isActive }) =>
-            `block truncate rounded px-2 py-1.5 ${
+            `block truncate rounded px-2 py-1.5 lg:py-1 ${
               isActive || nodeId === group.nodeId
                 ? 'bg-gray-800 text-white'
                 : 'text-gray-600 hover:bg-gray-100'
@@ -381,7 +428,7 @@ function GroupNav({
           onClick={onNavigate}
           end
           className={({ isActive }) =>
-            `flex flex-1 items-center truncate rounded px-2 py-1.5 ${
+            `flex flex-1 items-center truncate rounded px-2 py-1.5 lg:py-1 ${
               isActive ? 'bg-gray-800 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`
           }
@@ -405,7 +452,7 @@ function GroupNav({
                 to={`/worksheet/${sub.id}`}
                 onClick={onNavigate}
                 className={({ isActive }) =>
-                  `block truncate rounded px-2 py-1.5 ${
+                  `block truncate rounded px-2 py-1.5 lg:py-1 ${
                     isActive || nodeId === sub.id
                       ? 'bg-gray-800 text-white'
                       : 'text-gray-600 hover:bg-gray-100'
