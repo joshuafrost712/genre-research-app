@@ -13,7 +13,12 @@
  */
 import 'fake-indexeddb/auto'
 import { db } from '../src/lib/storage/db'
-import { createCapturedNote, dismissCapturedNote } from '../src/lib/storage/notes'
+import {
+  createCapturedNote,
+  dismissCapturedNote,
+  splitCapturedNote,
+  splitSegments,
+} from '../src/lib/storage/notes'
 import { trackUpsert } from '../src/lib/sync/outbox'
 import { pushOutbox } from '../src/lib/sync/supabase/push'
 import { pullProject, resetCursor } from '../src/lib/sync/supabase/pull'
@@ -207,6 +212,28 @@ try {
   await pullProject(PROJECT_ID, 'device-b')
   const fastOnB = await db.capturedNotes.get(fastNote.id)
   check('the archive reached the fast-clock device', !!fastOnB?.dismissed_at)
+
+  // -------------- split: segments survive the transport carrying split_from
+  console.log('==> Split: B splits a two-paragraph note; A receives the pieces')
+  const longNote = await createCapturedNote(ctx, 'Bagian pertama.\n\nBagian kedua.', 'id')
+  const segs = await splitCapturedNote(ctx, longNote, splitSegments(longNote.raw_text))
+  check('split created two segments locally', segs.length === 2)
+  const pushedSplit = await pushOutbox(new Set([PROJECT_ID]))
+  check('B pushes segments + archive', pushedSplit.pushed >= 3, `pushed=${pushedSplit.pushed}`)
+
+  await becomeDevice('device-a')
+  // Shared fake-indexeddb: A's real local state is the plain original, no segments.
+  for (const s of segs) await db.capturedNotes.delete(s.id)
+  await db.capturedNotes.put({ ...longNote })
+  await pullProject(PROJECT_ID, 'device-a')
+  const segsOnA = await Promise.all(segs.map((s) => db.capturedNotes.get(s.id)))
+  check('both segments arrived on A', segsOnA.every(Boolean))
+  check(
+    'split_from survived the transport',
+    segsOnA.every((s) => s?.split_from === longNote.id),
+  )
+  const originalOnA = await db.capturedNotes.get(longNote.id)
+  check('the original arrived archived on A', !!originalOnA?.dismissed_at)
 } catch (err) {
   failures++
   console.log(`    FAIL harness error — ${(err as Error).message}`)

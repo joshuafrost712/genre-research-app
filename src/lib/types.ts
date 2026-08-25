@@ -103,6 +103,13 @@ export interface CapturedNote {
   author_id?: string
   /** Display name or email of the capturer, for the team picker. */
   author_label?: string
+  /**
+   * Id of the archived original this note was split from. A split is NOT a
+   * mutation of the original: it creates fresh insert-once rows and archives
+   * the original through the sanctioned path, so the immutability contract and
+   * the merge rule are untouched.
+   */
+  split_from?: string
 }
 
 /**

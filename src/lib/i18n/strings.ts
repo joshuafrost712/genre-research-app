@@ -64,6 +64,14 @@ const UI = {
     id: 'Belum ada catatan. Ketuk tombol ✎ Jot untuk menangkap jawaban yang melenceng.',
   },
   'jot.done': { en: 'Done', id: 'Selesai' },
+  'jot.split': { en: 'Split…', id: 'Pisahkan…' },
+  'jot.splitHint': { en: 'Split this jot into:', id: 'Pisahkan catatan ini menjadi:' },
+  'jot.splitConfirm': { en: 'Split into {n} jots', id: 'Pisahkan menjadi {n} catatan' },
+  'jot.splitUsedWarning': {
+    en: 'Already inserted ×{n}. The insertions stay with the archived original.',
+    id: 'Sudah disisipkan ×{n}. Sisipan tetap pada catatan asli yang diarsipkan.',
+  },
+  'jot.cancel': { en: 'Cancel', id: 'Batal' },
 
   'depth.quick': { en: 'Quick', id: 'Ringkas' },
   'depth.standard': { en: 'Standard', id: 'Standar' },
