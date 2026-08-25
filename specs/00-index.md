@@ -32,6 +32,19 @@ move the batch file `incoming/ → processed/`.
 | [06](06-copy-and-labeling.md) | Copy, titles, hyperlink, flag legend | 7, 8, 11, 12, 14, 16, 19, 20, 21, 25, 27, 28 | Medium |
 | [07](07-open-pedagogical-decisions.md) | "Why is this here" prompts — Josh to rule | 15, 18 | Medium |
 
+## Specs added since this batch
+
+This folder outgrew the batch it was created for. Later specs are listed here so
+they are findable; they belong to their own requests, not to Katie's 28 comments.
+
+| Spec | Theme | Source | State |
+|---|---|---|---|
+| [08](08-two-workspace-redesign.md) | Two-workspace redesign | Josh, 2026-07-20 | Shipped |
+| [09](09-feedback-batch-2026-07-20.md) | Feedback batch, 2026-07-20 | In-app feedback | Shipped |
+| [10](10-feedback-batch-2026-07-20-evening.md) | Feedback batch, same day, evening | In-app feedback | Shipped |
+| [11](11-title-single-source.md) | Single-source-of-truth titles | Follow-up to 10 | Shipped |
+| [12](12-team-presence.md) | Live team presence on the section tabs | Joshua, 2026-08-25 | **Specced, not built** |
+
 ## Full comment → spec traceability (all 28)
 
 | # | Imp | Route | Gist | Owning spec |
