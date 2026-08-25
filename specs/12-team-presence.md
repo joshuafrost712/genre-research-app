@@ -14,8 +14,12 @@ That made the app quieter. This makes it companionable. The two are deliberately
 separate: quieting a false alarm is a bug fix, and ambient presence is a feature
 with a security surface, so it gets its own session and its own review.
 
-**Status:** specced, not built. One session, no branch yet. Nothing here is
-started, so there is no claim to respect.
+**Status:** built on `feature/spec-12-presence` (2026-08-25). The authorization
+migration is applied to the live project and proven from both sides by
+`scripts/verify-presence.mjs` (14/14). Lint, `tsc`, 355 tests and the build are
+green. What is left is the two-browser walkthrough in a real UI, which is
+verification steps 2, 5 and 6 below plus a look at the header at 390px; nobody
+can do those from a terminal.
 
 ## What done looks like
 
@@ -28,24 +32,61 @@ Two people in the same team, on different sections of the worksheet:
 - Closing the tab removes it.
 - Somebody who is not on the team sees nothing and cannot join the channel.
 
-## Verify these three things BEFORE writing any SQL
+## The three claims, answered against the live project (2026-08-25)
 
-The authorization design below is built on three claims that could not be
-checked from the repo when this was specced. Confirm each against the live
-Supabase project first. A wrong guess here fails **silently**: RLS denial is
-filtering, not an error, so a bad policy looks exactly like "nobody is here" to
-a member and exactly like "correctly denied" to a non-member.
+All three held, and the section did its job: checking them turned up a fourth
+thing nobody had thought of, and it is the one that would have cost the session.
 
-1. That `realtime.topic()` exists in this project's `realtime` schema.
-2. That `extension = 'presence'` is the right predicate for presence messages.
-   Consider leaving it out of the first cut. `realtime.topic()` plus
-   `is_member()` is the actual boundary, and a narrower predicate that is wrong
-   costs a debugging session for no security gain.
-3. That `select` plus `insert` is the correct policy pair for presence.
+1. **`realtime.topic()` exists.** Its body is
+   `nullif(current_setting('realtime.topic', true), '')::text`, so it returns
+   NULL rather than raising when the topic is unset. The predicate handles NULL
+   first because of that.
+2. **`extension = 'presence'` was left out**, on the spec's own advice.
+   `realtime.topic()` plus `is_member()` is the boundary, and the column exists
+   (`text not null`) if a later spec ever wants it.
+3. **`select` plus `insert` is the pair.** Realtime checks read authorization
+   with a SELECT and write authorization with an INSERT, and write is what
+   `track()` needs. `realtime.messages` already had RLS enabled with **zero**
+   policies, so the baseline was deny-all rather than something to switch on.
 
-Also establish and record how the migration reaches the hosted project. There is
-no `supabase/config.toml` in this repo. The Supabase PAT runs DDL as `postgres`
-(see the vault note on management access), which is the likely route.
+**Migration route:** the Management API SQL endpoint, as `postgres`, exactly as
+`scripts/enable-team-sync.sh` does it. `scripts/enable-presence.sh` is the
+runnable form. Note that `postgres` is neither superuser nor a member of
+`supabase_realtime_admin`, so `alter table realtime.messages ...` would fail
+while `create policy` on it succeeds; the migration asserts the RLS state instead
+of trying to set it.
+
+### The fourth thing: Realtime's schema is created lazily, on first connection
+
+This project's `realtime` schema was **empty** — no `realtime.messages`, no
+`realtime.topic()`, no partitions — and `GET /v1/projects/{ref}/health` reported
+realtime UNHEALTHY. Not a broken project: the app has never opened a channel, and
+the Realtime service runs its own 81 DB migrations when a client first connects.
+One public-channel probe provisioned the lot at 12:50:29 UTC, mid-investigation.
+
+Two things follow, and both are now in the code:
+
+- **The first private join during that boot window fails with
+  `MissingPartition`**, which reads exactly like a broken authorization design.
+  It is not. `enable-presence.sh` warms the tenant and waits for
+  `realtime.messages` before applying anything.
+- **A catalogue query run before the boot answers `[]`, not an error.** Two
+  early queries here reported an empty `realtime` schema and were *correct at the
+  time*; re-running them later returned 15 functions. Anything that concludes
+  "this project cannot do realtime" has to say when it looked.
+
+### And a trap in the harness, not the design
+
+`createClient(url, key, { accessToken: () => jwt })` looks like the clean way to
+drive a specific user in a test. It is not: supabase-js's initial
+`realtime.setAuth()` is fire-and-forget in the constructor, so a `subscribe()`
+on the next line joins the private channel **as anon** and Realtime refuses it
+with the same "Unauthorized ... read from this Channel topic" a wrong RLS policy
+produces. An hour went into auditing correct SQL. What isolated it was driving
+both policies by hand — `set local role authenticated`, claims and topic set,
+INSERT into `realtime.messages` — which passed, proving the database right and
+the client wrong. `verify-presence.mjs` now signs in for real, which is also what
+the app does.
 
 ## Design
 
@@ -135,6 +176,29 @@ part is not a name. Reuse it rather than writing a second one.
 Every UI string needs `en` and `id`. All 269 current keys carry both, and
 `npm run i18n:report` checks it.
 
+### Five departures from the table above, and why
+
+1. **`src/lib/presence/route.ts` is new.** The provider mounts in `Layout`, which
+   is the *parent* route, so `useParams()` there returns `{}` and every dot would
+   land nowhere. The node id is parsed from the pathname instead, and that parse
+   is pure, so it is tested rather than hand-checked.
+2. **`/choose`, `/macro` and `/style` map back to their subsection ids.** The
+   sidebar links those three tabs as `/worksheet/<id>` and `WorksheetView`
+   redirects. Without the reverse map, a person sitting on a tab the nav itself
+   offers shows no dot on it, which reads as a broken feature rather than as the
+   deferred "presence on the compare pages". Derived by inverting the existing
+   `SUB_PAGE_ROUTES`, so a fourth dedicated page cannot drift out of sync.
+3. **`useMemberLabels` added to `src/lib/team/people.ts`.** The number of dots is
+   decided by who is in the room, so `useMemberLabel` per person would be a hook
+   in a loop. This is the same cache behind a plain lookup, which is what "reuse
+   `personLabel` rather than writing a second one" asked for.
+4. **A third string, `presence.someone`.** The member list comes from the server,
+   so offline (the normal condition in the room) there is a dot and no name for
+   it. An account uuid is not a name.
+5. **`scripts/enable-presence.sh` and `scripts/verify-presence.mjs` are new.** The
+   spec called for both sides of the boundary in one sitting; automating it is
+   strictly better than remembering to do it, and it now runs on every apply.
+
 ## Tests
 
 This repo has no component-testing setup (`vitest.config.ts` is
@@ -155,20 +219,37 @@ The channel wiring itself is verified by hand, below.
 
 ## Verification
 
-1. `npm run lint && npx tsc --noEmit && npx vitest run && npm run build`.
-2. Two profiles, same team, different sections. Each sees a dot with the other's
-   name on the other's section, and the header shows "1 here". Navigate, and the
-   dot follows within about a second.
-3. Close one tab. Its dot disappears from the other browser.
-4. **Both sides of the boundary, in the same sitting.** A third account that is
-   not on the team, joining the same topic by hand: zero presence events. Then
-   confirm a real member still sees events. Proving only the first half cannot
-   distinguish "correctly denied" from "the channel is broken for everyone".
-5. Load with `?sync=poll`: no presence anywhere, and ordinary sync still works.
-6. Signed out, and with Supabase unconfigured: no errors, no channel.
-7. Check the current Realtime free-tier limits on Supabase's pricing page and
-   record the numbers and the date in the commit. A workshop is under ten
-   people, so this is very unlikely to bite, but it should be a checked fact.
+1. ✅ `npm run lint` (0 errors; 12 pre-existing fast-refresh warnings, one per
+   provider in this codebase), `npx tsc --noEmit` clean, `npx vitest run`
+   355/355, `npm run build` green.
+2. ⬜ **Two profiles, same team, different sections.** Needs two real browsers.
+   The *data* half of this is automated and passing: `verify-presence.mjs` checks
+   5c/5d, that each member sees the other on the node the other is actually on.
+   What is left is that the dot renders where it should and the header reads
+   right.
+3. ✅ Closing the tab removes the dot — `verify-presence.mjs` check 6, asserted on
+   the other member's observed state, not on an absence of errors.
+4. ✅ **Both sides of the boundary, in one run.** `verify-presence.mjs` 14/14: a
+   member subscribes and is seen (1a/1b); a non-member is refused on the same
+   topic *while the member is still subscribed* (2a–2d, which is what separates
+   denial from an outage); the anon key alone is refused (3); a malformed topic is
+   refused by denial rather than a raised cast error (4a/4b); and after joining,
+   the former non-member gets in (5b).
+5. ⬜ `?sync=poll` → no presence, sync still works. Needs a browser.
+6. ⬜ Signed out, and Supabase unconfigured: no errors, no channel. Needs a
+   browser. Both paths are early returns in `channel.ts`.
+7. ✅ **Free-plan Realtime limits, 2026-08-25:** 200 concurrent peak connections
+   and **2 million messages per month**. Connections are irrelevant at workshop
+   scale. Messages were not: announcements fan out to every member, so the cost is
+   quadratic in room size, and the 25-second heartbeat this was first written with
+   came to ~1.15M for a ten-day Bali-sized workshop — over half the month, spent on
+   a decoration. The heartbeat is 60s and the TTL 180s, which brings the same
+   workshop to ~480k. The arithmetic is in `derive.ts` beside the constants.
+
+Also worth doing while two browsers are open, because an automated check cannot:
+look at the header at 390px with somebody else present. The presence chip sits in
+the phone context strip beside the team chip and the passage × genre, and that row
+has run out of room before.
 
 ## Deferred
 

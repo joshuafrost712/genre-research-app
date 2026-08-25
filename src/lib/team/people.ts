@@ -11,7 +11,7 @@
  * not. The exact address always stays available in a `title`, because a guess
  * that reads as a name must never be the only thing on screen.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { listProjectMembers } from '../sync/supabase/projects'
 
 /**
@@ -102,4 +102,44 @@ export function useMemberLabel(
   }, [projectId, userId])
 
   return { label: email ? personLabel(email) : null, email }
+}
+
+/**
+ * The same answer for MANY ids, as a function rather than a hook.
+ *
+ * Presence needs a name per dot, and the number of dots is decided by who happens
+ * to be in the room — so `useMemberLabel` per person would mean calling a hook in a
+ * loop. This loads the same cache once and hands back a plain lookup, which a
+ * component can call as many times as it has people to name.
+ *
+ * Nulls are still a supported answer for exactly the reasons above: offline, or a
+ * member list the server would not give us. Every caller needs a sentence that
+ * works without a name.
+ */
+export function useMemberLabels(
+  projectId: string | null | undefined,
+): (userId: string) => MemberLabel {
+  const [loaded, setLoaded] = useState(0)
+
+  useEffect(() => {
+    if (!projectId) return
+    let active = true
+    void loadMembers(projectId).then(() => {
+      if (active) setLoaded((n) => n + 1)
+    })
+    return () => {
+      active = false
+    }
+  }, [projectId])
+
+  return useCallback(
+    (userId: string): MemberLabel => {
+      // `loaded` is read so the identity of this callback changes once the fetch
+      // lands; without it a memoised consumer would keep the pre-fetch answer.
+      void loaded
+      const email = projectId ? cache.get(projectId)?.get(userId) ?? null : null
+      return { label: email ? personLabel(email) : null, email }
+    },
+    [projectId, loaded],
+  )
 }

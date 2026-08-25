@@ -20,6 +20,7 @@ import { onEnqueue, pendingCount } from './outbox'
 import { getAuthorId } from './author'
 import { forgetIdentity } from './identity'
 import { forgetMembers } from '../team/people'
+import { leavePresence } from '../presence/channel'
 import { pushOutbox } from './supabase/push'
 import { pullProject } from './supabase/pull'
 import {
@@ -283,6 +284,12 @@ export const syncEngine = {
         // authorship, and the team's member emails behind the overwrite toast.
         forgetIdentity()
         forgetMembers()
+        // The presence channel is authorized by this session's JWT, so a channel
+        // that outlives the session is a socket nobody owns — still announcing a
+        // person who has left, on a topic they can no longer be checked against.
+        // Torn down here rather than in the provider because SIGNED_OUT does not
+        // unmount anything.
+        leavePresence()
         detach()
         setStatus({ state: 'signed-out', peers: 0, lastSyncedAt: null })
         // Deliberately does NOT forget the account marker. This event fires for a

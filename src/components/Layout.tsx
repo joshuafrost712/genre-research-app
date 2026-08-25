@@ -11,6 +11,8 @@ import { DeviceOwnerNotice } from './account/DeviceOwnerNotice'
 import { OverwriteToast } from './OverwriteToast'
 import { TeamChip } from './TeamChip'
 import { TeamBanner } from './TeamBanner'
+import { PresenceChip } from './PresenceChip'
+import { PresenceProvider } from './PresenceProvider'
 import { BetaWelcome } from './beta/BetaWelcome'
 import { FeedbackHighlight } from './feedback/FeedbackHighlight'
 import { GenreNameProvider } from './GenreNameProvider'
@@ -49,6 +51,11 @@ export function Layout() {
   // is rare and deliberate, so a remount is the cheap, provably-correct option;
   // focusing the switcher blurs any open field first, which flushes AutosaveText.
   return (
+    // Outside the shell, so the sidebar's per-tab dots and the header's count come
+    // from ONE subscription. Two mounts would mean two websockets and two slightly
+    // different ideas of who is in the room, which is the failure TeamProvider
+    // already exists to prevent — with a socket attached to each copy.
+    <PresenceProvider>
     <GenreNameProvider>
     <OnboardingGate />
     {tourAllowed && <Tour id={APP_TOUR} steps={APP_TOUR_STEPS} />}
@@ -92,6 +99,11 @@ export function Layout() {
             <TeamChip className="hidden sm:flex" />
             <ContextBar className="hidden sm:flex" />
             <SyncChip />
+            {/* After the sync chip, not beside TeamChip, and that placement is the
+                mitigation for this feature's own worst risk: "4 people" (who belong)
+                and "2 here now" (who are present) mean different things, so they must
+                not sit adjacent looking like a pair. */}
+            <PresenceChip className="hidden sm:flex" />
             <LanguageSwitcher />
             <AccountMenu />
           </div>
@@ -99,6 +111,7 @@ export function Layout() {
         <div className="flex items-center gap-2 border-t border-gray-100 px-4 py-1.5 sm:hidden">
           <TeamChip />
           <ContextBar />
+          <PresenceChip className="ml-auto" />
         </div>
       </header>
 
@@ -143,5 +156,6 @@ export function Layout() {
       </div>
     </div>
     </GenreNameProvider>
+    </PresenceProvider>
   )
 }
