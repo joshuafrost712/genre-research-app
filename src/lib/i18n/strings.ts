@@ -43,6 +43,27 @@ const UI = {
   'nav.depth': { en: 'Depth', id: 'Kedalaman' },
   'nav.workspace': { en: 'Workspace {n}', id: 'Ruang Kerja {n}' },
 
+  // The jot picker: insert a captured note into the answer box it belongs in.
+  'jot.insert': { en: 'Insert a jot', id: 'Sisipkan catatan' },
+  'jot.pickerTitle': { en: 'Insert a jot', id: 'Sisipkan catatan' },
+  'jot.pickerHint': {
+    en: 'Tap a jot to insert it here. It stays available for other boxes too.',
+    id: 'Ketuk catatan untuk menyisipkannya di sini. Catatan tetap tersedia untuk kotak lain.',
+  },
+  'jot.search': { en: 'Search jots…', id: 'Cari catatan…' },
+  'jot.used': { en: 'used ×{n}', id: 'dipakai ×{n}' },
+  'jot.insertHere': { en: 'Insert', id: 'Sisipkan' },
+  'jot.inserted': { en: 'Inserted ✓', id: 'Tersisip ✓' },
+  'jot.archive': { en: 'Archive', id: 'Arsipkan' },
+  'jot.archivedRow': { en: 'Archived.', id: 'Diarsipkan.' },
+  'jot.undo': { en: 'Undo', id: 'Urungkan' },
+  'jot.you': { en: 'You', id: 'Anda' },
+  'jot.empty': {
+    en: 'No jots yet. Tap the ✎ Jot button to capture a stray answer.',
+    id: 'Belum ada catatan. Ketuk tombol ✎ Jot untuk menangkap jawaban yang melenceng.',
+  },
+  'jot.done': { en: 'Done', id: 'Selesai' },
+
   'depth.quick': { en: 'Quick', id: 'Ringkas' },
   'depth.standard': { en: 'Standard', id: 'Standar' },
   'depth.comprehensive': { en: 'Comprehensive', id: 'Menyeluruh' },

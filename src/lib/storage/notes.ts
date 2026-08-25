@@ -100,6 +100,12 @@ export function useEntriesForNote(ctx: ActiveContext | null, noteId: string) {
   )
 }
 
+/** What routing produced, so a caller can e.g. open the row the note landed in. */
+export interface RoutePlacement {
+  /** Set when the note landed as a new list/table row. */
+  rowId?: string
+}
+
 /**
  * Route a note onto a target node. Behaviour by node type:
  *  - scalar text: append to (or set) the block's answer
@@ -111,9 +117,9 @@ export async function routeNoteToNode(
   ctx: ActiveContext,
   note: CapturedNote,
   node: GuideNode,
-): Promise<void> {
+): Promise<RoutePlacement | undefined> {
   const layer = effectiveLayer(node.id)
-  if (!layer) return
+  if (!layer) return undefined
 
   if (node.type === 'short_text' || node.type === 'long_text') {
     const existing = await findEntry(ctx, node.id, layer)
@@ -125,7 +131,7 @@ export async function routeNoteToNode(
       captured_note_id: note.id,
       routing_status: 'confirmed',
     })
-    return
+    return {}
   }
 
   if (node.type === 'repeatable_list') {
@@ -137,7 +143,7 @@ export async function routeNoteToNode(
       { text: note.raw_text, captured_note_id: note.id, routing_status: 'confirmed' },
       rowId,
     )
-    return
+    return { rowId }
   }
 
   if (node.type === 'repeatable_row_table') {
@@ -154,5 +160,8 @@ export async function routeNoteToNode(
         `${rowId}__${firstText.id}`,
       )
     }
+    return { rowId }
   }
+
+  return undefined
 }

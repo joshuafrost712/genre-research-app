@@ -39,6 +39,8 @@ import {
   preferredText,
 } from '../../lib/storage/entries'
 import { getActiveLocale } from '../../lib/i18n/activeLocale'
+import { ModalDialog } from './Dialog'
+import { JotInsertButton } from './JotPicker'
 import { deriveSectionRecall, macroDecisions, translationSummary } from '../../lib/content/sectionRecall'
 import {
   needsSummary,
@@ -272,6 +274,13 @@ function ScalarField({ ctx, node, layer }: BlockProps) {
           <ScalarInput ctx={ctx} node={node} layer={layer} />
           {node.type === 'long_text' && layer === 'genre' && (
             <SummaryCompanion ctx={ctx} node={node} layer={layer} mainText={entry?.text ?? ''} />
+          )}
+          {/* Inside the !na branch on purpose: a not-applicable field hides its
+              input, and a jot must never be insertable into an invisible box.
+              Text-bearing types only — a jot is text; selects/scales have
+              nothing to receive it. */}
+          {(node.type === 'short_text' || node.type === 'long_text') && (
+            <JotInsertButton ctx={ctx} node={node} />
           )}
         </>
       )}
@@ -993,21 +1002,8 @@ function GenreBankRow({
   )
 }
 
-/** Minimal modal shell for the genre-bank confirmations. */
-function BankDialog({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="relative max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
-      >
-        {children}
-      </div>
-    </div>
-  )
-}
+// Extracted to Dialog.tsx so the jot picker shares the same modal shell.
+const BankDialog = ModalDialog
 
 /** Pick one of the identified genres. Stores the genre NAME as text so every
  * existing reader (progress, export, summaries) works unchanged (feedback #2/#3). */
@@ -1348,7 +1344,10 @@ function RepeatableList({ ctx, node, layer }: BlockProps) {
           <span className="text-violet-500">⚑</span> Flag one to come back to it later.
         </p>
       )}
-      <AddButton label="Add item" onClick={() => addRow(ctx, node.id, layer)} />
+      <div className="flex flex-wrap items-center gap-2">
+        <AddButton label="Add item" onClick={() => addRow(ctx, node.id, layer)} />
+        <JotInsertButton ctx={ctx} node={node} />
+      </div>
     </div>
   )
 }
@@ -1403,7 +1402,18 @@ function RepeatableTable({ ctx, node, layer, mode }: BlockProps & { mode: DepthM
           />
         ),
       )}
-      <AddButton label="Add row" onClick={addAndOpen} />
+      <div className="flex flex-wrap items-center gap-2">
+        <AddButton label="Add row" onClick={addAndOpen} />
+        {/* A jot lands as a new row; opening its editor matches addAndOpen, so
+            the person sees where the text went instead of hunting for it. */}
+        <JotInsertButton
+          ctx={ctx}
+          node={node}
+          onInserted={({ rowId }) => {
+            if (rowId) setOpen({ rowId, idx: 0 })
+          }}
+        />
+      </div>
     </div>
   )
 }
