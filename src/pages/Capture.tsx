@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { findNode, routableNodes } from '../lib/content/loader'
+import { routableNodes } from '../lib/content/loader'
 import {
   createCapturedNote,
   dismissCapturedNote,
   noteAuthorOf,
   restoreCapturedNote,
   routeNoteToNode,
+  splitCapturedNote,
+  splitSegments,
   useEntriesForNote,
   useNotes,
 } from '../lib/storage/notes'
+import { NotePlacementList } from '../components/blocks/NotePlacements'
+import { SplitPreview } from '../components/blocks/SplitPreview'
 import { getMetaValue, setMetaValue } from '../lib/storage/appState'
 import { useSupabaseSession } from '../lib/supabase/session'
 import { useActiveContext } from '../components/ActiveContextProvider'
@@ -85,6 +89,18 @@ export function Capture() {
 
   if (!ctx) return <p className="text-sm text-gray-400">Loading…</p>
 
+  // Archive/split close the RoutePanel when it is open on that very note:
+  // otherwise it stays up and can route from a note that no longer exists in
+  // the active list.
+  const archiveNote = (n: CapturedNote) => {
+    if (activeNote?.id === n.id) setActiveNote(null)
+    void dismissCapturedNote(n)
+  }
+  const splitNote = (n: CapturedNote, segments: string[]) => {
+    if (activeNote?.id === n.id) setActiveNote(null)
+    void splitCapturedNote(ctx, n, segments)
+  }
+
   const saveNote = async () => {
     const text = draft.trim()
     if (!text) return
@@ -151,6 +167,8 @@ export function Capture() {
                 key={n.id}
                 note={n}
                 onRoute={() => setActiveNote(n)}
+                onArchive={() => archiveNote(n)}
+                onSplit={(segments) => splitNote(n, segments)}
                 active={activeNote?.id === n.id}
               />
             ))}
@@ -183,16 +201,22 @@ export function Capture() {
 function NoteRow({
   note,
   onRoute,
+  onArchive,
+  onSplit,
   active,
 }: {
   note: CapturedNote
   onRoute: () => void
+  onArchive: () => void
+  onSplit: (segments: string[]) => void
   active: boolean
 }) {
   const { ctx } = useActiveContext()
   const derived = useEntriesForNote(ctx, note.id) ?? []
   const [expanded, setExpanded] = useState(false)
+  const [splitting, setSplitting] = useState(false)
   const used = derived.length > 0
+  const segments = useMemo(() => splitSegments(note.raw_text), [note.raw_text])
   return (
     <li
       className={`rounded-lg border bg-white p-3 ${
@@ -200,7 +224,7 @@ function NoteRow({
       }`}
     >
       <p className="whitespace-pre-wrap text-sm text-gray-800">{note.raw_text}</p>
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <span className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-gray-400">
           {note.author_label && (
             <span className="font-medium text-gray-500">{note.author_label}</span>
@@ -221,14 +245,22 @@ function NoteRow({
           )}
         </span>
         <span className="flex shrink-0 items-center gap-1">
+          {segments.length >= 2 && !splitting && (
+            <button
+              type="button"
+              onClick={() => setSplitting(true)}
+              className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100"
+            >
+              Split…
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => void dismissCapturedNote(note)}
-            aria-label="Archive"
+            onClick={onArchive}
             title="Archive this note (restorable below)"
-            className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+            className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600"
           >
-            ✕
+            Archive
           </button>
           <button
             type="button"
@@ -239,28 +271,24 @@ function NoteRow({
           </button>
         </span>
       </div>
-      {expanded && used && (
-        <ul className="mt-2 flex flex-col gap-1 border-t border-gray-100 pt-2">
-          {derived.map((e) => (
-            <li key={e.id} className="text-xs">
-              <span className="font-medium text-gray-600">
-                {findNode(e.node_id)?.node.label ?? e.node_id}
-              </span>
-              {e.text && (
-                <span className="text-gray-400"> — {snippet(e.text)}</span>
-              )}
-            </li>
-          ))}
-        </ul>
+      {expanded && used && <NotePlacementList entries={derived} />}
+      {splitting && (
+        <SplitPreview
+          segments={segments}
+          labels={{
+            title: 'Split this jot into:',
+            confirm: `Split into ${segments.length} jots`,
+            cancel: 'Cancel',
+            usedWarning: used
+              ? `Already inserted ×${derived.length}. The insertions stay with the archived original.`
+              : undefined,
+          }}
+          onConfirm={() => onSplit(segments)}
+          onCancel={() => setSplitting(false)}
+        />
       )}
     </li>
   )
-}
-
-/** First ~90 chars of what the answer looks like now, one line. */
-function snippet(text: string): string {
-  const flat = text.replace(/\s+/g, ' ').trim()
-  return flat.length > 90 ? `${flat.slice(0, 90)}…` : flat
 }
 
 function ArchivedNoteRow({ note }: { note: CapturedNote }) {

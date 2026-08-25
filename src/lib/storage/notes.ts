@@ -101,6 +101,72 @@ export async function restoreCapturedNote(note: CapturedNote): Promise<CapturedN
   return updated
 }
 
+/**
+ * How many fragments the single-newline fallback may produce. Wispr breaks
+ * lines at speech pauses, not paragraphs, and a 30-fragment split has no bulk
+ * undo (recovery is restore-the-original plus N individual archives). Blank
+ * lines are deliberate, so the blank-line path is uncapped.
+ */
+const SPLIT_FALLBACK_MAX = 8
+
+/**
+ * Cut a jot's text into candidate segments for splitting. Blank lines win; a
+ * text without them falls back to single newlines (dictation rarely produces
+ * true paragraph breaks). Returns [] when the text isn't splittable — fewer
+ * than 2 segments either way, or a fallback that would shatter into more than
+ * SPLIT_FALLBACK_MAX pieces. Pure; exported for tests.
+ */
+export function splitSegments(rawText: string): string[] {
+  const clean = (parts: string[]) => parts.map((p) => p.trim()).filter(Boolean)
+  const byBlank = clean(rawText.split(/\n\s*\n/))
+  if (byBlank.length >= 2) return byBlank
+  const byLine = clean(rawText.split('\n'))
+  if (byLine.length >= 2 && byLine.length <= SPLIT_FALLBACK_MAX) return byLine
+  return []
+}
+
+/**
+ * Split one jot into several. NOT a new mutation kind: each segment is a fresh
+ * insert-once row (the safest shape in the merge — every client, old or new,
+ * takes it as a plain insert) and the original is archived through the
+ * sanctioned path, provenance intact. Returns the new notes, [] if there was
+ * nothing to split (in which case nothing was written).
+ */
+export async function splitCapturedNote(
+  ctx: ActiveContext,
+  note: CapturedNote,
+  segments: string[],
+): Promise<CapturedNote[]> {
+  if (segments.length < 2) return [] // never archive the original with no replacement
+
+  // Stamp from the ORIGINAL's created_at (it is provenance — now() would claim
+  // the fragments were dictated at split time and teleport them to the top of
+  // the list). Reversed offsets so the newest-first list shows the segments in
+  // paragraph order, sitting just above the original's old position.
+  const base = Date.parse(note.created_at)
+  const n = segments.length
+  const created: CapturedNote[] = []
+  for (let i = 0; i < n; i++) {
+    const segment: CapturedNote = {
+      id: uid(),
+      project_id: ctx.projectId,
+      raw_text: segments[i],
+      source_language: note.source_language,
+      created_at: Number.isNaN(base)
+        ? now()
+        : new Date(base + (n - i)).toISOString(),
+      author_id: note.author_id,
+      author_label: note.author_label,
+      split_from: note.id,
+    }
+    await db.capturedNotes.put(segment)
+    await trackUpsert('capturedNotes', segment) // insert-once, same as create
+    created.push(segment)
+  }
+  await dismissCapturedNote(note)
+  return created
+}
+
 export function useNotes(ctx: ActiveContext | null): CapturedNote[] | undefined {
   return useLiveQuery(async () => {
     if (!ctx) return []

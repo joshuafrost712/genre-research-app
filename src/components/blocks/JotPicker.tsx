@@ -23,9 +23,14 @@ import {
   dismissCapturedNote,
   restoreCapturedNote,
   routeNoteToNode,
+  splitCapturedNote,
+  splitSegments,
   useActiveNotes,
   type RoutePlacement,
 } from '../../lib/storage/notes'
+import { NotePlacementList } from './NotePlacements'
+import { SplitPreview } from './SplitPreview'
+import type { Entry } from '../../lib/types'
 import { useActiveContext } from '../ActiveContextProvider'
 import { useLocale } from '../../lib/i18n/LocaleContext'
 import { useSupabaseSession } from '../../lib/supabase/session'
@@ -107,16 +112,19 @@ function JotPickerDialog({
   const [archived, setArchived] = useState<CapturedNote | null>(null)
 
   // One aggregate query for the whole dialog (not one per note): which jots
-  // have already landed somewhere, and how often.
-  const usedCounts = useLiveQuery(async () => {
+  // have already landed somewhere, where, and how often. The full Entry list is
+  // already materialized by the query; the map keeps references, not copies.
+  const placements = useLiveQuery(async () => {
     const entries = await db.entries.where('project_id').equals(ctx.projectId).toArray()
-    const counts = new Map<string, number>()
+    const byNote = new Map<string, Entry[]>()
     for (const e of entries) {
       if (e.captured_note_id) {
-        counts.set(e.captured_note_id, (counts.get(e.captured_note_id) ?? 0) + 1)
+        const list = byNote.get(e.captured_note_id)
+        if (list) list.push(e)
+        else byNote.set(e.captured_note_id, [e])
       }
     }
-    return counts
+    return byNote
   }, [ctx.projectId])
 
   const visible = useMemo(() => {
@@ -184,11 +192,12 @@ function JotPickerDialog({
             <JotRow
               key={n.id}
               note={n}
-              usedCount={usedCounts?.get(n.id) ?? 0}
+              entries={placements?.get(n.id) ?? []}
               inserted={insertedIds.includes(n.id)}
               isMine={!!user && n.author_id === user.id}
               onInsert={() => insert(n)}
               onArchive={() => archive(n)}
+              onSplit={(segments) => splitCapturedNote(ctx, n, segments)}
             />
           ))}
         </ul>
@@ -199,24 +208,30 @@ function JotPickerDialog({
 
 function JotRow({
   note,
-  usedCount,
+  entries,
   inserted,
   isMine,
   onInsert,
   onArchive,
+  onSplit,
 }: {
   note: CapturedNote
-  usedCount: number
+  /** Entries this jot was inserted into (the picker's aggregate map). */
+  entries: Entry[]
   inserted: boolean
   isMine: boolean
   onInsert: () => void
   onArchive: () => void
+  onSplit: (segments: string[]) => Promise<unknown>
 }) {
   const { t } = useLocale()
   const [expanded, setExpanded] = useState(false)
+  const [splitting, setSplitting] = useState(false)
   // "You" only on an author_id match. A pre-feature jot carries no author and
   // may be anyone's, so it gets no label rather than a wrong one.
   const author = isMine ? t('jot.you') : note.author_label
+  const usedCount = entries.length
+  const segments = useMemo(() => splitSegments(note.raw_text), [note.raw_text])
 
   return (
     <li className="rounded-lg border border-gray-200 bg-white p-2">
@@ -232,25 +247,36 @@ function JotRow({
           {note.raw_text}
         </p>
       </button>
-      <div className="mt-1.5 flex items-center justify-between gap-2">
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <span className="flex min-w-0 items-center gap-2 text-[11px] text-gray-400">
           {author && <span className="truncate font-medium text-gray-500">{author}</span>}
           <span className="shrink-0">{timeAgo(note.created_at)}</span>
           {usedCount > 0 && (
-            <span className="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-700">
-              {t('jot.used', { n: usedCount })}
-            </span>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-700 hover:bg-emerald-100"
+            >
+              {t('jot.used', { n: usedCount })} {expanded ? '−' : '+'}
+            </button>
           )}
         </span>
         <span className="flex shrink-0 items-center gap-1">
+          {expanded && segments.length >= 2 && !splitting && (
+            <button
+              type="button"
+              onClick={() => setSplitting(true)}
+              className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100"
+            >
+              {t('jot.split')}
+            </button>
+          )}
           <button
             type="button"
             onClick={onArchive}
-            aria-label={t('jot.archive')}
-            title={t('jot.archive')}
-            className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+            className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600"
           >
-            ✕
+            {t('jot.archive')}
           </button>
           <button
             type="button"
@@ -266,6 +292,21 @@ function JotRow({
           </button>
         </span>
       </div>
+      {expanded && <NotePlacementList entries={entries} />}
+      {splitting && (
+        <SplitPreview
+          segments={segments}
+          labels={{
+            title: t('jot.splitHint'),
+            confirm: t('jot.splitConfirm', { n: segments.length }),
+            cancel: t('jot.cancel'),
+            usedWarning:
+              usedCount > 0 ? t('jot.splitUsedWarning', { n: usedCount }) : undefined,
+          }}
+          onConfirm={() => void onSplit(segments)}
+          onCancel={() => setSplitting(false)}
+        />
+      )}
     </li>
   )
 }
