@@ -100,7 +100,7 @@ export async function pushOutbox(syncedProjectIds: Set<string>): Promise<PushRes
 
     for (let i = 0; i < batch.records.length; i += CHUNK) {
       const slice = batch.records.slice(i, i + CHUNK)
-      const { error } = await supabase.rpc('push_records', {
+      const { data: applied, error } = await supabase.rpc('push_records', {
         p_project: batch.projectId,
         p_records: slice,
       })
@@ -115,6 +115,15 @@ export async function pushOutbox(syncedProjectIds: Set<string>): Promise<PushRes
         }
         // Any other error (offline, 5xx) leaves the rows queued for the next tick.
         break
+      }
+      // The RPC returns how many rows its LWW guard actually applied. A
+      // shortfall is legitimate (someone else pushed a newer version first),
+      // but it must be visible: a silently-losing write is how the skewed-clock
+      // archive bug stayed invisible.
+      if (typeof applied === 'number' && applied < slice.length) {
+        console.warn(
+          `push_records applied ${applied}/${slice.length} rows for project ${batch.projectId} (rest lost LWW)`,
+        )
       }
       pushed += slice.length
     }

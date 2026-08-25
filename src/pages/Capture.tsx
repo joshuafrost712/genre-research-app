@@ -2,11 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { findNode, routableNodes } from '../lib/content/loader'
 import {
   createCapturedNote,
+  dismissCapturedNote,
+  noteAuthorOf,
+  restoreCapturedNote,
   routeNoteToNode,
   useEntriesForNote,
   useNotes,
 } from '../lib/storage/notes'
 import { getMetaValue, setMetaValue } from '../lib/storage/appState'
+import { useSupabaseSession } from '../lib/supabase/session'
 import { useActiveContext } from '../components/ActiveContextProvider'
 import type { CapturedNote } from '../lib/types'
 
@@ -41,7 +45,13 @@ const DRAFT_DEBOUNCE_MS = 400
 
 export function Capture() {
   const { ctx } = useActiveContext()
+  const { user } = useSupabaseSession()
   const notes = useNotes(ctx)
+  // One list, split here: the management page shows both halves (recent +
+  // archived-with-restore), so it deliberately uses useNotes, not useActiveNotes.
+  const active = (notes ?? []).filter((n) => !n.dismissed_at)
+  const archived = (notes ?? []).filter((n) => n.dismissed_at)
+  const [showArchived, setShowArchived] = useState(false)
   const [draft, setDraft] = useState('')
   const [activeNote, setActiveNote] = useState<CapturedNote | null>(null)
   // Until the stored draft has been read, an empty box means "not loaded yet",
@@ -78,7 +88,7 @@ export function Capture() {
   const saveNote = async () => {
     const text = draft.trim()
     if (!text) return
-    const note = await createCapturedNote(ctx, text)
+    const note = await createCapturedNote(ctx, text, undefined, noteAuthorOf(user))
     // Clear the parked draft only after the note exists, and cancel any pending
     // debounced write first, or a timer that fires a moment later resurrects the
     // text the person has just filed.
@@ -132,11 +142,11 @@ export function Capture() {
         <h2 className="text-sm font-semibold text-gray-700">Recent notes</h2>
         {notes === undefined ? (
           <p className="text-sm text-gray-400">Loading…</p>
-        ) : notes.length === 0 ? (
+        ) : active.length === 0 ? (
           <p className="text-sm text-gray-500">No notes captured yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {notes.map((n) => (
+            {active.map((n) => (
               <NoteRow
                 key={n.id}
                 note={n}
@@ -147,6 +157,25 @@ export function Capture() {
           </ul>
         )}
       </div>
+
+      {archived.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            className="self-start text-sm font-semibold text-gray-500 hover:text-gray-700"
+          >
+            {showArchived ? '− ' : '+ '}Archived ({archived.length})
+          </button>
+          {showArchived && (
+            <ul className="flex flex-col gap-2">
+              {archived.map((n) => (
+                <ArchivedNoteRow key={n.id} note={n} />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -162,6 +191,8 @@ function NoteRow({
 }) {
   const { ctx } = useActiveContext()
   const derived = useEntriesForNote(ctx, note.id) ?? []
+  const [expanded, setExpanded] = useState(false)
+  const used = derived.length > 0
   return (
     <li
       className={`rounded-lg border bg-white p-3 ${
@@ -169,22 +200,87 @@ function NoteRow({
       }`}
     >
       <p className="whitespace-pre-wrap text-sm text-gray-800">{note.raw_text}</p>
-      <div className="mt-2 flex items-center justify-between">
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-gray-400">
+          {note.author_label && (
+            <span className="font-medium text-gray-500">{note.author_label}</span>
+          )}
+          {used ? (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="rounded bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-700 hover:bg-emerald-100"
+              title="Show where this note was inserted"
+            >
+              inserted ×{derived.length} {expanded ? '−' : '+'}
+            </button>
+          ) : (
+            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-500">
+              not inserted yet
+            </span>
+          )}
+        </span>
+        <span className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => void dismissCapturedNote(note)}
+            aria-label="Archive"
+            title="Archive this note (restorable below)"
+            className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+          >
+            ✕
+          </button>
+          <button
+            type="button"
+            onClick={onRoute}
+            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          >
+            Route…
+          </button>
+        </span>
+      </div>
+      {expanded && used && (
+        <ul className="mt-2 flex flex-col gap-1 border-t border-gray-100 pt-2">
+          {derived.map((e) => (
+            <li key={e.id} className="text-xs">
+              <span className="font-medium text-gray-600">
+                {findNode(e.node_id)?.node.label ?? e.node_id}
+              </span>
+              {e.text && (
+                <span className="text-gray-400"> — {snippet(e.text)}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  )
+}
+
+/** First ~90 chars of what the answer looks like now, one line. */
+function snippet(text: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  return flat.length > 90 ? `${flat.slice(0, 90)}…` : flat
+}
+
+function ArchivedNoteRow({ note }: { note: CapturedNote }) {
+  const { ctx } = useActiveContext()
+  const derived = useEntriesForNote(ctx, note.id) ?? []
+  return (
+    <li className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+      <p className="whitespace-pre-wrap text-sm text-gray-500">{note.raw_text}</p>
+      <div className="mt-2 flex items-center justify-between gap-2">
         <span className="text-xs text-gray-400">
-          {derived.length} placement{derived.length === 1 ? '' : 's'}
-          {derived.length > 0 &&
-            ': ' +
-              derived
-                .map((e) => findNode(e.node_id)?.node.label ?? e.node_id)
-                .filter((v, i, a) => a.indexOf(v) === i)
-                .join(', ')}
+          {derived.length > 0
+            ? `inserted ×${derived.length} (kept)` // provenance survives the archive
+            : 'never inserted'}
         </span>
         <button
           type="button"
-          onClick={onRoute}
-          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          onClick={() => void restoreCapturedNote(note)}
+          className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-white"
         >
-          Route…
+          Restore
         </button>
       </div>
     </li>

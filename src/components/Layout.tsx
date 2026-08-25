@@ -15,6 +15,7 @@ import { BetaWelcome } from './beta/BetaWelcome'
 import { FeedbackHighlight } from './feedback/FeedbackHighlight'
 import { GenreNameProvider } from './GenreNameProvider'
 import { QuickJot } from './QuickJot'
+import { JotNotesProvider } from './blocks/JotPicker'
 import { Tour } from './tour/TourProvider'
 import { APP_TOUR, APP_TOUR_STEPS } from './tour/tours'
 import { OnboardingGate, useOnboardingComplete } from './onboarding/OnboardingGate'
@@ -121,7 +122,12 @@ export function Layout() {
 
         <main className="flex-1 overflow-y-auto px-4 py-6 lg:px-8">
           <div className="mx-auto max-w-3xl">
-            <Outlet />
+            {/* One shared live query feeds every answer box's Insert-a-jot
+                button, on every page that renders blocks (worksheet, wizard,
+                choose-genre, style-compare). */}
+            <JotNotesProvider>
+              <Outlet />
+            </JotNotesProvider>
           </div>
         </main>
       </div>

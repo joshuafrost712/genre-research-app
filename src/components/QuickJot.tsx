@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { createCapturedNote } from '../lib/storage/notes'
+import { createCapturedNote, noteAuthorOf } from '../lib/storage/notes'
+import { useSupabaseSession } from '../lib/supabase/session'
 import { useActiveContext } from './ActiveContextProvider'
 
 /**
@@ -12,6 +13,7 @@ import { useActiveContext } from './ActiveContextProvider'
  */
 export function QuickJot() {
   const { ctx } = useActiveContext()
+  const { user } = useSupabaseSession()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [saved, setSaved] = useState(false)
@@ -21,7 +23,7 @@ export function QuickJot() {
   const save = async () => {
     const t = text.trim()
     if (!t) return
-    await createCapturedNote(ctx, t)
+    await createCapturedNote(ctx, t, undefined, noteAuthorOf(user))
     setText('')
     setSaved(true)
   }

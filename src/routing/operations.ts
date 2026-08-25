@@ -57,7 +57,7 @@ export async function listPendingNotes(ctx: ActiveContext): Promise<CapturedNote
   ])
   const routed = new Set(entries.map((e) => e.captured_note_id).filter(Boolean) as string[])
   return notes
-    .filter((n) => !routed.has(n.id) && n.raw_text.trim())
+    .filter((n) => !routed.has(n.id) && !n.dismissed_at && n.raw_text.trim())
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 

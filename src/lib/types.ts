@@ -77,13 +77,32 @@ export interface TranslationWorksheet {
   updated_at: string
 }
 
-/** Immutable provenance record: raw dictation exactly as captured. */
+/**
+ * Immutable provenance record: raw dictation exactly as captured. `raw_text` and
+ * `created_at` are never rewritten. The ONLY mutation ever written is
+ * archive/restore, which is what `dismissed_at`/`updated_at` exist for:
+ * `updated_at` appears on a row the first time it is archived or restored, and
+ * the sync merge uses its PRESENCE (not clock comparisons) to decide precedence,
+ * because workshop device clocks are wrong by minutes.
+ *
+ * All four new fields are unindexed, so no Dexie version bump is needed and the
+ * shard sync carries them automatically because it merges whole records (same
+ * precedent as Entry.translations below).
+ */
 export interface CapturedNote {
   id: string
   project_id: string
   raw_text: string
   source_language?: string
   created_at: string
+  /** Archive ("delete" in the UI): hidden from pickers, provenance preserved. */
+  dismissed_at?: string
+  /** Present ONLY on rows an archive/restore has touched. Never pre-stamped. */
+  updated_at?: string
+  /** Supabase user id of the capturer, so the UI can compute "You". */
+  author_id?: string
+  /** Display name or email of the capturer, for the team picker. */
+  author_label?: string
 }
 
 /**

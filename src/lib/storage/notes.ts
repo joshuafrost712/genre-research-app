@@ -14,10 +14,29 @@ import type { ActiveContext } from './appState'
 import type { CapturedNote } from '../types'
 import type { GuideNode } from '../../schema/types'
 
+/** Who captured a note. Computed by the caller from the Supabase session. */
+export interface NoteAuthor {
+  id: string
+  label: string
+}
+
+/**
+ * Derive the author stamp from a session user. Kept here (pure, no React) so
+ * QuickJot and Capture stamp identically. Guests/offline return undefined and
+ * the note simply carries no author.
+ */
+export function noteAuthorOf(
+  user: { id: string; email: string; name?: string } | null | undefined,
+): NoteAuthor | undefined {
+  if (!user) return undefined
+  return { id: user.id, label: user.name?.trim() || user.email }
+}
+
 export async function createCapturedNote(
   ctx: ActiveContext,
   rawText: string,
   sourceLanguage?: string,
+  author?: NoteAuthor,
 ): Promise<CapturedNote> {
   const note: CapturedNote = {
     id: uid(),
@@ -25,10 +44,61 @@ export async function createCapturedNote(
     raw_text: rawText,
     source_language: sourceLanguage,
     created_at: now(),
+    author_id: author?.id,
+    author_label: author?.label,
   }
   await db.capturedNotes.put(note)
   await trackUpsert('capturedNotes', note) // insert-once; merge treats notes as immutable
   return note
+}
+
+/**
+ * A stamp guaranteed to sort after `prev`, even when the wall clock says
+ * otherwise. The client merge rule is presence-based, but the SERVER's
+ * push_records still does tuple LWW on the envelope's updated_at — and a plain
+ * jot's envelope carries its created_at from the CAPTURER's clock. If that
+ * clock runs minutes fast (workshop condition, see pull.ts), a bare now() from
+ * a correct clock compares lower, the server skips the DO UPDATE, and the
+ * archive silently never replicates. Bumping past the row's own stamp makes
+ * archive/restore monotone regardless of whose clock is wrong.
+ */
+function stampAfter(prev: string | undefined): string {
+  const current = now()
+  if (!prev) return current
+  const parsed = Date.parse(prev)
+  if (Number.isNaN(parsed)) return current
+  const bumped = new Date(parsed + 1).toISOString()
+  return bumped > current ? bumped : current
+}
+
+/**
+ * Archive ("delete" in the UI). The note disappears from pickers and the recent
+ * list but the record stays: entries routed from it keep their provenance, and
+ * the merge rule can never resurrect it from an old client's replay. Stamping
+ * `updated_at` is what gives the row archive/restore precedence in the merge —
+ * see the presence-based rule in sync/merge.ts.
+ */
+export async function dismissCapturedNote(note: CapturedNote): Promise<CapturedNote> {
+  const stamp = stampAfter(note.updated_at ?? note.created_at)
+  await db.capturedNotes.update(note.id, { dismissed_at: stamp, updated_at: stamp })
+  const updated = (await db.capturedNotes.get(note.id)) ?? { ...note, dismissed_at: stamp, updated_at: stamp }
+  await trackUpsert('capturedNotes', updated)
+  return updated
+}
+
+/** Undo an archive. Keeps `updated_at`, so a later archive elsewhere still wins. */
+export async function restoreCapturedNote(note: CapturedNote): Promise<CapturedNote> {
+  // Dexie deletes a key set to undefined in update(), which is exactly what we
+  // want: a restored row carries no dismissed_at at all. The monotone stamp
+  // matters here too: a restore must out-sort the archive it undoes, or the
+  // server rejects it the same way it rejects a skewed archive.
+  await db.capturedNotes.update(note.id, {
+    dismissed_at: undefined,
+    updated_at: stampAfter(note.updated_at ?? note.created_at),
+  })
+  const updated = (await db.capturedNotes.get(note.id)) ?? note
+  await trackUpsert('capturedNotes', updated)
+  return updated
 }
 
 export function useNotes(ctx: ActiveContext | null): CapturedNote[] | undefined {
@@ -39,6 +109,12 @@ export function useNotes(ctx: ActiveContext | null): CapturedNote[] | undefined 
   }, [ctx?.projectId])
 }
 
+/** Notes the pickers should offer: everything not archived, newest first. */
+export function useActiveNotes(ctx: ActiveContext | null): CapturedNote[] | undefined {
+  const notes = useNotes(ctx)
+  return notes?.filter((n) => !n.dismissed_at)
+}
+
 /** Entries derived from a given note (for showing where a note went). */
 export function useEntriesForNote(ctx: ActiveContext | null, noteId: string) {
   return useLiveQuery(
@@ -46,6 +122,12 @@ export function useEntriesForNote(ctx: ActiveContext | null, noteId: string) {
       ctx ? await db.entries.where('captured_note_id').equals(noteId).toArray() : [],
     [ctx?.projectId, noteId],
   )
+}
+
+/** What routing produced, so a caller can e.g. open the row the note landed in. */
+export interface RoutePlacement {
+  /** Set when the note landed as a new list/table row. */
+  rowId?: string
 }
 
 /**
@@ -59,9 +141,9 @@ export async function routeNoteToNode(
   ctx: ActiveContext,
   note: CapturedNote,
   node: GuideNode,
-): Promise<void> {
+): Promise<RoutePlacement | undefined> {
   const layer = effectiveLayer(node.id)
-  if (!layer) return
+  if (!layer) return undefined
 
   if (node.type === 'short_text' || node.type === 'long_text') {
     const existing = await findEntry(ctx, node.id, layer)
@@ -73,7 +155,7 @@ export async function routeNoteToNode(
       captured_note_id: note.id,
       routing_status: 'confirmed',
     })
-    return
+    return {}
   }
 
   if (node.type === 'repeatable_list') {
@@ -85,7 +167,7 @@ export async function routeNoteToNode(
       { text: note.raw_text, captured_note_id: note.id, routing_status: 'confirmed' },
       rowId,
     )
-    return
+    return { rowId }
   }
 
   if (node.type === 'repeatable_row_table') {
@@ -102,5 +184,8 @@ export async function routeNoteToNode(
         `${rowId}__${firstText.id}`,
       )
     }
+    return { rowId }
   }
+
+  return undefined
 }
