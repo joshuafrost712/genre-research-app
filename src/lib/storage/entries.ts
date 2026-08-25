@@ -17,6 +17,7 @@ import { getContentVersion } from '../content/loader'
 import { getActiveLocale } from '../i18n/activeLocale'
 import { now, uid } from '../util'
 import { trackDelete, trackUpsert } from '../sync/outbox'
+import { currentAuthor } from '../sync/identity'
 import type { ActiveContext } from './appState'
 import type { Entry, RoutingStatus } from '../types'
 import type { Layer } from '../../schema/types'
@@ -94,6 +95,13 @@ export interface EntryPatch {
   ai_confidence?: number
   proposed_text?: string
   proposed_note_id?: string
+  /**
+   * Authorship override, for a write that COPIES someone's answer rather than
+   * types one. Only `importWork` sets it. Absent means "I wrote this", which is
+   * true of every hand-typed edit and is the reason this is an override rather
+   * than a required argument.
+   */
+  last_author?: string
 }
 
 /** Create or update the entry for (node, container, cell). */
@@ -116,10 +124,19 @@ export async function upsertEntry(
       (patch.text !== undefined && patch.text !== existing.text) ||
       (patch.value !== undefined && patch.value !== existing.value)
     const dropTranslations = rewritesAnswer && patch.translations === undefined
+    // Authorship follows the same predicate, and that is the whole point of
+    // reusing it. Every flag toggle in this file (not-applicable, asked,
+    // follow-up) and every row-order write comes through here, so stamping
+    // unconditionally would make whoever last ticked a checkbox the author of
+    // an answer they never typed — and then warn them when the real author
+    // edits it. Only a rewrite claims the answer.
+    const last_author =
+      patch.last_author ?? (rewritesAnswer ? await currentAuthor() : existing.last_author)
     const updated: Entry = {
       ...existing,
       ...patch,
       ...(dropTranslations ? { translations: undefined } : {}),
+      last_author,
       updated_at: now(),
       sync_status: 'local',
     }
@@ -146,6 +163,7 @@ export async function upsertEntry(
     ai_confidence: patch.ai_confidence,
     proposed_text: patch.proposed_text,
     proposed_note_id: patch.proposed_note_id,
+    last_author: patch.last_author ?? (await currentAuthor()),
     routing_status: patch.routing_status ?? 'confirmed',
     schema_version: getContentVersion(),
     sync_status: 'local',
@@ -177,6 +195,12 @@ export async function upsertEntry(
  * The fresh `updated_at` is what makes this work rather than bounce: the merge
  * rule is newest-wins, so a restore stamped now beats the remote row that just
  * landed, and the next pull leaves it alone instead of overwriting it again.
+ *
+ * Claiming authorship of the restored text is correct for the only caller there
+ * is, the overwrite toast, which now only ever offers to restore text this
+ * account wrote. That is a constraint on future callers, not a general truth: a
+ * history viewer that let someone restore a TEAMMATE's earlier text would be
+ * mis-stamping it here, and should pass the original author instead.
  */
 export async function restoreEntryText(
   entryId: string,
@@ -192,6 +216,7 @@ export async function restoreEntryText(
     // The restored text is the original answer again, so any translation cached
     // against the teammate's replacement text no longer describes it.
     translations: undefined,
+    last_author: await currentAuthor(),
     updated_at: now(),
     sync_status: 'local',
   }
@@ -465,6 +490,9 @@ export async function resolveConflict(
   // Taking the AI text makes it AI-sourced; keeping mine drops the AI mark.
   if (action === 'keep') patch.ai_confidence = undefined
   else if (entry.proposed_note_id) patch.captured_note_id = entry.proposed_note_id
+  // A keep leaves `text` exactly as it was, so it is a decision about a
+  // proposal, not a rewrite, and must not move authorship.
+  if (action !== 'keep') patch.last_author = await currentAuthor()
   await db.entries.update(entry.id, patch)
   const updated = await db.entries.get(entry.id)
   if (updated) await trackUpsert('entries', updated)
@@ -473,7 +501,11 @@ export async function resolveConflict(
 /** Accept a proposal: optionally edit the text, then mark it confirmed. */
 export async function confirmEntry(id: string, text?: string): Promise<void> {
   const patch: Partial<Entry> = { routing_status: 'confirmed', updated_at: now() }
-  if (text !== undefined) patch.text = text
+  // Accepting a proposal unchanged is not writing it; editing it on the way in is.
+  if (text !== undefined) {
+    patch.text = text
+    patch.last_author = await currentAuthor()
+  }
   await db.entries.update(id, patch)
   const updated = await db.entries.get(id)
   if (updated) await trackUpsert('entries', updated)

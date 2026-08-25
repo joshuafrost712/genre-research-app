@@ -30,6 +30,7 @@
 import { db } from '../storage/db'
 import { dirtyKeys } from './outbox'
 import { emitOverwrite } from './notices'
+import { myAuthorIds } from './identity'
 import type { Shard, ShardRecord, SyncTable } from './types'
 import type { CapturedNote, Entry } from '../types'
 
@@ -148,7 +149,21 @@ interface AnswerRow {
   cell_key?: string
   text?: string
   value?: string
+  updated_at?: string
+  last_author?: string
 }
+
+/**
+ * How recently this account must have written an answer for a teammate
+ * replacing it to count as a collision worth interrupting someone over.
+ *
+ * The feature exists for two people in the same cell at the same moment. A
+ * teammate revising something you wrote last week is ordinary collaborative
+ * work, and announcing it turns the toast into background noise people learn to
+ * dismiss. The history row is written either way, so nothing is lost by staying
+ * quiet — it is only the interruption that is bounded.
+ */
+const COLLISION_WINDOW_MS = 10 * 60 * 1000
 
 /**
  * Keep a copy of anything a teammate's edit replaces.
@@ -185,6 +200,7 @@ async function recordOverwrite(rec: ShardRecord, local: Timestamped | undefined)
 
   // The history row makes it recoverable; this makes it noticed. Emitting after
   // the write, so a notice can never point at a row that does not exist yet.
+  if (!(await isCollision(before, after))) return
   emitOverwrite({
     entryId: before.id,
     projectId: before.project_id ?? '',
@@ -192,7 +208,40 @@ async function recordOverwrite(rec: ShardRecord, local: Timestamped | undefined)
     cellKey: before.cell_key,
     prevText: before.text,
     prevValue: before.value,
+    byAuthor: after.last_author,
   })
+}
+
+/**
+ * Is this worth interrupting someone about?
+ *
+ * The history row above is written for EVERY overwrite and that does not
+ * change. This decides only whether a person is told, and it is deliberately
+ * narrow: text this account wrote, recently, replaced by somebody else.
+ *
+ * The bug it fixes: "your answer" used to mean nothing more than "the text that
+ * happened to be in this browser's copy of the row". Everyone on a team holds a
+ * copy of everyone's answers, so a person who had typed nothing all morning was
+ * warned every time anyone else typed anything, every three seconds, about
+ * work that was never theirs.
+ */
+async function isCollision(before: AnswerRow, after: AnswerRow): Promise<boolean> {
+  const me = await myAuthorIds()
+  // Mine: this ACCOUNT wrote the text being replaced. Matching a set rather
+  // than one id is what keeps work typed before signing in counting as mine.
+  if (!before.last_author || !me.has(before.last_author)) return false
+  // Theirs: an absent author is an older client, which cannot be this device —
+  // `mine` already proved this device's account wrote what was there.
+  if (after.last_author && me.has(after.last_author)) return false
+
+  // Recent, bounded at BOTH ends. A row's `updated_at` comes from whichever
+  // device last wrote it, and `mine` is true for this person's other devices
+  // too, so this can be a laptop's clock read against an iPad's `Date.now()`.
+  // Workshop clocks run minutes fast (see the note on capturedNotes above), and
+  // without the lower bound a fast peer clock would make a row permanently
+  // "recent". A missing or unparseable stamp gives NaN, which fails both tests.
+  const age = Date.now() - Date.parse(before.updated_at ?? '')
+  return Number.isFinite(age) && age >= 0 && age < COLLISION_WINDOW_MS
 }
 
 const ROWS_KEY = '__rows'
@@ -244,6 +293,10 @@ async function mergeRowOrder(id: string, rec: ShardRecord): Promise<void> {
   await db.entries.put({
     ...incoming,
     value: JSON.stringify(merged),
+    // The union is neither side's write, and a row-order sidecar has no author
+    // in any case. Pinning the local value keeps the field from quietly
+    // becoming false, the same way `raw_text` is pinned for capturedNotes.
+    last_author: local?.last_author,
     // The union is a new fact neither side had, so it must be newer than both or
     // the next pull would treat it as stale and overwrite it back.
     updated_at: newestOf(local?.updated_at, incoming.updated_at),

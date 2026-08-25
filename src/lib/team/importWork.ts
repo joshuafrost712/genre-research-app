@@ -342,6 +342,13 @@ export async function importProjectInto(
           is_concern_flag: e.is_concern_flag,
           routing_status: e.routing_status,
           captured_note_id: await cloneNote(e.captured_note_id),
+          // Copying an answer is not writing one. Carrying the source's author
+          // across keeps a colleague's imported work attributed to them, and
+          // stops the importer being warned about every later edit to it. When
+          // the source predates authorship the write falls back to the
+          // importer, which is right for the ordinary case: importing the
+          // project you yourself worked in before the team existed.
+          last_author: e.last_author,
           // AI proposals pending review are deliberately NOT carried over: they
           // are suggestions about the source's cell, not work the person did.
         },
@@ -372,6 +379,10 @@ export async function importProjectInto(
       !(srcText.length >= 24 && existing.text.includes(srcText))
     ) {
       patch.text = `${existing.text.trimEnd()}\n\n${stamp}`
+      // The team's answer is still there with something added below it, so it
+      // stays theirs. Claiming it would announce the import to its author as
+      // "your answer was replaced", which is both alarming and untrue.
+      patch.last_author = existing.last_author
       // Extend cached translations instead of letting the text change drop them:
       // they were paid for on a metered key, and a patch that carries
       // `translations` is exempt from upsertEntry's invalidation.

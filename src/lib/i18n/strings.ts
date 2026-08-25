@@ -218,7 +218,13 @@ const UI = {
   'account.dismiss': { en: 'Dismiss', id: 'Tutup' },
 
   // A teammate's edit replacing yours. The previous text is already kept in the
-  // history table; this is what tells a person it happened.
+  // history table; this is what tells a person it happened. `titleBy` is the
+  // one people see in a workshop; `title` is the fallback for when the name
+  // cannot be resolved (offline, an older client, a writer not on the team).
+  'overwrite.titleBy': {
+    en: '{who}’s edit replaced your answer',
+    id: 'Suntingan {who} menggantikan jawaban Anda',
+  },
   'overwrite.title': {
     en: 'A teammate’s edit replaced your answer',
     id: 'Suntingan rekan tim menggantikan jawaban Anda',

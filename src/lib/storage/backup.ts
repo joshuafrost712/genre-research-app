@@ -81,6 +81,20 @@ const IDENTITY_META = new Set([
   'durabilityProbe',
 ])
 
+/**
+ * An answer carries the account id of whoever last wrote it, so the overwrite
+ * toast can tell your work from a teammate's. That is a person, by the same
+ * standard as the meta keys above, and this file is described to the user as
+ * something they may hand to a colleague. Restored answers lose their
+ * authorship and so stay quiet until someone edits them again, which is the
+ * same safe direction as every answer written before the field existed.
+ */
+function stripAuthor(row: Record<string, unknown>): Record<string, unknown> {
+  const copy = { ...row }
+  delete copy.last_author
+  return copy
+}
+
 export interface BackupFile {
   app: typeof APP_TAG
   format: number
@@ -101,7 +115,9 @@ export async function buildBackup(): Promise<BackupFile> {
     const kept =
       name === 'meta'
         ? (rows as { key: string }[]).filter((r) => !IDENTITY_META.has(r.key))
-        : rows
+        : name === 'entries'
+          ? (rows as Record<string, unknown>[]).map(stripAuthor)
+          : rows
     tables[name] = kept
     counts[name] = kept.length
   }

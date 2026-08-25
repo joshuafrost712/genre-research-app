@@ -144,6 +144,23 @@ export interface Entry {
    * automatically because it merges whole records.
    */
   translations?: Record<string, string>
+  /**
+   * Who last wrote this answer's TEXT: the Supabase user id when signed in,
+   * else this device's sync author id (see lib/sync/identity.ts).
+   *
+   * It exists so the overwrite toast can tell "a teammate replaced MY answer"
+   * from "a teammate edited an answer that merely happened to be in my copy of
+   * the row". Without it every device treats every synced answer as its own and
+   * a person who has typed nothing is warned about everyone else's typing.
+   *
+   * Written ONLY where the text or value changes. A flag toggle, a cached
+   * translation and a row-order write are not authorship, and stamping them
+   * would let a reader who ticks "follow up" inherit the answer.
+   *
+   * Unindexed, so no Dexie version bump, and the shard sync carries it
+   * automatically because it merges whole records (same as `translations`).
+   */
+  last_author?: string
   routing_status: RoutingStatus
   ai_confidence?: number
   // AI proposed a different answer for a cell that already holds a confirmed one.

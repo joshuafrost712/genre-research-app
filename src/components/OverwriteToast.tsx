@@ -1,5 +1,5 @@
 /**
- * "A teammate's edit replaced your answer" — with the answer still in reach.
+ * "Priya's edit replaced your answer" — with the answer still in reach.
  *
  * Two people typing the same field at once is resolved by last-write-wins, and
  * that is the right rule for a store with one row per cell. Its cost is that the
@@ -7,6 +7,12 @@
  * most alarming thing this app can do in a room of seven people sharing one
  * worksheet. `merge.ts` already preserves the text in `db.history`; this is what
  * turns a silent replacement into a visible event with an undo next to it.
+ *
+ * What reaches this component is now narrow, and it has to be. The first version
+ * fired for any remote change to any answer already in this browser's copy of
+ * the data, which in a team is nearly every answer, so people who had typed
+ * nothing were interrupted all morning about other people's work. `merge.ts`
+ * now decides collisions; this only renders them.
  *
  * Deliberately small in scope: it announces, it restores, it goes away. It is not
  * a merge UI and not a version history — those are worth building when the
@@ -17,6 +23,7 @@ import { useNavigate } from 'react-router-dom'
 import { subscribeOverwrites, type OverwriteNotice } from '../lib/sync/notices'
 import { restoreEntryText } from '../lib/storage/entries'
 import { findNode, navTree } from '../lib/content/loader'
+import { useMemberLabel } from '../lib/team/people'
 import { useLocale } from '../lib/i18n/LocaleContext'
 import { useActiveContext } from './ActiveContextProvider'
 
@@ -80,6 +87,10 @@ export function OverwriteToast() {
     return () => window.clearTimeout(timer)
   }, [notice, restored])
 
+  // Above the early return, or the hook count changes with the toast. Both
+  // arguments are nullable for exactly that reason.
+  const who = useMemberLabel(notice?.projectId, notice?.byAuthor)
+
   if (!notice) return null
 
   const label = labelFor(notice.nodeId)
@@ -88,12 +99,17 @@ export function OverwriteToast() {
   return (
     <div className="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4 print:hidden">
       <div className="w-full max-w-md rounded-lg border border-amber-300 bg-amber-50 p-3 shadow-lg">
-        <p className="text-sm text-amber-900">
+        <p className="text-sm text-amber-900" title={who.email ?? undefined}>
           {restored ? (
             t('overwrite.restored')
           ) : (
             <>
-              {t('overwrite.title')}
+              {/* Naming the person is the friendlier sentence and the more
+                  useful one in a room. It falls back to the anonymous wording
+                  whenever the name cannot be resolved — offline, an older
+                  client, a writer who is not on the member list — so the toast
+                  never renders a blank where a name should be. */}
+              {who.label ? t('overwrite.titleBy', { who: who.label }) : t('overwrite.title')}
               {label ? ` ${t('overwrite.where', { where: label })}` : ''}.
             </>
           )}

@@ -23,6 +23,12 @@ export interface OverwriteNotice {
   /** What this device had before the remote row landed. */
   prevText?: string
   prevValue?: string
+  /**
+   * Who replaced it, as an account id. A NAME is not resolved here on purpose:
+   * this is emitted from the merge step, which must not make network calls, and
+   * the id-to-email lookup is an RPC. The toast resolves it (lib/team/people).
+   */
+  byAuthor?: string
 }
 
 const subscribers = new Set<(n: OverwriteNotice) => void>()

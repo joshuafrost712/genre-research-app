@@ -18,6 +18,8 @@ import { useSyncExternalStore } from 'react'
 import { supabase, isSupabaseConfigured } from '../supabase/client'
 import { onEnqueue, pendingCount } from './outbox'
 import { getAuthorId } from './author'
+import { forgetIdentity } from './identity'
+import { forgetMembers } from '../team/people'
 import { pushOutbox } from './supabase/push'
 import { pullProject } from './supabase/pull'
 import {
@@ -277,6 +279,10 @@ export const syncEngine = {
         peersSeen.clear()
         forbidden.clear()
         invalidateProjectCache()
+        // Both are keyed to the account that just left: who "I" am for
+        // authorship, and the team's member emails behind the overwrite toast.
+        forgetIdentity()
+        forgetMembers()
         detach()
         setStatus({ state: 'signed-out', peers: 0, lastSyncedAt: null })
         // Deliberately does NOT forget the account marker. This event fires for a

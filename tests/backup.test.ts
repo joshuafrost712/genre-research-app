@@ -117,6 +117,20 @@ describe('buildBackup', () => {
     expect(keys).toContain('activeProjectId')
   })
 
+  it('leaves the answer authors out, since they name accounts', async () => {
+    // `last_author` is an account id on every answer. It is a person by the
+    // same standard as the meta keys above, and this file is described to the
+    // user as something they can hand to a colleague.
+    await db.entries.put({ ...entry('e9', 'p1', 'An answer'), last_author: 'uid-someone' })
+
+    const file = await buildBackup()
+    const rows = file.tables.entries as Record<string, unknown>[]
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].text).toBe('An answer')
+    expect(rows[0]).not.toHaveProperty('last_author')
+  })
+
   it('names the tables it does not carry, rather than pretending to be complete', async () => {
     const file = await buildBackup()
     expect(file.omitted).toContain('recordings')
