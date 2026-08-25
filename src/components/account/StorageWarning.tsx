@@ -113,6 +113,11 @@ export function StorageWarning() {
 
   return (
     <div
+      // A stable hook for scripts/check-storage-warning.mjs, which asserts this
+      // is VISIBLE rather than merely present. Text-in-the-DOM is not the same
+      // claim: the onboarding gate is a full-screen overlay, and an earlier
+      // version of that check passed while the banner sat invisible underneath it.
+      data-storage-warning=""
       // Amber for at-risk, red once something has actually gone. Not a decoration:
       // the second state is a report of loss, and it should not look like the
       // standing advisory a person has already learned to scroll past.

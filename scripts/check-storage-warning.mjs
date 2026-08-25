@@ -24,8 +24,23 @@
  *
  * If the browser running this actually grants persistent storage, test 1 cannot
  * be staged and says so rather than passing vacuously.
+ *
+ * ## Two things this got wrong first, both worth keeping in mind
+ *
+ * **Presence is not visibility.** The first version asserted on
+ * `document.body.innerText`, which counts text that is rendered but covered. When
+ * the onboarding gate landed — a full-screen overlay — every assertion still
+ * passed while the banner sat invisible underneath it. So the visibility check is
+ * now geometric: find the element, then ask `elementFromPoint` what is actually
+ * painted at its centre. That is the same class of mistake the whole file exists
+ * to catch, one layer up.
+ *
+ * **The staged state has to be one a real person can reach.** Seeding an answer
+ * with no project row put the app in a state no guest can occupy (the onboarding
+ * gate holds until a project exists) and quietly tested that instead. The seed
+ * now creates the project too.
  */
-import { launch } from './lib/browser.mjs'
+import { launch, sleep } from './lib/browser.mjs'
 
 const APP_URL = (process.argv[2] ?? 'http://localhost:5173/').replace(/\/?$/, '/')
 
@@ -36,7 +51,7 @@ const check = (name, ok, detail = '') => {
 }
 const skip = (name, why) => console.log(`    skip ${name} — ${why}`)
 
-const BODY_TEXT = `return document.body.innerText.replace(/\\s+/g, ' ')`
+
 
 /**
  * Put one answer into the app's IndexedDB directly.
@@ -46,13 +61,27 @@ const BODY_TEXT = `return document.body.innerText.replace(/\\s+/g, ' ')`
  * does not own.
  */
 const ADD_ENTRY = `
+  const now = new Date().toISOString()
   const db = await new Promise((res, rej) => {
     const r = indexedDB.open('genre-research')
     r.onsuccess = () => res(r.result)
     r.onerror = () => rej(r.error)
   })
   await new Promise((res, rej) => {
-    const tx = db.transaction('entries', 'readwrite')
+    const tx = db.transaction(['projects', 'entries'], 'readwrite')
+    // The project row matters: the onboarding gate holds the screen until one
+    // exists, so an answer without it stages a state no guest can be in.
+    tx.objectStore('projects').put({
+      id: 'check-project',
+      name: 'Storage check',
+      languages: [],
+      team_members: [],
+      scope: 'narrow',
+      config_version: 1,
+      is_sensitive: false,
+      created_at: now,
+      updated_at: now,
+    })
     tx.objectStore('entries').put({
       id: 'check-entry-1',
       project_id: 'check-project',
@@ -61,14 +90,54 @@ const ADD_ENTRY = `
       text: 'Laguraket Minahasa is an Indonesian music genre.',
       routing_status: 'placed',
       sync_status: 'local',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
     })
     tx.oncomplete = res
     tx.onerror = () => rej(tx.error)
   })
   db.close()
   return 1
+`
+
+/**
+ * Is the banner actually painted where it claims to be?
+ *
+ * Returns the visible text only when the element exists, has a real box, and is
+ * what `elementFromPoint` finds at its own centre. An overlay covering it fails
+ * the last condition, which is exactly the case that slipped through before.
+ */
+const VISIBLE_WARNING = `
+  const el = document.querySelector('[data-storage-warning]')
+  if (!el) return { found: false }
+  const r = el.getBoundingClientRect()
+  if (r.width < 1 || r.height < 1) return { found: true, visible: false, why: 'zero-sized' }
+  const mid = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+  const covered = !mid || !(el === mid || el.contains(mid))
+  return {
+    found: true,
+    visible: !covered,
+    why: covered ? 'covered by ' + (mid ? mid.tagName + '.' + mid.className : 'nothing') : '',
+    text: el.innerText.replace(/\\s+/g, ' '),
+    top: r.top,
+  }
+`
+
+/**
+ * Dismiss the app tour, as a person does before they can type anything.
+ *
+ * Not a workaround for a bug. The tour is a modal that auto-opens once while
+ * unseen, so it legitimately covers the banner — and nobody can answer a
+ * worksheet question without closing it first. Seeding an answer straight into
+ * IndexedDB skips that step and manufactures an overlap a real guest never sees.
+ * Closing it here restores the real sequence: tour, then work, then the warning.
+ */
+const DISMISS_TOUR = `
+  const skip = [...document.querySelectorAll('button')].find(
+    (b) => b.textContent.trim() === 'Skip',
+  )
+  if (skip) { skip.click(); return 'closed' }
+  return 'none'
 `
 
 const CLEAR_WORK = `
@@ -102,17 +171,19 @@ try {
   // 2. A guest who has typed nothing.
   await browser.evaluate(CLEAR_WORK)
   await browser.goto(APP_URL, 3500)
-  const emptyText = await browser.evaluate(BODY_TEXT)
+  const empty = await browser.evaluate(VISIBLE_WARNING)
   check(
     'a guest who has typed nothing is not warned',
-    !/may delete it/i.test(emptyText),
-    'the at-risk banner showed with no work on the device',
+    !empty.found,
+    'the at-risk banner rendered with no work on the device',
   )
 
   // 1 + 3. A guest with work, on a browser that refused to promise.
   await browser.evaluate(ADD_ENTRY)
   await browser.goto(APP_URL, 3500)
-  const workedText = await browser.evaluate(BODY_TEXT)
+  const tour = await browser.evaluate(DISMISS_TOUR)
+  if (tour === 'closed') await sleep(600)
+  const warn = await browser.evaluate(VISIBLE_WARNING)
 
   if (persisted === true) {
     skip(
@@ -122,26 +193,35 @@ try {
   } else {
     check(
       'a guest with work on an unprotected browser is warned',
-      /saved on this phone only/i.test(workedText),
-      'no at-risk warning for a guest holding unsaved work',
+      warn.found,
+      'no at-risk banner rendered for a guest holding unsaved work',
+    )
+    check(
+      'the warning is actually visible, not covered by an overlay',
+      warn.found && warn.visible,
+      warn.why,
+    )
+    check(
+      'the warning says what is at stake',
+      /saved on this phone only/i.test(warn.text ?? ''),
+      'the banner is up but does not name the risk',
     )
     check(
       'the warning offers a backup, not only a sign-in',
-      /save backup/i.test(workedText),
+      /save backup/i.test(warn.text ?? ''),
       'no "Save backup" action in the warning',
-    )
-    check(
-      'the page still works underneath it',
-      /export|passages|genres/i.test(workedText),
-      'the banner appears to have replaced the page rather than sitting above it',
     )
 
     // 4. Layout: the banner must sit above the app, not over it.
     const layout = await browser.evaluate(`
       const doc = document.documentElement
+      const header = document.querySelector('header')
+      const banner = document.querySelector('[data-storage-warning]')
       return {
         overflowX: doc.scrollWidth > doc.clientWidth + 1,
-        headerVisible: !!document.querySelector('header'),
+        headerTop: header ? header.getBoundingClientRect().top : -1,
+        bannerBottom: banner ? banner.getBoundingClientRect().bottom : -1,
+        pageText: document.body.innerText.replace(/\\s+/g, ' ').slice(0, 400),
       }
     `)
     check(
@@ -149,7 +229,16 @@ try {
       !layout.overflowX,
       'the banner pushed the page wider than the viewport',
     )
-    check('the header is still on screen', layout.headerVisible)
+    check(
+      'it pushes the header down rather than sitting on top of it',
+      layout.headerTop >= layout.bannerBottom - 1,
+      `header top ${layout.headerTop} vs banner bottom ${layout.bannerBottom}`,
+    )
+    check(
+      'the app is underneath it, not replaced by it',
+      /export|passages|genres|workspace/i.test(layout.pageText),
+      'no app chrome found below the banner',
+    )
   }
 
   await browser.screenshot('/tmp/storage-warning-390.png', { fullPage: false })
