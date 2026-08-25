@@ -597,12 +597,14 @@ function PurposeRow({
             })
           )}
         </div>
-        {purposes && <p className="mt-1 text-xs text-gray-500">{purposes}</p>}
+        {/* Content first, then the "say more" supplement: same order, and the
+            same text, the team sees in the 1f summary table. */}
         {about && (
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 whitespace-pre-line text-xs text-gray-500">
             <span className="font-medium">Usually about:</span> {about}
           </p>
         )}
+        {purposes && <p className="mt-1 whitespace-pre-line text-xs text-gray-500">{purposes}</p>}
       </div>
       {kept ? (
         <button type="button" onClick={onSetAside} className="text-xs text-gray-500 hover:underline">

@@ -207,23 +207,28 @@ export function requiredFeatureRefs(entries: Entry[], genreId: string): Required
 export interface PurposeDisplay {
   /** Ticked purpose-family chips (may be empty). */
   familyIds: string[]
-  /** The 1b free-text purposes answer, summary-cell shortened. */
+  /** The 1b "say more about the purposes" answer, summary-cell shortened. */
   purposeText: string
-  /**
-   * The "usually about" (s1b.content) answer, filled ONLY when both purpose
-   * fields above are empty, as a stand-in so the row still says something.
-   */
+  /** The 1b "what is it usually about" answer, summary-cell shortened. */
   aboutText: string
 }
 
 /**
- * What 2b's purpose-comparison row shows for one genre. The family chips are
- * the headline when ticked, but they fit Psalm-like genres better than work
- * or war songs, so teams often leave them unticked and write the purpose in
- * prose instead (field team report, 2026-08). The free-text purposes answer
- * carries the row then, and failing that the "usually about" answer stands
- * in — a genre whose purpose was recorded anywhere in 1b must never read as
- * "no purposes recorded".
+ * What 2b's purpose-comparison row shows for one genre. Three sources, all
+ * shown when present, because each holds a different part of the answer:
+ *
+ * - the family chips, when ticked. They fit Psalm-like genres better than work
+ *   or war songs, so teams often leave them unticked (field team report,
+ *   2026-08) and the row must still say something.
+ * - `s1b.content` ("What is {genre} usually about?"), which is where teams put
+ *   the substance, and which the 1f summary table shows by default.
+ * - `s1b.purposes` ("Say MORE about the purposes"), a supplement by design:
+ *   its answers read like "also used to put children asleep". Showing it
+ *   *instead of* the content answer dropped the substance and made 2b
+ *   disagree with 1f, which is the bug this shape fixes.
+ *
+ * A genre whose purpose was recorded anywhere in 1b must never read as "no
+ * purposes recorded", and what 2b shows must not contradict 1f.
  */
 export function purposeDisplay(entries: Entry[], genreId: string): PurposeDisplay {
   const familyIds = parseIdArray(
@@ -231,10 +236,11 @@ export function purposeDisplay(entries: Entry[], genreId: string): PurposeDispla
       (e) => e.node_id === 's1b.purpose_families' && e.genre_id === genreId && !e.cell_key,
     )?.value,
   )
-  const purposeText = summaryCell(entries, genreId, 's1b.purposes').text
-  const aboutText =
-    familyIds.length === 0 && !purposeText ? summaryCell(entries, genreId, 's1b.content').text : ''
-  return { familyIds, purposeText, aboutText }
+  return {
+    familyIds,
+    purposeText: summaryCell(entries, genreId, 's1b.purposes').text,
+    aboutText: summaryCell(entries, genreId, 's1b.content').text,
+  }
 }
 
 export interface CoverageFamily {
