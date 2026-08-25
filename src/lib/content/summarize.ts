@@ -204,6 +204,39 @@ export function requiredFeatureRefs(entries: Entry[], genreId: string): Required
   return out
 }
 
+export interface PurposeDisplay {
+  /** Ticked purpose-family chips (may be empty). */
+  familyIds: string[]
+  /** The 1b free-text purposes answer, summary-cell shortened. */
+  purposeText: string
+  /**
+   * The "usually about" (s1b.content) answer, filled ONLY when both purpose
+   * fields above are empty, as a stand-in so the row still says something.
+   */
+  aboutText: string
+}
+
+/**
+ * What 2b's purpose-comparison row shows for one genre. The family chips are
+ * the headline when ticked, but they fit Psalm-like genres better than work
+ * or war songs, so teams often leave them unticked and write the purpose in
+ * prose instead (field team report, 2026-08). The free-text purposes answer
+ * carries the row then, and failing that the "usually about" answer stands
+ * in — a genre whose purpose was recorded anywhere in 1b must never read as
+ * "no purposes recorded".
+ */
+export function purposeDisplay(entries: Entry[], genreId: string): PurposeDisplay {
+  const familyIds = parseIdArray(
+    entries.find(
+      (e) => e.node_id === 's1b.purpose_families' && e.genre_id === genreId && !e.cell_key,
+    )?.value,
+  )
+  const purposeText = summaryCell(entries, genreId, 's1b.purposes').text
+  const aboutText =
+    familyIds.length === 0 && !purposeText ? summaryCell(entries, genreId, 's1b.content').text : ''
+  return { familyIds, purposeText, aboutText }
+}
+
 export interface CoverageFamily {
   id: string
   label: string

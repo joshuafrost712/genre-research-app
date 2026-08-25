@@ -14,7 +14,7 @@ import {
   type ActiveContext,
 } from '../lib/storage/appState'
 import { addRow, upsertEntry, useAllEntries, useEntry } from '../lib/storage/entries'
-import { fullAnswerBehindCell, shortPrompt, summaryCell } from '../lib/content/summarize'
+import { fullAnswerBehindCell, purposeDisplay, shortPrompt, summaryCell } from '../lib/content/summarize'
 import { mergeOptions, useCustomOptions } from '../lib/customOptions'
 import {
   deriveShortlist,
@@ -554,12 +554,7 @@ function PurposeRow({
   const kept = state === 'kept'
   const familiesNode = findNode('s1b.purpose_families')?.node
   const purposeOptions = familiesNode ? mergeOptions(familiesNode, customPurposes) : customPurposes
-  const familyIds = parseIds(
-    entries.find(
-      (e) => e.node_id === 's1b.purpose_families' && e.genre_id === genre.id && !e.cell_key,
-    )?.value,
-  )
-  const purposes = summaryCell(entries, genre.id, 's1b.purposes').text
+  const { familyIds, purposeText: purposes, aboutText: about } = purposeDisplay(entries, genre.id)
 
   return (
     <li
@@ -571,10 +566,13 @@ function PurposeRow({
         <div className="font-medium text-gray-900">{genre.name}</div>
         <div className="mt-1 flex flex-wrap gap-1">
           {familyIds.length === 0 ? (
+            // A written purpose is still a purpose: only say "none recorded"
+            // when 1b truly has nothing, and otherwise nudge toward the chips
+            // (they are what the ★ passage match compares against).
             <span className="text-xs text-gray-400">
-              No purposes recorded yet —{' '}
+              {purposes || about ? 'No purpose types chosen yet' : 'No purposes recorded yet'} —{' '}
               <Link to="/worksheet/s1b" className="text-sky-700 hover:underline">
-                add them in 1b
+                {purposes || about ? 'choose them in 1b' : 'add them in 1b'}
               </Link>
             </span>
           ) : (
@@ -600,6 +598,11 @@ function PurposeRow({
           )}
         </div>
         {purposes && <p className="mt-1 text-xs text-gray-500">{purposes}</p>}
+        {about && (
+          <p className="mt-1 text-xs text-gray-500">
+            <span className="font-medium">Usually about:</span> {about}
+          </p>
+        )}
       </div>
       {kept ? (
         <button type="button" onClick={onSetAside} className="text-xs text-gray-500 hover:underline">
