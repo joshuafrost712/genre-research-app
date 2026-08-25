@@ -6,7 +6,9 @@ import { useActiveContext } from '../components/ActiveContextProvider'
 import { useDepthMode } from '../components/DepthModeContext'
 import { MacroArea } from '../components/MacroArea'
 import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
-import { findNode, nextNavId, routeForSub } from '../lib/content/loader'
+import { findNode } from '../lib/content/loader'
+import { BackLink, SectionNav } from '../components/SectionNav'
+import { useLocale } from '../lib/i18n/LocaleContext'
 import { setLastNode } from '../lib/storage/appState'
 
 /**
@@ -18,6 +20,7 @@ import { setLastNode } from '../lib/storage/appState'
  */
 export function MacroCompare() {
   const { ctx } = useActiveContext()
+  const { t } = useLocale()
   const { mode } = useDepthMode()
   const tokens = useNameTokens()
   const genre = useLiveQuery(
@@ -40,20 +43,15 @@ export function MacroCompare() {
   const passage = focusText?.reference?.trim() || 'your passage'
   const genreName = genre && !genre.name.startsWith('Untitled') ? genre.name : 'the genre'
   const noGenre = !genre || genre.name.startsWith('Untitled')
-  const nextId = nextNavId('s0.macro_notes')
   const title = resolveGenreTokens(
     findNode('s0.macro_notes')?.node.label ?? '2c: The Big Picture — Compare & Decide',
     tokens,
   )
-  const backLabel = resolveGenreTokens(
-    findNode('s0.genre_choice')?.node.label ?? '2b: Choose a Genre',
-    tokens,
-  )
-  const nextLabel = nextId ? resolveGenreTokens(findNode(nextId)?.node.label ?? '', tokens) : ''
 
   return (
     <div className="flex flex-col gap-6">
       <div>
+        <BackLink currentId="s0.macro_notes" />
         <h1 className="text-2xl font-semibold" data-dfb-node="s0.macro_notes" data-dfb-field="label">
           {title}
         </h1>
@@ -77,19 +75,11 @@ export function MacroCompare() {
         <MacroArea key={area.id} ctx={ctx} area={area} mode={mode} />
       ))}
 
-      <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-        <Link to="/choose" className="text-sm text-gray-500 hover:underline">
-          ← {backLabel}
+      <SectionNav currentId="s0.macro_notes">
+        <Link to="/" className="text-sm text-gray-500 hover:underline">
+          {t('nav.home')}
         </Link>
-        {nextId && (
-          <Link
-            to={routeForSub(nextId)}
-            className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
-          >
-            Next: {nextLabel} →
-          </Link>
-        )}
-      </div>
+      </SectionNav>
     </div>
   )
 }

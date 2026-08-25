@@ -19,7 +19,8 @@
     "check:signed-out": "node scripts/check-signed-out-visible.mjs",
     "check:storage": "node scripts/check-storage-warning.mjs",
     "check:overwrite": "node scripts/check-overwrite-toast.mjs",
-    "check:account-switch": "node scripts/check-account-switch.mjs"
+    "check:account-switch": "node scripts/check-account-switch.mjs",
+    "check:back-nav": "node scripts/check-back-nav.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",

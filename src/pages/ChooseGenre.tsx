@@ -7,6 +7,8 @@ import { useDepthMode } from '../components/DepthModeContext'
 import { BlockRenderer } from '../components/blocks/BlockRenderer'
 import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 import { findNode, nextNavId, routeForSub, splitStageTitle } from '../lib/content/loader'
+import { BackLink, SectionNav } from '../components/SectionNav'
+import { useLocale } from '../lib/i18n/LocaleContext'
 import {
   ensureWorksheetFor,
   setActiveGenre,
@@ -66,6 +68,7 @@ const FLAG_ICON: Record<Exclude<FlagLevel, ''>, string> = {
 
 export function ChooseGenre() {
   const { ctx, reload } = useActiveContext()
+  const { t } = useLocale()
   const { mode } = useDepthMode()
   const tokens = useNameTokens()
   const entries = useAllEntries(ctx)
@@ -464,19 +467,11 @@ export function ChooseGenre() {
         </div>
       </details>
 
-      <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+      <SectionNav currentId="s0.genre_choice">
         <Link to="/" className="text-sm text-gray-500 hover:underline">
-          Home
+          {t('nav.home')}
         </Link>
-        {nextId && (
-          <Link
-            to={routeForSub(nextId)}
-            className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
-          >
-            Next: {nextLabel} →
-          </Link>
-        )}
-      </div>
+      </SectionNav>
 
       {guardFor && (
         <GuardDialog
@@ -496,6 +491,7 @@ function Header({ passage }: { passage: string }) {
   const findLabel = findNode('s1a')?.node.label ?? '1a: Find Local Genres'
   return (
     <div>
+      <BackLink currentId="s0.genre_choice" />
       <h1 className="text-2xl font-semibold" data-dfb-node="s0.genre_choice" data-dfb-field="label">
         {resolveGenreTokens(title, tokens)}
       </h1>

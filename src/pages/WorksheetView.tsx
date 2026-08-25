@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { findNode, nextNavId, routeForSub, SUB_PAGE_ROUTES } from '../lib/content/loader'
+import { findNode, SUB_PAGE_ROUTES } from '../lib/content/loader'
 import { setLastNode } from '../lib/storage/appState'
 import { visibleAtDepth } from '../schema/types'
 import { useDepthMode } from '../components/DepthModeContext'
@@ -9,6 +9,8 @@ import { useProgress } from '../components/useProgress'
 import { BlockRenderer } from '../components/blocks/BlockRenderer'
 import { resolveGenreTokens, useNameTokens } from '../components/GenreNameProvider'
 import { Tour, ReplayTourButton } from '../components/tour/TourProvider'
+import { BackLink, SectionNav } from '../components/SectionNav'
+import { useLocale } from '../lib/i18n/LocaleContext'
 import { WORKSHEET_TOUR, WORKSHEET_TOUR_STEPS } from '../components/tour/tours'
 
 /**
@@ -17,6 +19,7 @@ import { WORKSHEET_TOUR, WORKSHEET_TOUR_STEPS } from '../components/tour/tours'
  */
 export function WorksheetView() {
   const { nodeId } = useParams()
+  const { t } = useLocale()
   const { mode } = useDepthMode()
   const { ctx } = useActiveContext()
   const progress = useProgress()
@@ -47,8 +50,6 @@ export function WorksheetView() {
   const { node, parents } = ref
   const sectionLabel = parents[0]?.label
   const children = (node.children ?? []).filter((c) => visibleAtDepth(c, mode))
-  const nextId = nextNavId(node.id)
-  const next = nextId ? findNode(nextId) : undefined
   const subProgress = progress?.bySubsection[node.id]
 
   return (
@@ -64,6 +65,7 @@ export function WorksheetView() {
             {resolveGenreTokens(sectionLabel, genre)}
           </p>
         )}
+        <BackLink currentId={node.id} />
         <div className="mt-1 flex items-baseline justify-between gap-3">
           <h1 className="text-2xl font-semibold" data-dfb-node={node.id} data-dfb-field="label">
             {resolveGenreTokens(node.label, genre)}
@@ -99,24 +101,12 @@ export function WorksheetView() {
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-        <div className="flex items-center gap-4">
-          <Link to="/" className="text-sm text-gray-500 hover:underline">
-            Home
-          </Link>
-          <ReplayTourButton id={WORKSHEET_TOUR} />
-        </div>
-        {next ? (
-          <Link
-            to={routeForSub(next.node.id)}
-            className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
-          >
-            Next: {resolveGenreTokens(next.node.label, genre)} →
-          </Link>
-        ) : (
-          <span className="text-sm text-gray-400">End of worksheet</span>
-        )}
-      </div>
+      <SectionNav currentId={node.id}>
+        <Link to="/" className="text-sm text-gray-500 hover:underline">
+          {t('nav.home')}
+        </Link>
+        <ReplayTourButton id={WORKSHEET_TOUR} />
+      </SectionNav>
     </div>
   )
 }

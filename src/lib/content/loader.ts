@@ -442,3 +442,17 @@ export function nextNavId(currentId: string | null): string | null {
   if (i === -1) return order[0]
   return i + 1 < order.length ? order[i + 1] : null
 }
+
+/**
+ * The subsection before `currentId` on the recommended path, or null at the start.
+ *
+ * Deliberately asymmetric with `nextNavId`: an absent or unknown id gets no
+ * fallback to the ends of the list. "Next" from nowhere sensibly means "start
+ * here"; "back" from nowhere has no such answer, and guessing one would send
+ * someone who is already lost somewhere they have never been.
+ */
+export function prevNavId(currentId: string | null): string | null {
+  const order = journeyOrder()
+  const i = currentId ? order.indexOf(currentId) : -1
+  return i > 0 ? order[i - 1] : null
+}

@@ -120,7 +120,12 @@ export function Layout() {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto px-4 py-6 lg:px-8">
+        {/* The deep bottom padding is not decoration. Quick-jot sits fixed at
+            bottom-right for everyone, and the feedback FAB at bottom-left for
+            beta testers, so without room to scroll past the end of the page
+            they cover whatever the last row is — which is now the Back/Next
+            nav. Checked at 390px by scripts/check-back-nav.mjs. */}
+        <main className="flex-1 overflow-y-auto px-4 pb-24 pt-6 lg:px-8">
           <div className="mx-auto max-w-3xl">
             {/* One shared live query feeds every answer box's Insert-a-jot
                 button, on every page that renders blocks (worksheet, wizard,

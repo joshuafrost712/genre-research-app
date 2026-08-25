@@ -44,6 +44,15 @@ const UI = {
   'nav.depth': { en: 'Depth', id: 'Kedalaman' },
   'nav.workspace': { en: 'Workspace {n}', id: 'Ruang Kerja {n}' },
 
+  // The section footer's move-through-the-worksheet controls. Workshop feedback,
+  // 2026-08-25: "You can easily go to the next question, but it would be nice if
+  // there was also a back arrow ... We keep losing our way a bit." On a phone the
+  // sidebar that shows the path is behind the hamburger, so the page itself has
+  // to carry both directions.
+  'nav.back': { en: 'Back', id: 'Kembali' },
+  'nav.next': { en: 'Next', id: 'Berikutnya' },
+  'nav.endOfWorksheet': { en: 'End of worksheet', id: 'Akhir lembar kerja' },
+
   // The jot picker: insert a captured note into the answer box it belongs in.
   'jot.insert': { en: 'Insert a jot', id: 'Sisipkan catatan' },
   'jot.pickerTitle': { en: 'Insert a jot', id: 'Sisipkan catatan' },
@@ -248,6 +257,17 @@ const UI = {
   'team.peopleWord': { en: 'people', id: 'orang' },
   'team.justYou': { en: 'just you', id: 'hanya Anda' },
   'team.openTeamPage': { en: 'Open the team page', id: 'Buka halaman tim' },
+
+  // Live presence. "here now" is chosen against team.people's "{n} people" on
+  // purpose: one counts who belongs to the team, the other who is in it right this
+  // second, and two numbers in one header need words that separate them.
+  'presence.here': { en: '{n} here now', id: '{n} sedang di sini' },
+  'presence.who': { en: 'Here now: {names}', id: 'Sedang di sini: {names}' },
+  // The sentence that works without a name. The member list is fetched from the
+  // server, so offline, or for a teammate who joined since this device last
+  // looked, there is a dot and no name to put on it — and an account uuid is not a
+  // name.
+  'presence.someone': { en: 'Someone', id: 'Seseorang' },
 
   // The drift warning. This is the one Joshua asked for by name: nobody should be
   // unsure whether their typing reaches the team or a private copy.

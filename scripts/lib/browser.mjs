@@ -133,6 +133,20 @@ export async function launch(label, { headful = process.env.HEADFUL === '1' } = 
       })
     },
 
+    /**
+     * Make the page behave as though its window has focus.
+     *
+     * Headless Chrome treats every page as unfocused, and an unfocused page does
+     * not fire focus/blur (nor focusin/focusout). Any check about what happens
+     * when a field loses focus — autosave-on-blur, above all — silently measures
+     * nothing without this: the blur() call succeeds, activeElement changes, and
+     * no handler ever runs. Opt in per check rather than by default, so the
+     * existing checks keep the browser behaviour they were written against.
+     */
+    async focusEmulation(enabled = true) {
+      await send('Emulation.setFocusEmulationEnabled', { enabled })
+    },
+
     /** PNG to disk, so an appearance claim can be looked at rather than asserted. */
     async screenshot(path, { fullPage = false } = {}) {
       const { data } = await send('Page.captureScreenshot', {
