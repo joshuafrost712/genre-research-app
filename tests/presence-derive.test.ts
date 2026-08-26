@@ -21,14 +21,17 @@ const ME = '11111111-1111-1111-1111-111111111111'
 const PRIYA = '22222222-2222-2222-2222-222222222222'
 const SAM = '33333333-3333-3333-3333-333333333333'
 
-/** A roster entry: presence carries a join stamp and nothing else. */
+/** A roster entry: presence carries a join stamp, read by nothing. */
 function joined(secondsAgo = 0, ref = 'r1') {
   return { at: new Date(NOW - secondsAgo * 1000).toISOString(), presence_ref: ref }
 }
 
-/** A `node` broadcast, as it arrives from a peer. */
-function claim(userId: string, nodeId: string | null, secondsAgo = 0) {
-  return { userId, nodeId, at: new Date(NOW - secondsAgo * 1000).toISOString() }
+/**
+ * A stored claim. `heardAt` is OUR clock at receipt, never the sender's — see
+ * NodeClaim for the poisoning that peer timestamps allowed.
+ */
+function claim(nodeId: string | null, secondsAgo = 0) {
+  return { nodeId, heardAt: NOW - secondsAgo * 1000 }
 }
 
 /** The room: who is on the roster, and what each has claimed. */
@@ -39,7 +42,7 @@ function room(
   const nodes: Record<string, unknown> = {}
   for (const [userId, spec] of Object.entries(people)) {
     presence[userId] = [joined(spec.joinedAgo ?? 0)]
-    if (spec.nodeId !== undefined) nodes[userId] = claim(userId, spec.nodeId, spec.claimedAgo ?? 0)
+    if (spec.nodeId !== undefined) nodes[userId] = claim(spec.nodeId, spec.claimedAgo ?? 0)
   }
   return { presence, nodes }
 }
@@ -63,7 +66,7 @@ describe('derivePresence', () => {
     // both broadcast under the same account id, so there is one claim, not two.
     const snapshot = derive({
       presence: { [PRIYA]: [joined(30, 'laptop'), joined(2, 'phone')] },
-      nodes: { [PRIYA]: claim(PRIYA, 's1.performers', 2) },
+      nodes: { [PRIYA]: claim('s1.performers', 2) },
     })
     expect(snapshot.people).toEqual([{ userId: PRIYA, nodeId: 's1.performers' }])
     expect(snapshot.byNode.get('s1.setting')).toBeUndefined()
@@ -78,12 +81,22 @@ describe('derivePresence', () => {
 
   it('counts a newcomer who has not broadcast yet, on no tab', () => {
     // Broadcast keeps no history, so between joining and the first `node` message
-    // a real person is on the roster and nowhere else. Counting only broadcasts
-    // would leave them out of "N here now" — and leave them out permanently if
-    // that first message is the one that gets lost.
+    // a real person is on the roster and nowhere else.
     const snapshot = derive({ presence: { [PRIYA]: [joined(1)] }, nodes: {} })
     expect(snapshot.people).toEqual([{ userId: PRIYA, nodeId: null }])
     expect(snapshot.byNode.size).toBe(0)
+  })
+
+  it('counts an established member whose join stamp is ancient', () => {
+    // THE ROSTER HAS NO TTL, and this is the case that forced it. Presence stamps
+    // `at` once at join and never refreshes it, so applying the TTL to it made
+    // everyone in a room that had been open all morning look stale — and somebody
+    // arriving into that room counted NOBODY until the first re-announce landed.
+    // Presence membership is server-maintained; being on it is being here.
+    const snapshot = derive(
+      room({ [PRIYA]: { joinedAgo: 8 * 60 * 60, nodeId: 's1.setting', claimedAgo: 5 } }),
+    )
+    expect(snapshot.people).toEqual([{ userId: PRIYA, nodeId: 's1.setting' }])
   })
 
   it('releases a stale claim but keeps the person the roster still vouches for', () => {
@@ -97,45 +110,30 @@ describe('derivePresence', () => {
     expect(snapshot.byNode.size).toBe(0)
   })
 
-  it('drops a person once the roster and their claim are both stale', () => {
-    const old = PRESENCE_TTL_MS / 1000 + 60
-    const snapshot = derive(
-      room({
-        [PRIYA]: { joinedAgo: old, nodeId: 's1.setting', claimedAgo: old },
-        [SAM]: { nodeId: 's1.setting', claimedAgo: 5 },
-      }),
-    )
-    expect(snapshot.people.map((p) => p.userId)).toEqual([SAM])
-    expect(snapshot.byNode.get('s1.setting')).toHaveLength(1)
-  })
-
   it('ignores a claim from somebody who is not on the roster', () => {
     // Presence is authoritative for WHO: it is the half the server maintains, and
-    // it drops a peer the moment their socket closes. A leftover broadcast from
-    // somebody who has gone must not resurrect them as a dot nobody can explain.
+    // it drops a peer the moment their socket closes. A claim left behind by
+    // somebody who has gone must not resurrect them as a dot nobody can explain —
+    // which is also why the channel keeps no `leave` handler to prune them.
     const snapshot = derive({
       presence: { [SAM]: [joined()] },
-      nodes: { [SAM]: claim(SAM, 's1.setting'), [PRIYA]: claim(PRIYA, 's1.performers') },
+      nodes: { [SAM]: claim('s1.setting'), [PRIYA]: claim('s1.performers') },
     })
     expect(snapshot.people.map((p) => p.userId)).toEqual([SAM])
     expect(snapshot.byNode.get('s1.performers')).toBeUndefined()
   })
 
-  it('believes a clock from the future now, and still expires it eventually', () => {
-    // A tablet running an hour fast. It is shown, because dropping it would make a
-    // working device invisible — but it does expire, once real time has passed its
-    // stamp by a TTL. Asserting only the first line passes just as happily when
-    // nothing clamps at all, which is what an earlier version of this test did
-    // while its name promised otherwise.
-    const future = {
-      presence: { [PRIYA]: [{ at: new Date(NOW + 3_600_000).toISOString() }] },
-      nodes: { [PRIYA]: claim(PRIYA, 's1.setting', -3600) },
-    }
-    const at = (now: number) =>
-      derivePresence(future, { selfId: ME, now, ttlMs: PRESENCE_TTL_MS }).people
-    expect(at(NOW)).toHaveLength(1)
-    expect(at(NOW + 3_600_000 + PRESENCE_TTL_MS - 1000)).toHaveLength(1)
-    expect(at(NOW + 3_600_000 + PRESENCE_TTL_MS + 1000)).toHaveLength(0)
+  it('cannot be pinned to a tab by a claim stamped in the future', () => {
+    // The channel stamps `heardAt` locally, so a peer's clock never reaches this
+    // function. Belt to that brace: even if a future `heardAt` were stored, it must
+    // not survive as a permanent dot. It is in the future, so it is not older than
+    // the TTL and it shows — but one TTL past that stamp it is gone, and it can
+    // never beat anything, because nothing here compares claims to each other.
+    const snapshot = derivePresence(
+      { presence: { [PRIYA]: [joined()] }, nodes: { [PRIYA]: claim('s1.setting', -3600) } },
+      { selfId: ME, now: NOW + 3_600_000 + PRESENCE_TTL_MS + 1000, ttlMs: PRESENCE_TTL_MS },
+    )
+    expect(snapshot.people).toEqual([{ userId: PRIYA, nodeId: null }])
   })
 
   it('yields an empty map for an empty or malformed payload rather than throwing', () => {
@@ -154,32 +152,41 @@ describe('derivePresence', () => {
       { presence: { [PRIYA]: null } },
       { presence: { [PRIYA]: 'nope' } },
       { presence: { [PRIYA]: [] } },
-      { presence: { [PRIYA]: [null] } },
-      { presence: { [PRIYA]: [{}] } },
-      { presence: { [PRIYA]: [{ at: 'yesterday' }] } },
-      { presence: { [PRIYA]: [{ at: '' }] } },
       { presence: { '': [joined()] } },
-      // A roster that is fine, with junk in the other half.
-      { presence: { [PRIYA]: [joined()] }, nodes: 'nope' },
-      { presence: { [PRIYA]: [joined()] }, nodes: [1, 2] },
     ]) {
       const snapshot = derivePresence(raw as never, { selfId: ME, now: NOW })
-      // The last two have a real person on the roster; they must survive with no
-      // dot rather than throw. The rest reduce to nobody.
-      const expected = isRosteredButJunk(raw) ? [{ userId: PRIYA, nodeId: null }] : []
-      expect(snapshot.people, JSON.stringify(raw)).toEqual(expected)
+      expect(snapshot.people, JSON.stringify(raw)).toEqual([])
       expect(snapshot.byNode.size, JSON.stringify(raw)).toBe(0)
     }
   })
 
-  it('treats a missing timestamp as stale, so nobody can pin themselves to a tab', () => {
-    // Fail-closed is load-bearing: if an absent `at` counted as fresh, omitting the
-    // field would be a permanent dot the TTL could never clear.
-    const snapshot = derive({
-      presence: { [PRIYA]: [{ presence_ref: 'r1' }] },
-      nodes: { [PRIYA]: { userId: PRIYA, nodeId: 's1.setting' } },
-    })
-    expect(snapshot.people).toEqual([])
+  it('keeps a rostered person when their CLAIM is junk, on no tab', () => {
+    // A device attached is a person present, whatever they are or are not saying
+    // about where they are. The two halves fail independently on purpose.
+    for (const nodes of [
+      'nope',
+      [1, 2],
+      { [PRIYA]: null },
+      { [PRIYA]: 'nope' },
+      { [PRIYA]: {} },
+      { [PRIYA]: { nodeId: 's1.setting' } }, // no heardAt
+      { [PRIYA]: { nodeId: 5, heardAt: 'yesterday' } },
+    ]) {
+      const snapshot = derivePresence({ presence: { [PRIYA]: [joined()] }, nodes } as never, {
+        selfId: ME,
+        now: NOW,
+      })
+      expect(snapshot.people, JSON.stringify(nodes)).toEqual([{ userId: PRIYA, nodeId: null }])
+      expect(snapshot.byNode.size, JSON.stringify(nodes)).toBe(0)
+    }
+  })
+
+  it('treats a device with an unreadable presence meta as present anyway', () => {
+    // Deliberate, and a change from the first design. The meta's CONTENTS are read
+    // by nothing now, so an older client that sends a different payload — or none
+    // — is still somebody with an open socket.
+    const snapshot = derive({ presence: { [PRIYA]: [{}] }, nodes: {} })
+    expect(snapshot.people).toEqual([{ userId: PRIYA, nodeId: null }])
   })
 
   it('orders people stably, so two renders of one room agree', () => {
@@ -189,7 +196,7 @@ describe('derivePresence', () => {
     expect(forward.people.map((p) => p.userId)).toEqual([PRIYA, SAM])
   })
 
-  it('heartbeats often enough that sitting still does not expire you', () => {
+  it('heartbeats often enough that sitting still does not expire your dot', () => {
     // The relationship, not the numbers: three heartbeats inside one TTL means two
     // can be lost to venue wifi without a dot flickering.
     expect(PRESENCE_HEARTBEAT_MS * 3).toBeLessThanOrEqual(PRESENCE_TTL_MS)
@@ -203,16 +210,6 @@ describe('derivePresence', () => {
     expect(snapshot.people.map((p) => p.userId)).toEqual([PRIYA])
   })
 })
-
-/** The two malformed cases above that still carry a real person on the roster. */
-function isRosteredButJunk(raw: unknown): boolean {
-  return (
-    typeof raw === 'object' &&
-    raw !== null &&
-    'nodes' in raw &&
-    Array.isArray((raw as { presence?: Record<string, unknown> }).presence?.[PRIYA])
-  )
-}
 
 describe('nodeIdFromPath', () => {
   it('reads the worksheet node out of the path', () => {

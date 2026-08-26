@@ -52,9 +52,8 @@ const sidebarDots = (page) =>
     const side = document.querySelector('aside')
     if (!side) return null
     const out = []
-    for (const el of side.querySelectorAll('[title]')) {
+    for (const el of side.querySelectorAll('[data-presence="dot"]')) {
       const title = el.getAttribute('title') || ''
-      if (!/^Here now:/.test(title)) continue
       const a = el.closest('a')
       out.push({ title, href: a ? a.getAttribute('href') : null, label: a ? (a.innerText || '').trim() : null })
     }
@@ -64,8 +63,7 @@ const sidebarDots = (page) =>
 /** The header's presence chip text, or null when it is not rendered. */
 const headerChip = (page) =>
   page.evaluate(`
-    const el = [...document.querySelectorAll('header [title]')]
-      .find(e => /^Here now:/.test(e.getAttribute('title') || ''))
+    const el = document.querySelector('header [data-presence="chip"]')
     return el ? { text: (el.innerText || '').trim(), title: el.getAttribute('title') } : null
   `)
 
@@ -84,7 +82,7 @@ const untilDot = (page, timeoutMs = 15000) =>
     `(() => {
         const side = document.querySelector('aside')
         if (!side) return null
-        const el = [...side.querySelectorAll('[title]')].find(e => /^Here now:/.test(e.getAttribute('title')||''))
+        const el = side.querySelector('[data-presence="dot"]')
         if (!el) return null
         const a = el.closest('a')
         return { title: el.getAttribute('title'), href: a ? a.getAttribute('href') : null }
@@ -318,7 +316,7 @@ try {
   await guest.goto(`${APP_URL.replace(/\/$/, '')}${GUEST_HREF.replace(/^\/genre-research-app/, '')}`, 3000)
 
   const hostSeesChip = await host.until(
-    `(() => { const e = [...document.querySelectorAll('header [title]')].find(x => /^Here now:/.test(x.getAttribute('title')||'')); return e ? e.innerText.trim() : null })()`,
+    `(() => { const e = document.querySelector('header [data-presence="chip"]'); return e ? e.innerText.trim() : null })()`,
     30000,
     250,
   )
@@ -360,7 +358,7 @@ try {
   )
 
   const guestSeesChip = await guest.until(
-    `(() => { const e = [...document.querySelectorAll('header [title]')].find(x => /^Here now:/.test(x.getAttribute('title')||'')); return e ? e.innerText.trim() : null })()`,
+    `(() => { const e = document.querySelector('header [data-presence="chip"]'); return e ? e.innerText.trim() : null })()`,
     30000,
     250,
   )
@@ -416,7 +414,7 @@ try {
       `(() => {
           const side = document.querySelector('aside')
           if (!side) return null
-          const el = [...side.querySelectorAll('[title]')].find(e => /^Here now:/.test(e.getAttribute('title')||''))
+          const el = side.querySelector('[data-presence="dot"]')
           const a = el && el.closest('a')
           return a ? a.getAttribute('href') : null
         })() === ${JSON.stringify(target)}`,
@@ -444,6 +442,48 @@ try {
     `${landed.length}/${walk.length} landed`,
   )
 
+  // --- the venue wifi ------------------------------------------------------
+  //
+  // The condition this app is actually used in. A drop closes the socket, so the
+  // roster loses that person and their dot goes — which is correct, and is also
+  // exactly what a channel that died and never came back looks like. So the
+  // assertion is the RETURN, not the disappearance.
+  console.log('\n==> The guest loses wifi for 6s, then gets it back')
+  const before = await sidebarDots(host)
+  check('the host can see the guest to begin with', before?.length === 1, JSON.stringify(before))
+  await guest.cdp('Network.enable')
+  await guest.cdp('Network.emulateNetworkConditions', {
+    offline: true,
+    latency: 0,
+    downloadThroughput: 0,
+    uploadThroughput: 0,
+  })
+  const dropped = await host.until(
+    `!document.querySelector('aside [data-presence="dot"]')`,
+    30000,
+    250,
+  )
+  check(`the host stops seeing them while they are gone (${dropped.ms}ms)`, dropped.ok, 'dot never cleared')
+  await sleep(6000)
+  await guest.cdp('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 0,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  })
+  const returned = await untilDot(host, 60000)
+  check(
+    `and sees them again once wifi returns (${returned.ms}ms)`,
+    returned.ok && returned.value?.href === walk[walk.length - 1],
+    `got ${JSON.stringify(returned.value)}, wanted ${walk[walk.length - 1]}`,
+  )
+  const guestChipBack = await host.until(
+    `(() => { const e = document.querySelector('header [data-presence="chip"]'); return e ? e.innerText.trim() : null })() === '1 here now'`,
+    30000,
+    250,
+  )
+  check(`and the header count recovers (${guestChipBack.ms}ms)`, guestChipBack.ok)
+
   // --- 4. the phone header, measured ----------------------------------------
   console.log('\n==> CHECK 4 — the header at 390px with somebody present')
   await host.emulate({ width: 390, height: 844, scale: 2 })
@@ -459,8 +499,8 @@ try {
   }
   await sleep(600)
   const phone = await host.evaluate(`
-    const chip = [...document.querySelectorAll('header [title]')]
-      .find(e => /^Here now:/.test(e.getAttribute('title')||'') && e.getBoundingClientRect().width > 0)
+    const chip = [...document.querySelectorAll('header [data-presence="chip"]')]
+      .find(e => e.getBoundingClientRect().width > 0)
     if (!chip) return { rendered: false }
     const r = chip.getBoundingClientRect()
     const row = chip.parentElement
@@ -490,14 +530,19 @@ try {
       overflowing: [...document.querySelectorAll('*')]
         .map(el => ({ el, r: el.getBoundingClientRect() }))
         .filter(({ r }) => r.width > 0 && (r.right > viewport + 0.5 || r.left < -0.5))
-        .slice(0, 6)
         .map(({ el, r }) => ({
           tag: el.tagName,
           cls: String(el.className || '').slice(0, 60),
           inHeader: Boolean(el.closest('header')),
+          // On the stable hook, not on a class-name substring. The previous version
+          // sniffed for /emerald/ in a className truncated to 60 characters, which
+          // cut the string one character before the word it was looking for — so the
+          // gate below matched nothing and passed unconditionally.
+          isPresence: Boolean(el.closest('[data-presence]')),
           left: Math.round(r.left),
           right: Math.round(r.right),
-        })),
+        }))
+        .slice(0, 8),
       siblings,
     }
   `)
@@ -522,7 +567,7 @@ try {
     // spec 12 for a pre-existing bug in somebody else's row would make this gate
     // lie in both directions: red when presence is fine, and no more likely to go
     // green when presence breaks. It is reported loudly instead.
-    const mine = phone.overflowing.filter((e) => !e.inHeader || /emerald/.test(e.cls))
+    const mine = phone.overflowing.filter((e) => e.isPresence)
     check(
       `nothing presence added overflows the viewport`,
       mine.length === 0,

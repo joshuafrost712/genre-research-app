@@ -72,11 +72,20 @@ export const PRESENCE_HEARTBEAT_MS = 60_000
 
 /**
  * What a client tracks about itself on the presence channel. Deliberately just a
- * timestamp: the roster needs to know somebody is here, and the moment `nodeId`
- * lived in here, every navigation became a presence event and the channel died.
+ * timestamp, and even that is only for diagnostics: the moment `nodeId` lived in
+ * here, every navigation became a presence event and the channel died.
+ *
+ * NOTHING HERE IS READ FOR LIVENESS. Presence membership is maintained by the
+ * server — an entry exists if and only if a socket is open, and Phoenix's own
+ * socket heartbeat retires a dead one — so being on the roster IS being present.
+ * An earlier version applied the TTL to this stamp, which was written once at
+ * join and never refreshed. The consequence was quiet and bad: after three
+ * minutes every established member looked stale, so somebody joining a room that
+ * had been working all morning counted NOBODY until the first re-announce
+ * arrived, and counted nobody for a further minute if that message was lost.
  */
 export interface PresencePayload {
-  /** ISO timestamp of the join, so a newcomer counts before their first broadcast. */
+  /** ISO timestamp of the join. Diagnostics only; see above. */
   at: string
 }
 
@@ -86,8 +95,27 @@ export interface NodePayload {
   userId: string
   /** The worksheet node being viewed, or null anywhere else in the app. */
   nodeId: string | null
-  /** ISO timestamp of this announcement, for the TTL above. */
+  /** ISO timestamp from the SENDER's clock. Diagnostics only; see NodeClaim. */
   at: string
+}
+
+/**
+ * What we keep per account once a claim has arrived.
+ *
+ * `heardAt` IS OUR OWN CLOCK, not the sender's, and that is the whole point.
+ * Ordering and expiry on a peer-supplied timestamp put a workshop's device
+ * clocks — and anyone on the team with a console — in charge of both. One claim
+ * stamped in the future used to pin an account's dot to the wrong node until real
+ * time caught up: every later claim from them lost the last-write-wins comparison,
+ * and the clamp meant the bad one never expired either. Local receipt time cannot
+ * be poisoned, is monotonic for our purposes, and is a better answer to the only
+ * question being asked — how long since we last heard from this person.
+ */
+export interface NodeClaim {
+  /** The worksheet node they last reported, or null. */
+  nodeId: string | null
+  /** `Date.now()` when we received it. */
+  heardAt: number
 }
 
 export interface PresencePerson {
@@ -126,53 +154,29 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * A timestamp we are willing to believe, or null.
+ * Is this presence value a real roster entry?
  *
- * Workshop device clocks are wrong by minutes in both directions, so a stamp from
- * the future is a device with a bad clock, not a lie to discard: drop it and a
- * correctly-working phone goes invisible, which is a worse failure than the one it
- * prevents. It is clamped to now instead.
- *
- * Note what clamping does NOT buy: such an entry still outlives a correct one,
- * because each read re-clamps and the age stays 0 until real time passes the
- * stamp. Clamping cannot fix that. The exposure is bounded and small, because
- * Realtime removes a presence entry the moment its socket closes, so the TTL only
- * ever covers a tab the OS froze with the socket still open.
+ * Presence state maps a key to an array of metas, one per device. The CONTENTS do
+ * not matter — an older client that sends a different payload, or none, is still a
+ * person with an open socket — so this asks only whether at least one device is
+ * attached. Anything else (null, a string, an empty array) is not a roster entry
+ * and reduces to nobody, because remote input must never throw here.
  */
-function believableAt(value: unknown, now: number): number | null {
-  const raw = typeof value === 'string' ? Date.parse(value) : NaN
-  if (!Number.isFinite(raw)) return null
-  return Math.min(raw, now)
+function isRostered(entries: unknown): boolean {
+  return Array.isArray(entries) && entries.length > 0
 }
 
-/**
- * The freshest believable timestamp across one account's presence metas, or null.
- *
- * An entry with no parseable `at` is skipped rather than treated as fresh. That is
- * the safe direction twice over: an older client that does not send `at` goes
- * quiet instead of becoming permanently present, and a peer cannot pin itself to
- * the roster forever by omitting the field.
- */
-function freshestJoin(entries: unknown, now: number): number | null {
-  if (!Array.isArray(entries)) return null
-  let best: number | null = null
-  for (const entry of entries) {
-    if (!isRecord(entry)) continue
-    const at = believableAt(entry.at, now)
-    if (at === null) continue
-    if (best === null || at > best) best = at
+/** A stored claim, or null if it is not the shape we wrote. */
+function asClaim(value: unknown): NodeClaim | null {
+  if (!isRecord(value)) return null
+  const heardAt = typeof value.heardAt === 'number' ? value.heardAt : NaN
+  if (!Number.isFinite(heardAt)) return null
+  return {
+    nodeId: typeof value.nodeId === 'string' && value.nodeId ? value.nodeId : null,
+    heardAt,
   }
-  return best
 }
 
-/**
- * Reduce the roster and the node claims to what the sidebar and header need.
- *
- * `selfId` is the signed-in account id and is excluded on the presence KEY, not on
- * a payload field: the key is what Realtime dedupes devices by, so keying the
- * exclusion anywhere else would let your own second device appear as a stranger
- * standing on your tab.
- */
 export function derivePresence(
   input: PresenceInput | null | undefined,
   opts: { selfId: string | null; now?: number; ttlMs?: number },
@@ -185,27 +189,19 @@ export function derivePresence(
   const people: PresencePerson[] = []
   for (const [userId, entries] of Object.entries(input.presence)) {
     if (!userId || userId === opts.selfId) continue
+    // The ROSTER decides who is here, on its own. See PresencePayload: presence
+    // membership is server-maintained, so it needs no corroboration and gets no
+    // TTL. A newcomer is counted the moment they appear, and everyone in a room
+    // that has been open all morning keeps counting.
+    if (!isRostered(entries)) continue
 
-    const joinedAt = freshestJoin(entries, now)
-    const claim = isRecord(nodes[userId]) ? (nodes[userId] as Record<string, unknown>) : null
-    const claimAt = claim ? believableAt(claim.at, now) : null
-
-    // Liveness comes from EITHER source, and it needs both. The heartbeat is a
-    // broadcast, so a live peer refreshes `claimAt` every minute — but somebody
-    // who joined a second ago has no broadcast yet, and counting only broadcasts
-    // would leave them out of "N here now" until their first one lands (or
-    // forever, if it is the one that gets lost). Presence says they are here; that
-    // is enough to count them, on no tab.
-    const freshest = Math.max(joinedAt ?? -Infinity, claimAt ?? -Infinity)
-    if (!Number.isFinite(freshest) || now - freshest > ttlMs) continue
-
-    // The DOT, though, comes only from a fresh broadcast. A claim older than the
-    // TTL is released rather than left hanging on a page they may have left.
-    const located = claimAt !== null && now - claimAt <= ttlMs
-    const nodeId =
-      located && typeof claim?.nodeId === 'string' && claim.nodeId ? claim.nodeId : null
-
-    people.push({ userId, nodeId })
+    // The DOT is the part with a TTL. A claim we have not heard renewed inside
+    // one is released rather than left hanging on a page they may have left; that
+    // covers the tab the OS froze with its socket still open, which is the case
+    // the roster cannot see.
+    const claim = asClaim(nodes[userId])
+    const fresh = claim !== null && now - claim.heardAt <= ttlMs
+    people.push({ userId, nodeId: fresh ? claim.nodeId : null })
   }
 
   // Sorted so two renders of the same room agree on the order of names, and so a

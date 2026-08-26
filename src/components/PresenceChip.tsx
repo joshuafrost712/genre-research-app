@@ -28,6 +28,7 @@ export function PresenceChip({ className = '' }: { className?: string }) {
 
   return (
     <span
+      data-presence="chip"
       title={t('presence.who', { names })}
       className={`flex shrink-0 items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800 ${className}`}
     >

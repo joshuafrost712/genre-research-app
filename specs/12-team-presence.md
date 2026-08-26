@@ -59,6 +59,19 @@ Three consequences the presence-only design got for free and this one has to ear
    caught it as "the host sees no dot but the header says 1 here now". The roster
    is already the authority on who is present, so nothing needs cleaning up.
 
+Two rules the reviews forced, both about whose clock is in charge:
+
+- **The roster has no TTL.** Presence membership is server-maintained, so being on
+  it is being here. The first version of this design applied the TTL to the
+  presence stamp, which is written once at join and never refreshed — so after
+  three minutes every member of a room that had been working all morning looked
+  stale, and somebody arriving into it counted NOBODY until a re-announce landed.
+- **Claims are stamped with the RECEIVER's clock** (`NodeClaim.heardAt`), not the
+  sender's. Ordering and expiry on a peer-supplied timestamp handed the worst
+  device clock in the room — or any teammate with a console — control of both: one
+  claim dated in the future beat every later claim from that account and never
+  expired, pinning their dot to the wrong node for the length of the skew.
+
 The message budget is unchanged by the move: the heartbeat is still one message
 per person per minute, just a broadcast rather than a track.
 
@@ -339,7 +352,13 @@ The channel wiring itself is verified by hand, below.
    any `supabase.co` host at all**, opens no websocket, and logs nothing. That is
    behavioural; an earlier version read the page for a sign-in control and passed
    on the word "account" appearing in onboarding copy.
-8. ✅ **The header at 390px with somebody present.** Measured, not eyeballed,
+8. ✅ **Presence survives venue wifi.** The guest is taken offline over CDP for
+   six seconds. The host's dot clears in ~13s (Phoenix's own socket timeout
+   noticing the dead connection, which is the server's job, not ours) and returns
+   ~5.9s after wifi comes back, on the right node, with the header count with it.
+   The assertion is the RETURN, not the disappearance: a dot that vanishes is also
+   what a channel that died and never came back looks like.
+9. ✅ **The header at 390px with somebody present.** Measured, not eyeballed,
    and screenshotted. The phone context strip holds team chip (146px), passage ×
    genre (107px) and `1 here now` (89px) inside 390 with **0px of row overflow**,
    and `elementFromPoint` confirms the chip is the topmost thing at its own
@@ -392,6 +411,24 @@ blocker above, one is somebody else's bug.
 
 Finding 5 is the same mistake as departure 2 in this spec, one level up the tree:
 a route the nav offers that presence cannot name. Worth remembering as a shape.
+
+### Second review, of the broadcast rebuild (2026-08-26)
+
+Five findings, all fixed. Three of them were regressions the rewrite introduced,
+which is the argument for reviewing a transport change rather than trusting that a
+green browser check means the design is sound.
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | The last-write-wins guard compared raw sender clocks with no bound, so one future-dated claim dropped every later claim from that account and never expired. The rewrite had deleted the rank-future-below-believable logic that used to guard this | Fixed: claims carry `heardAt` from the RECEIVER's clock, so a peer's clock never enters ordering or expiry |
+| 2 | The new "nothing presence added overflows" gate was **vacuous**: both chips are inside `<header>`, and the `/emerald/` escape hatch tested a className sliced to 60 chars — one character short of the word. `mine` was always empty | Fixed: `data-presence` hooks on the chip and the dots, filtered on `closest('[data-presence]')`. Every selector in the check moved onto them, off `title` text |
+| 3 | The `CLOSED` branch cleared `joinedKey` "to let the provider's next run start clean", but that effect depends on `[projectId, userId]` and never re-runs — so there was no rejoin, and the spec claimed one | Fixed: a real bounded rejoin in `channel.ts` (5s/15s/60s, then stop), cancelled by `leavePresence` and guarded by the generation counter |
+| 4 | `announce()` checked `!channel` but not that it was joined. realtime-js silently falls back to an HTTP POST plus a deprecation warning for a broadcast it cannot push (`RealtimeChannel.js:514`), so a navigation mid-handshake left the websocket for REST | Fixed: guard on `state === 'joined'`, matching `leavePresence` |
+| 5 | Liveness read the presence stamp, which is never refreshed, so it collapsed to broadcast-only after one TTL and a newcomer to an established room counted nobody | Fixed: the roster has no TTL; see above |
+
+Finding 2 is the one worth remembering: a check that cannot fail is worse than no
+check, because it reports success. It was caught by reading the filter, not by
+running it — every run had been green.
 
 ## Deferred
 

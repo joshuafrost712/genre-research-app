@@ -34,7 +34,12 @@
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../supabase/client'
 import { initSyncMode } from '../sync/mode'
-import { PRESENCE_HEARTBEAT_MS, type NodePayload, type PresenceInput } from './derive'
+import {
+  PRESENCE_HEARTBEAT_MS,
+  type NodeClaim,
+  type NodePayload,
+  type PresenceInput,
+} from './derive'
 
 /** Debounce on re-announcing after a route change, so walking the nav is quiet. */
 const TRACK_DEBOUNCE_MS = 500
@@ -54,8 +59,8 @@ type Listener = (state: PresenceInput) => void
 const listeners = new Set<Listener>()
 
 let presenceState: unknown = {}
-/** userId -> latest believed claim. Last-write-wins on the sender's own clock. */
-let nodeState: Record<string, NodePayload> = {}
+/** userId -> where we last heard they were, stamped with OUR clock. */
+let nodeState: Record<string, NodeClaim> = {}
 
 let channel: RealtimeChannel | null = null
 /** `${projectId}:${userId}` of the channel we are on, or null. */
@@ -65,6 +70,24 @@ let node: string | null = null
 let heartbeat: number | null = null
 let debounce: number | null = null
 let reannounce: number | null = null
+/** What to rejoin, and how many times we have tried since the last success. */
+let rejoinTarget: { projectId: string; userId: string } | null = null
+let rejoinTimer: number | null = null
+let rejoinAttempts = 0
+
+/**
+ * Backoff for rejoining after the SERVER closed the channel.
+ *
+ * realtime-js reconnects a dropped socket by itself; what it does not do is rejoin
+ * after a server-initiated `phx_close`, and the previous version of this file only
+ * cleared `joinedKey` and called that a fix. It was not: the provider's join effect
+ * depends on `[projectId, userId]`, neither of which changes, so nothing ever ran
+ * again and presence was dead for the session while looking exactly like an empty
+ * room. Bounded, because the other reason a private channel closes is that this
+ * account is not authorised for the topic, and retrying that forever is a loop
+ * nobody asked for.
+ */
+const REJOIN_BACKOFF_MS = [5_000, 15_000, 60_000]
 /**
  * Bumped on every join or leave. `joinPresence` awaits twice before it subscribes,
  * so without this a fast project switch can leave the older call finishing after
@@ -90,9 +113,19 @@ function publish(): void {
   for (const cb of listeners) cb(next)
 }
 
-/** Send where we are. Fire and forget; the next heartbeat repairs a lost one. */
+/**
+ * Send where we are. Fire and forget; the next heartbeat repairs a lost one.
+ *
+ * REQUIRES A JOINED CHANNEL, and that is not belt-and-braces. realtime-js's
+ * `send()` checks `canPush()` and, for a broadcast on a channel that cannot push,
+ * silently falls back to an HTTP POST to the broadcast endpoint plus a deprecation
+ * warning (`RealtimeChannel.js:514`). So a navigation during the subscribe
+ * handshake, or any navigation after a channel death, would quietly leave the
+ * websocket for a REST call per keystroke-ish event. `leavePresence` already
+ * guards the same way on teardown.
+ */
 function announce(): void {
-  if (!channel || !selfId) return
+  if (!channel || channel.state !== 'joined' || !selfId) return
   const payload: NodePayload = { userId: selfId, nodeId: node, at: new Date().toISOString() }
   void channel
     .send({ type: 'broadcast', event: 'node', payload })
@@ -184,19 +217,19 @@ export async function joinPresence(projectId: string, userId: string): Promise<v
     if (!payload || typeof payload !== 'object') return
     const claim = payload as Partial<NodePayload>
     if (typeof claim.userId !== 'string' || !claim.userId) return
-    if (typeof claim.at !== 'string') return
     if (claim.userId === userId) return
-    // Never let an out-of-order delivery rewind somebody to a page they have
-    // already left. Broadcast gives no ordering guarantee, and two devices on one
-    // account are two senders racing under a single key.
-    const known = nodeState[claim.userId]
-    if (known && Date.parse(known.at) > Date.parse(claim.at)) return
+    // STAMPED WITH OUR OWN CLOCK, and the sender's `at` is deliberately ignored.
+    // Ordering on a peer-supplied timestamp handed a workshop's worst device clock
+    // — or any teammate with a console — control of both ordering and expiry: one
+    // claim dated in the future beat every later claim from that account, and
+    // never expired, so their dot stuck to the wrong node for the length of the
+    // skew. Last-heard-wins on the local clock cannot be poisoned, and answers the
+    // only question actually being asked.
     nodeState = {
       ...nodeState,
       [claim.userId]: {
-        userId: claim.userId,
         nodeId: typeof claim.nodeId === 'string' && claim.nodeId ? claim.nodeId : null,
-        at: claim.at,
+        heardAt: Date.now(),
       },
     }
     publish()
@@ -205,10 +238,12 @@ export async function joinPresence(projectId: string, userId: string): Promise<v
   channel = ch
   joinedKey = key
   selfId = userId
+  rejoinTarget = { projectId, userId }
 
   ch.subscribe((status) => {
     if (gen !== generation) return
     if (status === 'SUBSCRIBED') {
+      rejoinAttempts = 0
       // The single presence write of the whole session. Everything that happens
       // per navigation below this line is a broadcast; see the header comment.
       void ch.track({ at: new Date().toISOString() }).catch(() => {})
@@ -223,22 +258,34 @@ export async function joinPresence(projectId: string, userId: string): Promise<v
     }
     if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
       // Presence fails OPEN: no dots is the app as it shipped before this, so there
-      // is nothing to tell anyone. But the local state has to be released rather
-      // than left pointing at a channel nobody is on — otherwise the heartbeat goes
-      // on talking to a dead socket and `joinedKey` blocks the rejoin that would
-      // fix it. realtime-js reconnects a dropped SOCKET on its own; what it does
-      // not do is rejoin a server-initiated close, which is why this clears the
-      // identity guard and lets the provider's next run start clean.
+      // is nothing to tell anyone and nothing to put on screen. But the local state
+      // has to be released rather than left pointing at a channel nobody is on, and
+      // then the rejoin has to actually be attempted — see REJOIN_BACKOFF_MS for
+      // why clearing `joinedKey` alone did nothing.
       if (heartbeat) {
         window.clearInterval(heartbeat)
         heartbeat = null
       }
+      channel = null
       joinedKey = null
       presenceState = {}
       nodeState = {}
       publish()
       if (import.meta.env.DEV) {
         console.warn(`[presence] channel ${status} on presence:${projectId}`)
+      }
+      const backoff = REJOIN_BACKOFF_MS[rejoinAttempts]
+      if (rejoinTarget && backoff !== undefined) {
+        rejoinAttempts++
+        if (rejoinTimer) window.clearTimeout(rejoinTimer)
+        rejoinTimer = window.setTimeout(() => {
+          rejoinTimer = null
+          // The generation guard is the whole safety here: a sign-out or a project
+          // switch between the close and this firing must not resurrect the old
+          // channel.
+          if (gen !== generation || !rejoinTarget) return
+          void joinPresence(rejoinTarget.projectId, rejoinTarget.userId)
+        }, backoff)
       }
     }
   })
@@ -258,9 +305,16 @@ export async function joinPresence(projectId: string, userId: string): Promise<v
  */
 export function leavePresence(opts?: { keepGeneration?: boolean }): void {
   if (!opts?.keepGeneration) generation++
-  for (const timer of [debounce, reannounce]) if (timer) window.clearTimeout(timer)
+  for (const timer of [debounce, reannounce, rejoinTimer]) if (timer) window.clearTimeout(timer)
   debounce = null
   reannounce = null
+  rejoinTimer = null
+  if (!opts?.keepGeneration) {
+    // A real teardown, not the one at the top of joinPresence: forget what we were
+    // trying to get back to, so a sign-out cannot be followed by a reconnection.
+    rejoinTarget = null
+    rejoinAttempts = 0
+  }
   if (heartbeat) {
     window.clearInterval(heartbeat)
     heartbeat = null

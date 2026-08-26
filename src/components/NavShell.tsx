@@ -85,6 +85,7 @@ function PresenceDots({ nodeIds }: { nodeIds: string[] }) {
   const names = people.map((p) => nameOf(p.userId)).join(', ')
   return (
     <span
+      data-presence="dot"
       title={t('presence.who', { names })}
       className="ml-2 flex shrink-0 items-center gap-1 text-[10px] text-emerald-700"
     >
