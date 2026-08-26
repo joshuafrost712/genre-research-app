@@ -429,6 +429,36 @@ export function routeForSub(subId: string): string {
   return SUB_PAGE_ROUTES[subId] ?? `/worksheet/${subId}`
 }
 
+/** `routeForSub` backwards. Safe to invert: the three routes are distinct. */
+const SUB_FOR_ROUTE: Record<string, string> = Object.fromEntries(
+  Object.entries(SUB_PAGE_ROUTES).map(([subId, route]) => [route, subId]),
+)
+
+/**
+ * Which subsection is this route showing, if any?
+ *
+ * Lets the context switcher say "3/7 answered" about the step you are standing
+ * on rather than about the worksheet as a whole. Returns null on the pages that
+ * are not a step (home, the genre bank, export, the summaries), where a count
+ * would be answering a question nobody asked.
+ *
+ * `/wizard` is deliberately absent: resolving it needs `wizardSequence`, which
+ * lives in lib/progress.ts, and progress.ts already imports this module. The
+ * caller composes the two rather than this file importing back and closing a
+ * cycle.
+ */
+export function subsectionForPath(pathname: string): string | null {
+  const path = pathname.replace(/\/+$/, '') || '/'
+  const worksheet = /^\/worksheet\/(.+)$/.exec(path)
+  if (worksheet) {
+    const id = decodeURIComponent(worksheet[1])
+    // WorksheetView accepts any node id and renders the subsection around it,
+    // so resolve to the subsection rather than assuming the URL holds one.
+    return navSubsectionOf(id)
+  }
+  return SUB_FOR_ROUTE[path] ?? null
+}
+
 /** Flat subsection ids in journey (recommended-path) order. */
 export function journeyOrder(): string[] {
   return journey().flatMap((stage) => stage.subIds)

@@ -20,6 +20,7 @@
     "check:storage": "node scripts/check-storage-warning.mjs",
     "check:overwrite": "node scripts/check-overwrite-toast.mjs",
     "check:account-switch": "node scripts/check-account-switch.mjs",
+    "check:genre-switch": "node scripts/check-genre-switch.mjs",
     "check:back-nav": "node scripts/check-back-nav.mjs"
   },
   "dependencies": {

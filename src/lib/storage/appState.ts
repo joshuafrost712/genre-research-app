@@ -219,20 +219,42 @@ export interface ActiveContext {
 // records / re-ran the inventory migration, duplicating every genre
 // (feedback 2026-07-20 #3/#4).
 let ensureInFlight: Promise<ActiveContext | null> | null = null
+// Identifies the run currently registered above, so a run that has been
+// superseded never clears its successor's registration. A counter rather than a
+// reference comparison because the run's own body needs to test this before the
+// promise variable it would compare against has been assigned.
+let ensureToken = 0
 
-export function ensureActiveContext(): Promise<ActiveContext | null> {
-  if (ensureInFlight) return ensureInFlight
+/**
+ * @param fresh Re-read the active keys even if a resolve is already running.
+ *
+ * Sharing a run is right for concurrent MOUNTS, which all want the same answer.
+ * It is wrong after a deliberate switch: the context switcher writes the new
+ * genre to `meta` and then asks for a re-resolve, and a run started a moment
+ * earlier has already read the old key. Switching A → B → C fast enough would
+ * hand the C request B's answer and leave `ctx` disagreeing with `meta`, with
+ * nothing queued to correct it.
+ *
+ * A fresh run therefore waits for the one in progress and then reads `meta`
+ * again. Waiting rather than racing keeps the original guarantee intact: two
+ * resolves still never interleave, so neither can double-create starter records.
+ */
+export function ensureActiveContext(fresh = false): Promise<ActiveContext | null> {
+  const prior = ensureInFlight
+  if (prior && !fresh) return prior
+  const token = ++ensureToken
   const run = (async () => {
+    if (prior) await prior.catch(() => null)
     const project = await resolveActiveProject()
     if (!project) {
       // A null resolve must never be shared: a retry issued right after a
       // project row lands (gate submit, or a pull mid-resolve) needs a fresh
       // run, not this one's stale answer. Clearing here, before the promise
       // settles, is what makes the provider's state-based retry sound.
-      // Unconditional on purpose: while this body runs, this run IS the
-      // registered in-flight promise (callers only ever share it, never
-      // replace it), so there is nothing else to clobber.
-      ensureInFlight = null
+      // Guarded because a fresh run may have registered itself behind this one,
+      // and clearing its registration would let a third caller start a third
+      // concurrent resolve — the very thing the single flight prevents.
+      if (ensureToken === token) ensureInFlight = null
       return null
     }
     const projectId = project.id
@@ -249,7 +271,7 @@ export function ensureActiveContext(): Promise<ActiveContext | null> {
   })()
   ensureInFlight = run
   const clear = () => {
-    if (ensureInFlight === run) ensureInFlight = null
+    if (ensureToken === token) ensureInFlight = null
   }
   run.then(clear, clear)
   return run

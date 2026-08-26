@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { NavShell } from './NavShell'
 import { ContextBar } from './ContextBar'
@@ -42,6 +42,13 @@ export function Layout() {
   // late; unmounting resets nothing, so an unseen tour still opens on the next
   // ordinary route.
   const tourAllowed = onboarded && pathname !== '/teams/join'
+
+  // Bumped by either ContextBar when someone deliberately switches passage or
+  // genre; keys the page tree below, so per-genre local state starts clean.
+  // See the keyed div around <Outlet/> for why it is a counter and not the
+  // context itself.
+  const [switchSeq, setSwitchSeq] = useState(0)
+  const onSwitched = useCallback(() => setSwitchSeq((n) => n + 1), [])
 
   // Keying the shell on the locale remounts the page tree when the language
   // changes. The loader reads the active locale from module state (see
@@ -97,7 +104,7 @@ export function Layout() {
             {/* Before the sync chip: "which team" is a more urgent question than
                 "is it saved", and it is the one nothing used to answer. */}
             <TeamChip className="hidden sm:flex" />
-            <ContextBar className="hidden sm:flex" />
+            <ContextBar className="hidden sm:flex" onSwitched={onSwitched} />
             <SyncChip />
             {/* After the sync chip, not beside TeamChip, and that placement is the
                 mitigation for this feature's own worst risk: "4 people" (who belong)
@@ -110,7 +117,7 @@ export function Layout() {
         </div>
         <div className="flex items-center gap-2 border-t border-gray-100 px-4 py-1.5 sm:hidden">
           <TeamChip />
-          <ContextBar />
+          <ContextBar onSwitched={onSwitched} />
           <PresenceChip className="ml-auto" />
         </div>
       </header>
@@ -144,7 +151,29 @@ export function Layout() {
                 button, on every page that renders blocks (worksheet, wizard,
                 choose-genre, style-compare). */}
             <JotNotesProvider>
-              <Outlet />
+              {/* Remount the page on a deliberate passage/genre switch, so any
+                  per-genre local state starts clean. Blurring the focused field
+                  (ContextBar.switchTo) is what actually prevents a half-typed
+                  answer landing in the wrong genre; this is the belt to that
+                  brace, for local state nobody has thought about yet.
+
+                  A COUNTER, not the context itself: ctx starts null and resolves
+                  a moment later, so keying on its identity would remount every
+                  page once on every cold load, for nothing.
+
+                  Inside JotNotesProvider and around the Outlet only. The
+                  provider holds one project-scoped jot query shared by every
+                  page, and remounting it re-runs that query for nothing; keying
+                  the outer locale div would be worse still, since it contains
+                  the header, so ContextBar would unmount mid-click.
+
+                  /capture opts out: it debounce-saves its draft into meta on a
+                  400ms timer, and a remount inside that window drops the last
+                  keystrokes. It holds no genre-scoped answers, so there is
+                  nothing here for it to gain. */}
+              <div key={pathname === '/capture' ? 'capture' : switchSeq}>
+                <Outlet />
+              </div>
             </JotNotesProvider>
           </div>
         </main>

@@ -34,7 +34,12 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    ensureActiveContext().then((c) => {
+    // tick > 0 means something asked for a re-resolve: a passage/genre switch,
+    // an adopted project, or the empty-state retry. Each of those has just
+    // changed what `meta` says, so the answer must come from a run that reads it
+    // AFTER the change, not from one already in flight. On the first mount
+    // (tick 0) sharing is still what we want.
+    ensureActiveContext(tick > 0).then((c) => {
       if (cancelled) return
       setCtx(c)
       setSettledEmpty(c === null)
