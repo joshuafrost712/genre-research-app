@@ -14,18 +14,53 @@ That made the app quieter. This makes it companionable. The two are deliberately
 separate: quieting a false alarm is a bug fix, and ambient presence is a feature
 with a security surface, so it gets its own session and its own review.
 
-**Status: BLOCKED, do not merge (2026-08-26).** The browser half was run and
-found a defect that stops this shipping. The UI is right — the dots land on the
-correct tabs, with the correct names, in ~620ms — but **Supabase Realtime closes
-the client's channel after about five `track()` calls, and the app never
-rejoins**, so presence dies silently a minute into ordinary use. See "The fifth
-thing" below. The branch is also now one commit behind `main` (`507f84d`), which
-edits `Layout.tsx` in the same region this does.
+**Status: the transport was rebuilt and all 50 browser checks pass (2026-08-26).**
 
-Built on `feature/spec-12-presence` (2026-08-25). The authorization migration is
-applied to the live project and proven from both sides by
-`scripts/verify-presence.mjs` (14/14). Lint, `tsc`, 355 tests and the build are
-green.
+The first build sent node changes over presence and died a minute into ordinary
+navigation; see "The fifth thing" below, which is kept because the failure is the
+reason the design looks the way it does. Joshua chose to move node changes to
+`broadcast`, and that is what shipped: **presence answers who, broadcast answers
+where.** Twelve consecutive navigations now land in ~615ms each, where the old
+build froze permanently after four.
+
+Built on `feature/spec-12-presence`. The authorization migration is applied to
+the live project and proven from both sides by `scripts/verify-presence.mjs`
+(14/14); it needed no change, because broadcast on a private channel is
+authorised by the same `realtime.messages` INSERT policy presence uses. Lint,
+`tsc`, 359 tests and the build are green.
+
+### The design that shipped: two transports on one channel
+
+| | Carries | How often | Why this one |
+|---|---|---|---|
+| **Presence** (`track`) | `{at}` | Once per join | Realtime drops the entry the instant the socket closes, so a closed tab disappears with no timeout. Nothing else does that. |
+| **Broadcast** (`node`) | `{userId, nodeId, at}` | Per navigation (500ms debounce) + 60s heartbeat | A different limiter: `max_events_per_second: 100`. Verified at 40 sends in 18s with the channel untouched. |
+
+Navigation no longer touches presence at all, which is why the rate limit that
+killed the first build cannot be reached by using the feature. **Keep presence
+off the hot path**: anything added to the presence payload has to answer how
+often it changes before it goes in.
+
+Three consequences the presence-only design got for free and this one has to earn:
+
+1. **Broadcast keeps no history**, so a newcomer hears silence. Every peer
+   re-announces when it sees a `join`, coalesced over 400ms so a room
+   reconnecting together costs one message. Measured end to end: a newcomer
+   learns where everybody is in ~1.4s, unprompted.
+2. **Liveness moved to the broadcast heartbeat.** A person is counted if EITHER
+   their roster stamp or their last claim is inside the TTL — the roster covers
+   the newcomer who has not broadcast yet, the claim covers everyone else. The
+   dot, though, needs a fresh claim: a stale one is released rather than left
+   hanging on a page they may have left.
+3. **There is deliberately no `leave` handler**, and that cost a debugging round.
+   Dropping a peer's claim when they leave looks tidy and is wrong: a reload is a
+   leave and a join, the presence diff is the slower of the two, and the handler
+   deleted the fresh broadcast that had already arrived. The two-browser check
+   caught it as "the host sees no dot but the header says 1 here now". The roster
+   is already the authority on who is present, so nothing needs cleaning up.
+
+The message budget is unchanged by the move: the heartbeat is still one message
+per person per minute, just a broadcast rather than a track.
 
 ### The fifth thing: the presence rate limit closes the channel, it does not shed the event
 
@@ -62,13 +97,13 @@ The spec's message-budget arithmetic counted heartbeats and never counted
 navigation, which is why this was invisible on paper. The budget was never the
 binding constraint; the per-client presence rate limit is.
 
-**Options, none of them chosen yet.** (a) Throttle re-tracks to one per 10s with
-a trailing edge, which keeps the design and costs the "within about a second"
-promise. (b) Move node changes onto `broadcast`, which has a 100/s allowance,
-and keep presence for join/leave only — the TTL sweep in `derive.ts` already
-does the work that presence's automatic leave would. (c) Rejoin on `CLOSED` with
-backoff, which alone only converts a dead channel into a thrashing one and does
-not address the cause. (b) is the one that preserves what the spec promised.
+**Resolved.** Option (b) was chosen and built: node changes moved to broadcast,
+presence kept for the roster and for leave-on-disconnect. (a) throttling to one
+track per 10s would have kept the design and lost the "within about a second"
+promise; (c) rejoining on `CLOSED` alone only converts a dead channel into a
+thrashing one. The `CLOSED` handler was tightened anyway, since the old one left
+`joinedKey` set and the heartbeat talking to a dead socket, which blocked the
+rejoin that would have fixed it.
 
 ## What done looks like
 
@@ -149,7 +184,7 @@ New `src/lib/presence/channel.ts`:
 
 ```ts
 supabase.channel(`presence:${projectId}`, {
-  config: { private: true, presence: { key: userId } },
+  config: { private: true, presence: { key: userId }, broadcast: { self: false } },
 })
 ```
 
@@ -158,12 +193,14 @@ supabase.channel(`presence:${projectId}`, {
 the `private=true` join parameter. RLS on `realtime.messages` is consulted only
 for private channels, so without this flag the whole authorization migration
 below is inert while appearing to be in force, and anyone holding the anon key
-and a project uuid can read a team's presence.
+and a project uuid can read a team's presence — and now its broadcasts too.
 
-- Track `{ userId, label, nodeId }`, where `nodeId` is the worksheet node from
-  the route (`useParams()` in `WorksheetView`).
-- Re-`track()` on route change, debounced about 500ms, so walking the nav does
-  not spray updates.
+- `track({ at })` ONCE, on subscribe. The payload is a timestamp and nothing
+  else; see "The design that shipped" above for why `nodeId` is not in it.
+- Broadcast `{ userId, nodeId, at }` on the `node` event for the worksheet node
+  from the route, debounced about 500ms so walking the nav does not spray
+  updates, plus a 60s heartbeat and a coalesced re-announce whenever a peer
+  joins.
 - `untrack()` and `removeChannel()` on unmount and on sign-out.
 - No-op when Supabase is unconfigured or the user is signed out, the way
   `outbox.ts` and the sync engine already degrade.
@@ -277,9 +314,11 @@ The channel wiring itself is verified by hand, below.
    other's section, titled with the other's name (`Here now: Budi Santoso`);
    both headers read exactly `1 here now`; neither sees a dot on their own
    section; a realtime socket is asserted to exist rather than assumed.
-   ❌ **The follow-on assertion fails.** The dot follows the first four
-   navigations in 621/617/623/619ms and then stops forever. See "The fifth
-   thing" above. This is the blocker.
+   ✅ **And the dot follows, twelve times running**, in ~615ms each. Twelve
+   deliberately, not five: on the presence-only transport the first four landed
+   and the fifth never did, so a five-step walk is exactly the length that cannot
+   tell a working build from the broken one. A newcomer also learns where
+   everybody already is, unprompted, in ~1.4s.
 3. ✅ Closing the tab removes the dot — `verify-presence.mjs` check 6, asserted on
    the other member's observed state, not on an absence of errors.
 4. ✅ **Both sides of the boundary, in one run.** `verify-presence.mjs` 14/14: a

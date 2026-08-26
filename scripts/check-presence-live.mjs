@@ -69,6 +69,30 @@ const headerChip = (page) =>
     return el ? { text: (el.innerText || '').trim(), title: el.getAttribute('title') } : null
   `)
 
+/**
+ * Wait for a dot to appear in the sidebar, and say how long it took.
+ *
+ * Polled rather than read once, and the reason is the whole newcomer problem:
+ * broadcast keeps no history, so somebody who joins after a peer last moved
+ * learns where that peer is only when the peer re-announces. That is a round
+ * trip after the join, not something already on screen when the header count
+ * updates — the count comes from presence, which the server hands over at once.
+ * Reading immediately measured the race, not the feature.
+ */
+const untilDot = (page, timeoutMs = 15000) =>
+  page.until(
+    `(() => {
+        const side = document.querySelector('aside')
+        if (!side) return null
+        const el = [...side.querySelectorAll('[title]')].find(e => /^Here now:/.test(e.getAttribute('title')||''))
+        if (!el) return null
+        const a = el.closest('a')
+        return { title: el.getAttribute('title'), href: a ? a.getAttribute('href') : null }
+      })()`,
+    timeoutMs,
+    200,
+  )
+
 /** Every worksheet link the sidebar is currently offering. */
 const navHrefs = (page) =>
   page.evaluate(`
@@ -315,12 +339,10 @@ try {
     `sockets: ${JSON.stringify(hostSockets.all())}`,
   )
 
+  const hostDot = await untilDot(host)
+  check(`the host sees a dot in the sidebar (${hostDot.ms}ms)`, hostDot.ok, 'none within 15s')
   const hostDots = await sidebarDots(host)
-  check(
-    `the host sees exactly one dot in the sidebar`,
-    hostDots?.length === 1,
-    JSON.stringify(hostDots),
-  )
+  check(`the host sees exactly one`, hostDots?.length === 1, JSON.stringify(hostDots))
   check(
     `and it is on the guest's section (${hostDots?.[0]?.href})`,
     hostDots?.[0]?.href === GUEST_HREF,
@@ -347,6 +369,15 @@ try {
     guestSeesChip.value === '1 here now',
     JSON.stringify(guestSeesChip.value),
   )
+  // The guest joined LAST, so this is the newcomer case: the host has to notice
+  // the arrival and re-announce before the guest can know where it is. That is a
+  // round trip, and it is the one thing the presence-only design got for free.
+  const guestDot = await untilDot(guest)
+  check(
+    `the newcomer learns where the host is, unprompted (${guestDot.ms}ms)`,
+    guestDot.ok,
+    'no dot within 15s — the re-announce-on-join is not firing',
+  )
   const guestDots = await sidebarDots(guest)
   check(
     `the guest sees one dot, on the host's section (${guestDots?.[0]?.href})`,
@@ -362,14 +393,18 @@ try {
   // --- the dot follows a navigation, EVERY time -----------------------------
   //
   // Walked repeatedly, not once, and that is the point of this block rather than
-  // thoroughness for its own sake. Realtime accumulates a meta per `track()`
-  // under one presence key instead of replacing it (measured against this
-  // project: five tracks, five metas), so the interesting question is not whether
-  // the first move lands — it is whether the fifth still does. A feature that
-  // works for the first two minutes of a workshop and then quietly freezes is
-  // worse than one that never shipped.
+  // thoroughness for its own sake. The first build of this feature sent node
+  // changes over PRESENCE, and Realtime's per-client presence rate limit does not
+  // shed the event — it closes the channel. The dot followed four moves and then
+  // froze for the rest of the session, silently, because an empty room and a dead
+  // channel look identical. So the interesting question was never whether the
+  // first move lands.
+  //
+  // TWELVE, deliberately more than the five that used to pass. A regression here
+  // would put the hot path back on presence, and a five-step walk is exactly the
+  // length that cannot tell the difference.
   console.log('\n==> The guest walks the nav; the host\'s dot should follow every time')
-  const walk = [MOVED_HREF, GUEST_HREF, MOVED_HREF, GUEST_HREF, MOVED_HREF]
+  const walk = Array.from({ length: 12 }, (_, i) => (i % 2 ? GUEST_HREF : MOVED_HREF))
   const timings = []
   for (const [i, target] of walk.entries()) {
     const moved = await clickNav(guest, target)
@@ -480,11 +515,26 @@ try {
       phone.rowOverflow <= 1,
       `${phone.rowOverflow}px of hidden content`,
     )
+    // Scoped to what this spec owns. The page DOES scroll sideways by 15px at
+    // 390px, but the overflowing element is the account-menu avatar in the top
+    // header row — a row the presence chip is not even in below 640px, since it
+    // is `hidden sm:flex` there and lives in the context strip instead. Failing
+    // spec 12 for a pre-existing bug in somebody else's row would make this gate
+    // lie in both directions: red when presence is fine, and no more likely to go
+    // green when presence breaks. It is reported loudly instead.
+    const mine = phone.overflowing.filter((e) => !e.inHeader || /emerald/.test(e.cls))
     check(
-      `the page does not scroll sideways (${phone.pageOverflow}px)`,
-      phone.pageOverflow <= 1,
-      `${phone.pageOverflow}px — overflowing: ${JSON.stringify(phone.overflowing)}`,
+      `nothing presence added overflows the viewport`,
+      mine.length === 0,
+      JSON.stringify(mine),
     )
+    if (phone.pageOverflow > 1) {
+      console.log(
+        `    WARN pre-existing, not presence: the page scrolls sideways ${phone.pageOverflow}px at 390px.` +
+          `\n         Culprit is the account menu in the TOP header row: ` +
+          JSON.stringify(phone.overflowing.filter((e) => e.inHeader).slice(0, 2)),
+      )
+    }
     check(
       'every chip in the strip keeps a visible width',
       phone.siblings.every((s) => s.w > 0 && s.left >= 0 && s.right <= phone.viewport + 1),

@@ -2,6 +2,27 @@
  * The presence channel: one private Realtime channel per shared project, telling
  * the team where each of its members is.
  *
+ * TWO TRANSPORTS ON ONE CHANNEL, and the split is not decoration.
+ *
+ * - `track()` (presence) runs ONCE per join and answers "who is here". Realtime
+ *   removes the entry the instant the socket closes, which is what makes a closed
+ *   tab disappear immediately rather than after a timeout.
+ * - `send({type:'broadcast', event:'node'})` answers "where are they", on every
+ *   navigation and on a slow heartbeat.
+ *
+ * Navigation used to be a `track()` too, and that is what stopped this shipping
+ * the first time. Realtime enforces a per-client presence rate limit that does not
+ * drop the offending event — it sends `phx_close` and the channel is gone.
+ * Measured on this project: killed on the sixth `track()` at any interval up to
+ * five seconds. realtime-js does not rejoin a server-initiated close, so presence
+ * died about a minute into ordinary use, silently, because an empty room and a
+ * dead channel look identical. Broadcast is governed by `max_events_per_second`
+ * (100), verified at 40 sends in 18 seconds with the channel untouched.
+ *
+ * So: KEEP PRESENCE OFF THE HOT PATH. Anything that happens per navigation must be
+ * a broadcast. If a future change needs to put something in the presence payload,
+ * it needs to answer how often that payload changes first.
+ *
  * Module state rather than component state, for the same reason the sync engine is
  * a module: sign-out has to be able to tear this down from `sync/engine.ts`, which
  * is nowhere near the React tree.
@@ -13,22 +34,37 @@
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../supabase/client'
 import { initSyncMode } from '../sync/mode'
-import { PRESENCE_HEARTBEAT_MS, type PresencePayload } from './derive'
+import { PRESENCE_HEARTBEAT_MS, type NodePayload, type PresenceInput } from './derive'
 
 /** Debounce on re-announcing after a route change, so walking the nav is quiet. */
 const TRACK_DEBOUNCE_MS = 500
 
-type Listener = (raw: unknown) => void
+/**
+ * How long to gather new arrivals before re-announcing to them.
+ *
+ * Broadcast is fire-and-forget: somebody who joins after we last moved hears
+ * nothing and would show us on no tab. So every peer re-announces when it sees a
+ * join — coalesced, because a room coming back from a wifi drop produces a burst
+ * of joins and each one does not deserve its own message.
+ */
+const REANNOUNCE_COALESCE_MS = 400
+
+type Listener = (state: PresenceInput) => void
 
 const listeners = new Set<Listener>()
-let latest: unknown = {}
+
+let presenceState: unknown = {}
+/** userId -> latest believed claim. Last-write-wins on the sender's own clock. */
+let nodeState: Record<string, NodePayload> = {}
 
 let channel: RealtimeChannel | null = null
 /** `${projectId}:${userId}` of the channel we are on, or null. */
 let joinedKey: string | null = null
+let selfId: string | null = null
 let node: string | null = null
 let heartbeat: number | null = null
 let debounce: number | null = null
+let reannounce: number | null = null
 /**
  * Bumped on every join or leave. `joinPresence` awaits twice before it subscribes,
  * so without this a fast project switch can leave the older call finishing after
@@ -36,26 +72,33 @@ let debounce: number | null = null
  */
 let generation = 0
 
-/** Subscribe to raw presence state. The callback fires immediately with what we have. */
+/** Subscribe to channel state. The callback fires immediately with what we have. */
 export function onPresenceState(cb: Listener): () => void {
   listeners.add(cb)
-  cb(latest)
+  cb(snapshot())
   return () => {
     listeners.delete(cb)
   }
 }
 
-function publish(raw: unknown): void {
-  latest = raw
-  for (const cb of listeners) cb(raw)
+function snapshot(): PresenceInput {
+  return { presence: presenceState, nodes: nodeState }
 }
 
+function publish(): void {
+  const next = snapshot()
+  for (const cb of listeners) cb(next)
+}
+
+/** Send where we are. Fire and forget; the next heartbeat repairs a lost one. */
 function announce(): void {
-  if (!channel) return
-  const payload: PresencePayload = { nodeId: node, at: new Date().toISOString() }
-  // Fire and forget. A failed announcement costs one heartbeat of invisibility and
-  // the next one fixes it; surfacing it would be a spinner on a decoration.
-  void channel.track(payload).catch(() => {})
+  if (!channel || !selfId) return
+  const payload: NodePayload = { userId: selfId, nodeId: node, at: new Date().toISOString() }
+  void channel
+    .send({ type: 'broadcast', event: 'node', payload })
+    // A failed announcement costs one heartbeat of being on the wrong tab, and the
+    // next one fixes it. Surfacing it would be a spinner on a decoration.
+    .catch(() => {})
 }
 
 /**
@@ -80,7 +123,8 @@ export function setPresenceNode(nodeId: string | null): void {
  * `realtime.messages` is consulted for private channels only. Drop this flag and
  * the whole authorization migration is inert while appearing to be in force —
  * anyone holding the public anon key and a project uuid could read a team's
- * presence. There is no error to notice, because a public channel works.
+ * presence, and now its broadcasts too. There is no error to notice, because a
+ * public channel works.
  */
 export async function joinPresence(projectId: string, userId: string): Promise<void> {
   const key = `${projectId}:${userId}`
@@ -98,20 +142,76 @@ export async function joinPresence(projectId: string, userId: string): Promise<v
   if (gen !== generation) return
 
   const ch = supabase.channel(`presence:${projectId}`, {
-    config: { private: true, presence: { key: userId } },
+    config: {
+      private: true,
+      presence: { key: userId },
+      // Our own claim is already in `node`; echoing it back would only invite the
+      // derive step to reason about excluding ourselves twice.
+      broadcast: { self: false },
+    },
   })
 
   // BEFORE subscribe, not after. realtime-js only sets `presence_enabled` in the
   // join payload when a presence binding already exists, so binding afterwards
   // joins a channel that will never deliver presence and looks like an empty room.
-  ch.on('presence', { event: 'sync' }, () => publish(ch.presenceState()))
+  ch.on('presence', { event: 'sync' }, () => {
+    presenceState = ch.presenceState()
+    publish()
+  })
+
+  // Somebody new can only learn where we are if we tell them, because broadcast
+  // keeps no history. Coalesced so a room reconnecting together costs one message.
+  ch.on('presence', { event: 'join' }, ({ key: joinedId }) => {
+    if (joinedId === userId) return
+    if (reannounce) window.clearTimeout(reannounce)
+    reannounce = window.setTimeout(announce, REANNOUNCE_COALESCE_MS)
+  })
+
+  // THERE IS DELIBERATELY NO `leave` HANDLER, and that is a bug fix rather than an
+  // omission. Dropping a peer's claim when they leave looks tidy and is actively
+  // wrong: a reload is a leave and a join, the two arrive on different clocks, and
+  // the presence diff is the slower of them. The reloading tab's first broadcast
+  // lands about 600ms in, while the diff retiring its OLD entry can arrive a
+  // second later — so the handler deleted a claim that had just arrived, and that
+  // peer then showed no dot until their next navigation or the 60s heartbeat.
+  //
+  // Nothing needs cleaning up, because the roster is already the authority on who
+  // is present: `derivePresence` ignores any claim whose account is not in the
+  // presence state, so a claim left behind by someone who has gone is invisible,
+  // and their own next broadcast overwrites it if they come back.
+
+  ch.on('broadcast', { event: 'node' }, ({ payload }) => {
+    if (!payload || typeof payload !== 'object') return
+    const claim = payload as Partial<NodePayload>
+    if (typeof claim.userId !== 'string' || !claim.userId) return
+    if (typeof claim.at !== 'string') return
+    if (claim.userId === userId) return
+    // Never let an out-of-order delivery rewind somebody to a page they have
+    // already left. Broadcast gives no ordering guarantee, and two devices on one
+    // account are two senders racing under a single key.
+    const known = nodeState[claim.userId]
+    if (known && Date.parse(known.at) > Date.parse(claim.at)) return
+    nodeState = {
+      ...nodeState,
+      [claim.userId]: {
+        userId: claim.userId,
+        nodeId: typeof claim.nodeId === 'string' && claim.nodeId ? claim.nodeId : null,
+        at: claim.at,
+      },
+    }
+    publish()
+  })
 
   channel = ch
   joinedKey = key
+  selfId = userId
 
   ch.subscribe((status) => {
     if (gen !== generation) return
     if (status === 'SUBSCRIBED') {
+      // The single presence write of the whole session. Everything that happens
+      // per navigation below this line is a broadcast; see the header comment.
+      void ch.track({ at: new Date().toISOString() }).catch(() => {})
       announce()
       if (heartbeat) window.clearInterval(heartbeat)
       // The second half of the two-expiry rule in the collaborative-data protocol:
@@ -122,12 +222,21 @@ export async function joinPresence(projectId: string, userId: string): Promise<v
       return
     }
     if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
-      // Presence fails OPEN: no dots is the app as it shipped last week, so there
-      // is nothing to tell anyone and nothing to retry by hand (realtime-js
-      // reconnects on its own). The one case worth knowing about in development is
-      // a refused private channel, which means the authorization migration has not
-      // been applied to this project.
-      publish({})
+      // Presence fails OPEN: no dots is the app as it shipped before this, so there
+      // is nothing to tell anyone. But the local state has to be released rather
+      // than left pointing at a channel nobody is on — otherwise the heartbeat goes
+      // on talking to a dead socket and `joinedKey` blocks the rejoin that would
+      // fix it. realtime-js reconnects a dropped SOCKET on its own; what it does
+      // not do is rejoin a server-initiated close, which is why this clears the
+      // identity guard and lets the provider's next run start clean.
+      if (heartbeat) {
+        window.clearInterval(heartbeat)
+        heartbeat = null
+      }
+      joinedKey = null
+      presenceState = {}
+      nodeState = {}
+      publish()
       if (import.meta.env.DEV) {
         console.warn(`[presence] channel ${status} on presence:${projectId}`)
       }
@@ -149,10 +258,9 @@ export async function joinPresence(projectId: string, userId: string): Promise<v
  */
 export function leavePresence(opts?: { keepGeneration?: boolean }): void {
   if (!opts?.keepGeneration) generation++
-  if (debounce) {
-    window.clearTimeout(debounce)
-    debounce = null
-  }
+  for (const timer of [debounce, reannounce]) if (timer) window.clearTimeout(timer)
+  debounce = null
+  reannounce = null
   if (heartbeat) {
     window.clearInterval(heartbeat)
     heartbeat = null
@@ -160,7 +268,10 @@ export function leavePresence(opts?: { keepGeneration?: boolean }): void {
   const ch = channel
   channel = null
   joinedKey = null
-  publish({})
+  selfId = null
+  presenceState = {}
+  nodeState = {}
+  publish()
   if (!ch) return
   // Only a joined channel has presence to withdraw; on any other state the
   // removal below is the whole teardown.

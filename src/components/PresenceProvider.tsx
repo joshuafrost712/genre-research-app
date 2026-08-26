@@ -23,7 +23,12 @@ import {
 } from 'react'
 import { useLocation } from 'react-router-dom'
 import { joinPresence, leavePresence, onPresenceState, setPresenceNode } from '../lib/presence/channel'
-import { derivePresence, PRESENCE_TTL_MS, type PresencePerson } from '../lib/presence/derive'
+import {
+  derivePresence,
+  PRESENCE_TTL_MS,
+  type PresenceInput,
+  type PresencePerson,
+} from '../lib/presence/derive'
 import { nodeIdFromPath } from '../lib/presence/route'
 import { refreshMembers, useMemberLabels } from '../lib/team/people'
 import { useSupabaseSession } from '../lib/supabase/session'
@@ -56,12 +61,15 @@ const Ctx = createContext<Value>(EMPTY)
  */
 const SWEEP_MS = 15_000
 
+/** An empty room: nobody on the roster, nobody claiming a tab. */
+const EMPTY_INPUT: PresenceInput = { presence: {}, nodes: {} }
+
 export function PresenceProvider({ children }: { children: ReactNode }) {
   const { user } = useSupabaseSession()
   const { current } = useTeam()
   const { pathname } = useLocation()
   const { t } = useLocale()
-  const [raw, setRaw] = useState<unknown>({})
+  const [raw, setRaw] = useState<PresenceInput>(EMPTY_INPUT)
   const [sweep, setSweep] = useState(0)
 
   const userId = user?.id ?? null
@@ -88,7 +96,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     // while the no-project branch below never subscribes at all. Without this
     // line the old team's dots and "N here now" keep rendering over the new
     // project until the TTL sweep expires them, up to three minutes later.
-    setRaw({})
+    setRaw(EMPTY_INPUT)
     if (!projectId || !userId) {
       leavePresence()
       return
