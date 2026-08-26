@@ -2,8 +2,9 @@
 /**
  * Spec 12's browser half: what two real people see when they share a worksheet.
  *
- *   scripts/preview-build.sh                                   # terminal 1
- *   node scripts/check-presence-live.mjs http://localhost:4183/genre-research-app/
+ *   scripts/preview-build.sh --with-unconfigured               # terminal 1
+ *   UNCONFIGURED_URL=http://localhost:4174/genre-research-app/ \
+ *     node scripts/check-presence-live.mjs http://localhost:4173/genre-research-app/
  *
  * `verify-presence.mjs` already proves the data: a member is seen, a stranger is
  * refused, a closed tab disappears. None of that says the dot RENDERS, that it
@@ -24,7 +25,7 @@
  */
 import { launch, accounts, sleep } from './lib/browser.mjs'
 
-const APP_URL = (process.argv[2] ?? 'http://localhost:4183/genre-research-app/').replace(/\/?$/, '/')
+const APP_URL = (process.argv[2] ?? 'http://localhost:4173/genre-research-app/').replace(/\/?$/, '/')
 const REF = process.env.PROJECT_REF ?? 'ckorlrchryswnnrmuctr'
 const PAT = process.env.SUPABASE_ACCESS_TOKEN
 if (!PAT) {

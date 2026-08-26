@@ -82,11 +82,30 @@ describe('derivePresence', () => {
     expect(snapshot.people).toEqual([{ userId: PRIYA, nodeId: 's1.performers' }])
   })
 
-  it('does not let a clock from the future buy a longer life', () => {
-    // A tablet running an hour fast. Clamped to "now", so it expires on schedule
-    // rather than outliving everybody by an hour.
+  it('believes a clock from the future now, and still expires it eventually', () => {
+    // A tablet running an hour fast. It is shown, because dropping it would make
+    // a working device invisible — but it does expire, once real time has passed
+    // its stamp by a TTL. Asserting only the first line passes just as happily
+    // when nothing clamps at all, which is what the earlier version of this test
+    // did while its name promised otherwise.
     const future = { nodeId: 's1.setting', at: new Date(NOW + 3_600_000).toISOString() }
-    expect(derive({ [PRIYA]: [future] }).people).toHaveLength(1)
+    const at = (now: number) =>
+      derivePresence({ [PRIYA]: [future] }, { selfId: ME, now, ttlMs: PRESENCE_TTL_MS }).people
+    expect(at(NOW)).toHaveLength(1)
+    expect(at(NOW + 3_600_000 + PRESENCE_TTL_MS - 1000)).toHaveLength(1)
+    expect(at(NOW + 3_600_000 + PRESENCE_TTL_MS + 1000)).toHaveLength(0)
+  })
+
+  it("does not let a fast clock outrank the same account's believable device", () => {
+    // A phone an hour fast on one tab, a laptop that genuinely moved a second
+    // ago. Ordering on the raw stamp would pin the dot to the page they left.
+    const snapshot = derive({
+      [PRIYA]: [
+        { nodeId: 's1.setting', at: new Date(NOW + 3_600_000).toISOString(), presence_ref: 'fast' },
+        entry('s1.performers', 1, 'laptop'),
+      ],
+    })
+    expect(snapshot.people).toEqual([{ userId: PRIYA, nodeId: 's1.performers' }])
   })
 
   it('yields an empty map for an empty or malformed payload rather than throwing', () => {
@@ -154,6 +173,27 @@ describe('nodeIdFromPath', () => {
     expect(nodeIdFromPath('/choose')).toBe('s0.genre_choice')
     expect(nodeIdFromPath('/macro')).toBe('s0.macro_notes')
     expect(nodeIdFromPath('/style')).toBe('s0.stylistic_notes')
+  })
+
+  it('maps the group landing pages back to the group node the nav dots use', () => {
+    // NavShell passes each group's own nodeId to PresenceDots alongside its
+    // children. These two groups are linked as /describe/*, which matches neither
+    // the dedicated-page map nor /worksheet/<id>, so before they were mapped the
+    // group ids could never match anything and somebody sitting on a group
+    // landing page was counted in the header while showing no dot anywhere.
+    expect(nodeIdFromPath('/describe/big-picture')).toBe('s2')
+    expect(nodeIdFromPath('/describe/style')).toBe('s3')
+    // Leaf groups already worked, because the nav links them as worksheet routes.
+    expect(nodeIdFromPath('/worksheet/s1b')).toBe('s1b')
+  })
+
+  it('answers null for a STAGE landing, which is not a node', () => {
+    // A stage is a heading over several nodes, so somebody standing on one is in
+    // the project and on no tab — the same answer as the genres page, and the
+    // reason the header count can exceed the number of dots without either being
+    // wrong.
+    expect(nodeIdFromPath('/describe')).toBeNull()
+    expect(nodeIdFromPath('/summary')).toBeNull()
   })
 
   it('answers null anywhere with no tab of its own', () => {

@@ -25,7 +25,7 @@ import { useLocation } from 'react-router-dom'
 import { joinPresence, leavePresence, onPresenceState, setPresenceNode } from '../lib/presence/channel'
 import { derivePresence, PRESENCE_TTL_MS, type PresencePerson } from '../lib/presence/derive'
 import { nodeIdFromPath } from '../lib/presence/route'
-import { useMemberLabels } from '../lib/team/people'
+import { refreshMembers, useMemberLabels } from '../lib/team/people'
 import { useSupabaseSession } from '../lib/supabase/session'
 import { useLocale } from '../lib/i18n/LocaleContext'
 import { useTeam } from './TeamProvider'
@@ -81,6 +81,14 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   }, [pathname])
 
   useEffect(() => {
+    // Cleared HERE as well as inside leavePresence(), and that is not belt and
+    // braces. `leavePresence()` announces the empty room through the listener
+    // list, so it only reaches this component while this component is still
+    // listening — and on a project switch the cleanup has already unsubscribed,
+    // while the no-project branch below never subscribes at all. Without this
+    // line the old team's dots and "N here now" keep rendering over the new
+    // project until the TTL sweep expires them, up to three minutes later.
+    setRaw({})
     if (!projectId || !userId) {
       leavePresence()
       return
@@ -104,6 +112,20 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     void sweep
     return derivePresence(raw, { selfId: userId, ttlMs: PRESENCE_TTL_MS })
   }, [raw, userId, sweep])
+
+  // Somebody is in the room whose name we do not have. The usual reason is the
+  // ordinary one — they joined the team after this page loaded, so they were not
+  // in the member list we fetched — and until something re-reads it they are
+  // "Someone" for the rest of the session. Presence is the one feature where
+  // that case is the norm rather than the exception, so it is the one that asks.
+  // `refreshMembers` rate-limits itself, so an id that can never be resolved
+  // (a member who left, an offline device) costs one call a minute, not one a
+  // render.
+  const unknown = snapshot.people.some((p) => !labelFor(p.userId).email)
+  useEffect(() => {
+    if (!projectId || !unknown) return
+    void refreshMembers(projectId)
+  }, [projectId, unknown])
 
   const peopleOn = useCallback(
     (nodeIds: string[]): PresencePerson[] => {

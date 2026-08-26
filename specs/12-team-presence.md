@@ -334,6 +334,26 @@ subscription, plus `watchSockets()`, `watchRequests()` and `watchErrors()`, so
 "no channel was opened" and "nothing errored" are read off the wire instead of
 inferred from a quiet screen.
 
+## Review record (2026-08-26)
+
+Independent review of `7889346..HEAD` at high effort. The migration was checked
+and held: `private: true` is set, the topic predicate fails closed on NULL and on
+a non-uuid topic without raising, `substring(from 10)` lands on the uuid, and
+`select` + `insert` is the right pair. Six findings, four fixed, one is the
+blocker above, one is somebody else's bug.
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | `channel.ts` treats a server `CLOSED` as fail-open and never rejoins; `joinedKey` stays set so the identity guard blocks a rejoin, and the heartbeat keeps calling `track()` on a dead channel | **Open — this is the blocker.** The fix is a design choice (throttle / broadcast / rejoin), so it is not made here |
+| 2 | `PresenceProvider` left `raw` stale on a project switch: cleanup unsubscribes before `leavePresence()` publishes the empty room, and the no-project branch never subscribes, so the old team's dots rendered over the new project for up to a TTL | Fixed: `setRaw({})` at the top of the effect |
+| 3 | The member-email cache is only invalidated on sign-out, so a teammate who joins mid-session is "Someone" until a reload — the ordinary case for presence, not an edge one | Fixed: `refreshMembers()`, asked for once when an unknown id appears, rate-limited to one call a minute, with a watcher so the hook re-renders |
+| 4 | `derive.ts` clamped the AGE rather than the timestamp, so a fast clock both outlived a correct one and outranked the same account's believable device — putting the dot on the tab they had left. The comment and the test both claimed otherwise | Fixed: future stamps are ranked below believable ones and clamped for TTL. The comment now states the residual honestly instead of overclaiming, and the test asserts the expiry it only named before |
+| 5 | `nodeIdFromPath` knew `SUB_PAGE_ROUTES` but not the journey's GROUP routes, so the group ids `NavShell` passes to `PresenceDots` (`s2`, `s3` → `/describe/big-picture`, `/describe/style`) could never match: someone on a group landing was counted in the header and shown nowhere | Fixed: the reverse map is built from both sources. Stage landings stay null on purpose |
+| 6 | `check-presence-live.mjs` defaulted to port 4183 while `preview-build.sh` serves 4173/4174 | Fixed |
+
+Finding 5 is the same mistake as departure 2 in this spec, one level up the tree:
+a route the nav offers that presence cannot name. Worth remembering as a shape.
+
 ## Deferred
 
 - Presence for anything other than the worksheet nav (the Genres page, the

@@ -65,7 +65,48 @@ async function loadMembers(projectId: string): Promise<void> {
 export function forgetMembers(projectId?: string): void {
   if (projectId) cache.delete(projectId)
   else cache.clear()
+  lastRefresh.clear()
 }
+
+/** When each project's member list was last re-fetched on demand. */
+const lastRefresh = new Map<string, number>()
+/**
+ * Least time between two on-demand refreshes of one project's member list.
+ *
+ * The cache above is deliberately populated once and keeps its failures, which
+ * is right for a toast naming whoever last wrote a cell. It is wrong for
+ * presence: somebody joining the team mid-workshop is the ordinary case, and
+ * until the page is reloaded they have no row in the cache and appear as
+ * "Someone". So an unknown account id may ask for one re-fetch — but no faster
+ * than this, or an id that genuinely cannot be resolved (a member who left, an
+ * offline device) would re-ask on every render for the rest of the session.
+ */
+const REFRESH_COOLDOWN_MS = 60_000
+
+/**
+ * Re-read a project's members because somebody turned up who is not in the
+ * cache. Resolves to true when the list was actually re-fetched.
+ */
+export async function refreshMembers(projectId: string): Promise<boolean> {
+  const now = Date.now()
+  const last = lastRefresh.get(projectId) ?? 0
+  if (now - last < REFRESH_COOLDOWN_MS) return false
+  lastRefresh.set(projectId, now)
+  cache.delete(projectId)
+  await loadMembers(projectId)
+  for (const cb of watchers) cb(projectId)
+  return true
+}
+
+/**
+ * Told when a project's member list is replaced.
+ *
+ * `useMemberLabels` fetches in an effect keyed on the project, so a refresh
+ * triggered from anywhere else changes the cache without changing that hook's
+ * state — and a memoised consumer would go on rendering the pre-refresh answer.
+ * This is the nudge that closes that gap.
+ */
+const watchers = new Set<(projectId: string) => void>()
 
 export interface MemberLabel {
   /** A recognisable name, or null when it cannot be resolved. */
@@ -127,8 +168,13 @@ export function useMemberLabels(
     void loadMembers(projectId).then(() => {
       if (active) setLoaded((n) => n + 1)
     })
+    const onRefresh = (id: string) => {
+      if (active && id === projectId) setLoaded((n) => n + 1)
+    }
+    watchers.add(onRefresh)
     return () => {
       active = false
+      watchers.delete(onRefresh)
     }
   }, [projectId])
 

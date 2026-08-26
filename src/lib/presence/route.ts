@@ -9,21 +9,34 @@
  * Pure and tested for the same reason `derive.ts` is: it decides what a person
  * sees, and it is the half of presence that can be wrong without erroring.
  */
-import { SUB_PAGE_ROUTES } from '../content/loader'
+import { journey, SUB_PAGE_ROUTES } from '../content/loader'
 
 /**
- * The three subsections whose worksheet route is superseded by a dedicated page
- * (`/choose`, `/macro`, `/style`), inverted.
+ * Every route the nav offers that maps to a node id, inverted.
  *
- * Derived from the forward map rather than retyped, so adding a fourth dedicated
- * page cannot leave presence pointing at a route that no longer exists. The
- * sidebar links these tabs as `/worksheet/<id>` and WorksheetView redirects, so
- * without this a person sitting on a tab the nav itself offers would show no dot
- * there — which reads as a broken feature rather than as the deferred scope it is.
+ * Two sources, and both are derived rather than retyped so a new page cannot
+ * leave presence pointing at a route that no longer exists:
+ *
+ * 1. `SUB_PAGE_ROUTES` — the three subsections whose worksheet route is
+ *    superseded by a dedicated page (`/choose`, `/macro`, `/style`). The sidebar
+ *    links these as `/worksheet/<id>` and WorksheetView redirects.
+ * 2. The journey's GROUP rows. `s2` and `s3` are linked as `/describe/big-picture`
+ *    and `/describe/style`, which match neither the map above nor
+ *    `/worksheet/<id>` — so before this, the group node ids `NavShell` passes to
+ *    `PresenceDots` could never match anything, and a person sitting on a group
+ *    landing page was counted in the header while showing no dot anywhere. The
+ *    same failure the point above exists to prevent, one level up the tree.
+ *
+ * Stage landings (`/describe`, `/summary`) are deliberately absent: a stage is
+ * not a node, so somebody standing on one is present in the project and on no
+ * tab, exactly like the genres page.
  */
-const PAGE_TO_SUB: Record<string, string> = Object.fromEntries(
-  Object.entries(SUB_PAGE_ROUTES).map(([subId, route]) => [route, subId]),
-)
+const PAGE_TO_NODE: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(SUB_PAGE_ROUTES).map(([subId, route]) => [route, subId])),
+  ...Object.fromEntries(
+    journey().flatMap((stage) => (stage.groups ?? []).map((g) => [g.route, g.nodeId])),
+  ),
+}
 
 /**
  * The node id a pathname is on, or null.
@@ -38,7 +51,7 @@ export function nodeIdFromPath(pathname: string | null | undefined): string | nu
   // Trailing slashes and a doubled slash both arrive from real links.
   const path = pathname.replace(/\/+$/, '') || '/'
 
-  const mapped = PAGE_TO_SUB[path]
+  const mapped = PAGE_TO_NODE[path]
   if (mapped) return mapped
 
   const match = /^\/worksheet\/([^/]+)$/.exec(path)

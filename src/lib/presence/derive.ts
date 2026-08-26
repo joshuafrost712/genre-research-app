@@ -96,19 +96,39 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 function freshest(entries: unknown, now: number, ttlMs: number): PresencePerson['nodeId'] | undefined {
   if (!Array.isArray(entries)) return undefined
   let bestAt = -Infinity
+  // 1 for a believable stamp, 0 for one from the future. Compared before `at`.
+  let bestRank = -1
   let bestNode: string | null = null
   let found = false
 
   for (const entry of entries) {
     if (!isRecord(entry)) continue
-    const at = typeof entry.at === 'string' ? Date.parse(entry.at) : NaN
-    if (!Number.isFinite(at)) continue
-    // Clamp a clock from the future to "now". Workshop device clocks are wrong by
-    // minutes in both directions, and a fast clock must not buy a longer life
-    // than a correct one.
-    const age = Math.max(0, now - at)
-    if (age > ttlMs) continue
-    if (at > bestAt) {
+    const raw = typeof entry.at === 'string' ? Date.parse(entry.at) : NaN
+    if (!Number.isFinite(raw)) continue
+
+    // Workshop device clocks are wrong by minutes in both directions, so a stamp
+    // from the future is a device with a bad clock, not a lie to discard: drop it
+    // and a correctly-working phone goes invisible, which is a worse failure than
+    // the one it prevents. It is DISCOUNTED instead, in two ways.
+    //
+    // RANK first. A stamp that has not happened yet loses to any believable one,
+    // so a tablet an hour fast can never pin this account's dot to the page it
+    // left while the laptop in front of them says otherwise. That was the bug
+    // worth fixing: ordering on the raw value put the dot on the wrong tab.
+    //
+    // Then TTL, against the stamp clamped to now. Note what this does NOT buy:
+    // the entry still outlives a correct one, because each read re-clamps and the
+    // age stays 0 until real time passes the stamp. Clamping cannot fix that, and
+    // the earlier comment here claimed it did. The exposure is bounded and small:
+    // Realtime removes a presence entry the moment its socket closes, so the TTL
+    // only ever covers a tab the OS froze with the socket still open.
+    const future = raw > now
+    const at = future ? now : raw
+    if (now - at > ttlMs) continue
+
+    const rank = future ? 0 : 1
+    if (rank > bestRank || (rank === bestRank && at > bestAt)) {
+      bestRank = rank
       bestAt = at
       bestNode = typeof entry.nodeId === 'string' && entry.nodeId ? entry.nodeId : null
     }
