@@ -53,6 +53,25 @@ const UI = {
   'nav.next': { en: 'Next', id: 'Berikutnya' },
   'nav.endOfWorksheet': { en: 'End of worksheet', id: 'Akhir lembar kerja' },
 
+  // The header's passage × genre switcher. The Indonesian here is a first pass
+  // and wants a native check before anyone leans on it in a workshop.
+  'context.switchGenre': { en: 'Switch genre', id: 'Ganti genre' },
+  'context.switchPassage': { en: 'Switch passage', id: 'Ganti perikop' },
+  'context.manageGenres': { en: 'Manage genres…', id: 'Kelola genre…' },
+  'context.managePassages': { en: 'Manage passages…', id: 'Kelola perikop…' },
+  'context.answered': { en: '{done}/{total} answered', id: '{done}/{total} terjawab' },
+  'context.completed': { en: 'Completed', id: 'Selesai' },
+  // Shown instead of a column of identical numbers: on a genre-layer step the
+  // answer belongs to the genre, so every passage genuinely shares it.
+  'context.sharedAcrossPassages': {
+    en: 'Answers on this step are shared across passages.',
+    id: 'Jawaban pada langkah ini digunakan bersama di semua perikop.',
+  },
+  'context.sharedAcrossGenres': {
+    en: 'Answers on this step are shared across genres.',
+    id: 'Jawaban pada langkah ini digunakan bersama di semua genre.',
+  },
+
   // The jot picker: insert a captured note into the answer box it belongs in.
   'jot.insert': { en: 'Insert a jot', id: 'Sisipkan catatan' },
   'jot.pickerTitle': { en: 'Insert a jot', id: 'Sisipkan catatan' },

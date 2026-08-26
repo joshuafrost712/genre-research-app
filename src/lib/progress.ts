@@ -164,6 +164,71 @@ export function genreProgress(
   return { overall: { done, total }, bySubsection }
 }
 
+/**
+ * The distinct layers of one subsection's answerable leaves.
+ *
+ * The context switcher uses this to avoid lying by repetition. A genre-layer
+ * step stores one answer per genre, so every passage in the passage menu would
+ * show the same count — four identical numbers implying four separate pieces of
+ * work. Knowing the layers lets the menu say "shared across passages" instead.
+ */
+export function subsectionLayers(subId: string, mode: DepthMode): Layer[] {
+  const ref = findNode(subId)
+  if (!ref) return []
+  const seen = new Set<Layer>()
+  for (const leaf of answerableLeaves(ref.node, mode)) {
+    const layer = effectiveLayer(leaf.id)
+    if (layer) seen.add(layer)
+  }
+  return [...seen]
+}
+
+/**
+ * Answered counts for ONE subsection across several candidate contexts.
+ *
+ * Drives the per-genre and per-passage counts in the context switcher's menus.
+ * `computeProgress` would answer the same question, but it rebuilds the entry
+ * index and walks the whole nav tree per candidate; with a menu of genres open
+ * that is the same work repeated for one subsection's worth of answer. So the
+ * index is built once here and exactly one subsection is evaluated.
+ *
+ * Two things it must get right, both of which a simpler version gets wrong:
+ *
+ * 1. **The layer is resolved per leaf, not per subsection.** `genreProgress`
+ *    filters at the subsection level, which is fine for its purpose but wrong
+ *    here: `s0.genre_choice` declares itself synthesis while four of its six
+ *    leaves are focusText-layer. Filtering by the subsection's own layer counts
+ *    2 of 6 and contradicts the 6 the sidebar prints from `computeProgress`.
+ * 2. **A container-less candidate answers nothing.** `buildIndex` folds an
+ *    entry with no container id to `''`, and a candidate pair that has never
+ *    been opened has `worksheetId: ''`. Without the guard below those two empty
+ *    strings match, and every unopened pair reports the same stray rows as
+ *    answered.
+ */
+export function subsectionCounts(
+  entries: Entry[],
+  subId: string,
+  ctxs: ActiveContext[],
+  mode: DepthMode,
+): Count[] {
+  const ref = findNode(subId)
+  if (!ref || !visibleAtDepth(ref.node, mode)) return ctxs.map(() => ({ done: 0, total: 0 }))
+
+  const leaves = answerableLeaves(ref.node, mode)
+  const idx = buildIndex(entries)
+
+  return ctxs.map((ctx) => {
+    let done = 0
+    for (const leaf of leaves) {
+      const layer = effectiveLayer(leaf.id)
+      if (!layer) continue
+      if (!entryContainerId(layer, ctx)) continue // (2) above
+      if (isAnswered(leaf, layer, ctx, idx)) done++
+    }
+    return { done, total: leaves.length }
+  })
+}
+
 export interface WizardStep {
   node: GuideNode
   sectionLabel: string

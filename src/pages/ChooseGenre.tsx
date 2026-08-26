@@ -146,9 +146,18 @@ export function ChooseGenre() {
       .filter((g) => !seeded.includes(g.id) && !existingNames.has(g.name.trim().toLowerCase()))
     if (toSeed.length === 0) return
     seedingRef.current = true
+    // The ref alone was enough while this page only ever unmounted on a
+    // navigation. It is not enough now: switching genre from the header remounts
+    // the page tree, and a remount mid-write destroys the ref. The fresh mount
+    // would then see seedingRef false plus an `entries` array that predates the
+    // rows this run is still writing, and seed the same candidates twice.
+    // Matches the cancellation the sibling effect above already has.
+    let cancelled = false
     void (async () => {
+      const written: string[] = []
       try {
         for (const g of toSeed) {
+          if (cancelled) break
           const rowId = await addRow(ctx, 's0.genre_choice.candidates', 'synthesis')
           await upsertEntry(
             ctx,
@@ -157,14 +166,24 @@ export function ChooseGenre() {
             { text: g.name },
             cellKey(rowId, 'name'),
           )
+          written.push(g.id)
         }
-        await upsertEntry(ctx, 'choose.seededCandidates', 'focusText', {
-          value: JSON.stringify([...seeded, ...toSeed.map((g) => g.id)]),
-        })
+        // What actually landed, not what was planned. A cancelled run has
+        // already written rows, and a marker that omits them is an invitation
+        // for the next mount to write them a second time — which is the whole
+        // failure this guard exists to prevent.
+        if (written.length > 0) {
+          await upsertEntry(ctx, 'choose.seededCandidates', 'focusText', {
+            value: JSON.stringify([...seeded, ...written]),
+          })
+        }
       } finally {
         seedingRef.current = false
       }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [ctx, genres, entries, keptValue])
 
   if (!ctx || entries === undefined || genres === undefined) {
