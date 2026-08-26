@@ -14,12 +14,61 @@ That made the app quieter. This makes it companionable. The two are deliberately
 separate: quieting a false alarm is a bug fix, and ambient presence is a feature
 with a security surface, so it gets its own session and its own review.
 
-**Status:** built on `feature/spec-12-presence` (2026-08-25). The authorization
-migration is applied to the live project and proven from both sides by
+**Status: BLOCKED, do not merge (2026-08-26).** The browser half was run and
+found a defect that stops this shipping. The UI is right — the dots land on the
+correct tabs, with the correct names, in ~620ms — but **Supabase Realtime closes
+the client's channel after about five `track()` calls, and the app never
+rejoins**, so presence dies silently a minute into ordinary use. See "The fifth
+thing" below. The branch is also now one commit behind `main` (`507f84d`), which
+edits `Layout.tsx` in the same region this does.
+
+Built on `feature/spec-12-presence` (2026-08-25). The authorization migration is
+applied to the live project and proven from both sides by
 `scripts/verify-presence.mjs` (14/14). Lint, `tsc`, 355 tests and the build are
-green. What is left is the two-browser walkthrough in a real UI, which is
-verification steps 2, 5 and 6 below plus a look at the header at 390px; nobody
-can do those from a terminal.
+green.
+
+### The fifth thing: the presence rate limit closes the channel, it does not shed the event
+
+`scripts/check-presence-live.mjs` walks the guest through five sections and
+asserts the host's dot follows each time. Four land in ~620ms. The fifth never
+arrives, and the wire says why:
+
+```
+[guest] receive error … system {"message":"Client presence rate limit exceeded","status":"error"}
+[guest] receive … phx_close
+[host]  receive presence_diff {"joins":{},"leaves":{… nodeId:"s0.setup"}}
+        track#4 -> "timed out"   host.state=joined   guest.state=closed
+```
+
+Three things make this fatal rather than untidy:
+
+1. **The limit is far lower than the tenant config advertises.** The project
+   reports `max_presence_events_per_second: 20`. Measured against it, a client
+   is killed on its **sixth** `track()` at any interval up to 5 seconds; only a
+   10-second spacing survived. So the sustainable rate is about **one track per
+   10 seconds**, not 20 per second. `presence_enabled` is `false` in that same
+   config; flipping it to `true` changed nothing measurable, so it is not the
+   lever, and it was set back.
+2. **Navigation is what breaks it, and navigation is the feature.** The
+   heartbeat at 60s is comfortably safe. But `setPresenceNode` re-tracks on every
+   route change behind a 500ms debounce, and walking five sections in a minute is
+   ordinary workshop behaviour, not stress.
+3. **There is no recovery.** A server-initiated `phx_close` is not a socket
+   error, so realtime-js does not rejoin, and `channel.ts` treats `CLOSED` as
+   fail-open: it publishes `{}` and returns. The dots vanish, nothing is logged
+   outside DEV, and presence stays dead until the tab is reloaded.
+
+The spec's message-budget arithmetic counted heartbeats and never counted
+navigation, which is why this was invisible on paper. The budget was never the
+binding constraint; the per-client presence rate limit is.
+
+**Options, none of them chosen yet.** (a) Throttle re-tracks to one per 10s with
+a trailing edge, which keeps the design and costs the "within about a second"
+promise. (b) Move node changes onto `broadcast`, which has a 100/s allowance,
+and keep presence for join/leave only — the TTL sweep in `derive.ts` already
+does the work that presence's automatic leave would. (c) Rejoin on `CLOSED` with
+backoff, which alone only converts a dead channel into a thrashing one and does
+not address the cause. (b) is the one that preserves what the spec promised.
 
 ## What done looks like
 
@@ -222,11 +271,15 @@ The channel wiring itself is verified by hand, below.
 1. ✅ `npm run lint` (0 errors; 12 pre-existing fast-refresh warnings, one per
    provider in this codebase), `npx tsc --noEmit` clean, `npx vitest run`
    355/355, `npm run build` green.
-2. ⬜ **Two profiles, same team, different sections.** Needs two real browsers.
-   The *data* half of this is automated and passing: `verify-presence.mjs` checks
-   5c/5d, that each member sees the other on the node the other is actually on.
-   What is left is that the dot renders where it should and the header reads
-   right.
+2. ✅ **Two profiles, same team, different sections.** Run by
+   `scripts/check-presence-live.mjs`, two Chrome profiles on the built bundle,
+   two real accounts joined through the Teams page. Each sees one dot, on the
+   other's section, titled with the other's name (`Here now: Budi Santoso`);
+   both headers read exactly `1 here now`; neither sees a dot on their own
+   section; a realtime socket is asserted to exist rather than assumed.
+   ❌ **The follow-on assertion fails.** The dot follows the first four
+   navigations in 621/617/623/619ms and then stops forever. See "The fifth
+   thing" above. This is the blocker.
 3. ✅ Closing the tab removes the dot — `verify-presence.mjs` check 6, asserted on
    the other member's observed state, not on an absence of errors.
 4. ✅ **Both sides of the boundary, in one run.** `verify-presence.mjs` 14/14: a
@@ -235,9 +288,29 @@ The channel wiring itself is verified by hand, below.
    denial from an outage); the anon key alone is refused (3); a malformed topic is
    refused by denial rather than a raised cast error (4a/4b); and after joining,
    the former non-member gets in (5b).
-5. ⬜ `?sync=poll` → no presence, sync still works. Needs a browser.
-6. ⬜ Signed out, and Supabase unconfigured: no errors, no channel. Needs a
-   browser. Both paths are early returns in `channel.ts`.
+5. ✅ `?sync=poll` → no presence, sync still works. Asserted as a pair, because
+   "no dots" is also what a feature that failed to boot looks like: **no new
+   realtime socket is opened** (counted over CDP, against a run in the same
+   script where one was), no header chip, no sidebar dots, and a teammate's write
+   still lands in this browser's IndexedDB in ~3s.
+6. ✅ Signed out, and Supabase unconfigured: no errors, no channel. Two fresh
+   profiles. Signed out: no realtime socket, no chip, zero error-level console or
+   network entries. Unconfigured: a second bundle built with `VITE_SUPABASE_*`
+   blank (`scripts/preview-build.sh --with-unconfigured`) makes **no request to
+   any `supabase.co` host at all**, opens no websocket, and logs nothing. That is
+   behavioural; an earlier version read the page for a sign-in control and passed
+   on the word "account" appearing in onboarding copy.
+8. ✅ **The header at 390px with somebody present.** Measured, not eyeballed,
+   and screenshotted. The phone context strip holds team chip (146px), passage ×
+   genre (107px) and `1 here now` (89px) inside 390 with **0px of row overflow**,
+   and `elementFromPoint` confirms the chip is the topmost thing at its own
+   centre — the first-run coach marks lay a scrim over the header, so that check
+   dismisses the tour first or it measures the tour.
+   ⚠️ One unrelated find: the page scrolls sideways by **15px** at 390px, and the
+   overflowing element is the **account-menu avatar in the top header row**
+   (`right: 405` against a 390 viewport), not anything presence added — the
+   presence chip is `hidden sm:flex` and is not in that row at all. Pre-existing,
+   worth its own fix.
 7. ✅ **Free-plan Realtime limits, 2026-08-25:** 200 concurrent peak connections
    and **2 million messages per month**. Connections are irrelevant at workshop
    scale. Messages were not: announcements fan out to every member, so the cost is
@@ -246,10 +319,20 @@ The channel wiring itself is verified by hand, below.
    a decoration. The heartbeat is 60s and the TTL 180s, which brings the same
    workshop to ~480k. The arithmetic is in `derive.ts` beside the constants.
 
-Also worth doing while two browsers are open, because an automated check cannot:
-look at the header at 390px with somebody else present. The presence chip sits in
-the phone context strip beside the team chip and the passage × genre, and that row
-has run out of room before.
+All of the above is `scripts/check-presence-live.mjs`, against the built bundle:
+
+```
+scripts/preview-build.sh --with-unconfigured        # terminal 1
+UNCONFIGURED_URL=http://localhost:4174/genre-research-app/ \
+  node scripts/check-presence-live.mjs http://localhost:4173/genre-research-app/
+```
+
+It needs `SUPABASE_ACCESS_TOKEN`, creates two throwaway accounts and deletes them
+on the way out, including on failure. The harness in `scripts/lib/browser.mjs`
+gained what these assertions needed and the older checks did not have: CDP event
+subscription, plus `watchSockets()`, `watchRequests()` and `watchErrors()`, so
+"no channel was opened" and "nothing errored" are read off the wire instead of
+inferred from a quiet screen.
 
 ## Deferred
 

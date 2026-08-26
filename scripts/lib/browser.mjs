@@ -63,8 +63,14 @@ export async function launch(label, { headful = process.env.HEADFUL === '1' } = 
 
   let nextId = 1
   const waiting = new Map()
+  /** CDP event name -> handlers. Events carry no `id`, so they are dispatched here. */
+  const events = new Map()
   ws.addEventListener('message', (ev) => {
     const m = JSON.parse(ev.data)
+    if (m.id === undefined) {
+      for (const h of events.get(m.method) ?? []) h(m.params ?? {})
+      return
+    }
     const p = waiting.get(m.id)
     if (p) {
       waiting.delete(m.id)
@@ -97,9 +103,96 @@ export async function launch(label, { headful = process.env.HEADFUL === '1' } = 
     return result.value
   }
 
+  /** Subscribe to a CDP event. Returns an unsubscribe function. */
+  const on = (method, handler) => {
+    const list = events.get(method) ?? []
+    list.push(handler)
+    events.set(method, list)
+    return () => events.set(method, (events.get(method) ?? []).filter((h) => h !== handler))
+  }
+
   return {
     label,
     evaluate,
+    on,
+
+    /** Raw CDP, for domains these helpers do not wrap. */
+    cdp: send,
+
+    /**
+     * Run an expression in every new document BEFORE that document's own scripts.
+     *
+     * The only way to observe something a page does during boot. An `evaluate()`
+     * after `goto()` is already too late: the app has booted, and whatever it did
+     * on the way up happened unwatched.
+     */
+    preload(source) {
+      return send('Page.addScriptToEvaluateOnNewDocument', { source })
+    },
+
+    /**
+     * Record every WebSocket the page opens, from now on.
+     *
+     * This is how "no channel was opened" becomes a claim rather than a hope.
+     * Absence of dots in the UI proves nothing on its own — an empty room and a
+     * refused socket look identical — so the checks that assert a channel must
+     * NOT exist read the socket list, and the check that asserts one must exist
+     * reads the same list. One mechanism, both directions.
+     */
+    async watchSockets() {
+      const opened = []
+      on('Network.webSocketCreated', ({ url }) => opened.push(url))
+      await send('Network.enable')
+      return {
+        all: () => [...opened],
+        matching: (re) => opened.filter((u) => re.test(u)),
+      }
+    },
+
+    /**
+     * Record every request URL the page issues, from now on.
+     *
+     * "This build has no Supabase" is a claim about behaviour, not about copy on
+     * the screen, and reading the page text for a sign-in control was how an
+     * earlier version of that check got it wrong: the word "account" appears in
+     * onboarding prose whether or not a client was ever constructed.
+     */
+    async watchRequests() {
+      const urls = []
+      on('Network.requestWillBeSent', ({ request }) => urls.push(request.url))
+      await send('Network.enable')
+      return {
+        all: () => [...urls],
+        matching: (re) => urls.filter((u) => re.test(u)),
+      }
+    },
+
+    /**
+     * Record page errors, from now on: thrown exceptions, `console.error`, and
+     * the browser's own error-level log entries.
+     *
+     * All three, because they catch different things. A failed WebSocket
+     * handshake is logged by Chrome's network stack and never reaches
+     * `console.error`, so a check that watched only the console API would call a
+     * refused connection clean.
+     */
+    async watchErrors() {
+      const seen = []
+      on('Runtime.exceptionThrown', ({ exceptionDetails }) => {
+        seen.push(
+          exceptionDetails?.exception?.description ?? exceptionDetails?.text ?? 'exception',
+        )
+      })
+      on('Runtime.consoleAPICalled', ({ type, args }) => {
+        if (type !== 'error' && type !== 'assert') return
+        seen.push(args.map((a) => a.value ?? a.description ?? a.type).join(' '))
+      })
+      on('Log.entryAdded', ({ entry }) => {
+        if (entry?.level === 'error') seen.push(`${entry.source}: ${entry.text}`)
+      })
+      await send('Log.enable')
+      return () => [...seen]
+    },
 
     async goto(url, settleMs = 2500) {
       await send('Page.navigate', { url })
@@ -218,9 +311,16 @@ export async function accounts(ref, pat) {
     anon,
     service,
 
-    async create(tag) {
+    /**
+     * `email` overrides the generated address. Presence names come from
+     * `personLabel()`, which reads the LOCAL PART only and refuses to prettify one
+     * containing a digit run — so a check that wants "Ana Dewi" rather than a raw
+     * address passes `ana.dewi@t<stamp>.example.com` and puts the uniqueness stamp
+     * in the domain.
+     */
+    async create(tag, { email: emailOverride } = {}) {
       const stamp = Date.now().toString(36)
-      const email = `${tag}-${stamp}@example.com`
+      const email = emailOverride ?? `${tag}-${stamp}@example.com`
       const password = `${tag}-${stamp}-pw`
       const res = await fetch(`${base}/auth/v1/admin/users`, {
         method: 'POST',
