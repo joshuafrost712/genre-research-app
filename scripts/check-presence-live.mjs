@@ -46,6 +46,29 @@ const check = (name, ok, detail = '') => {
   if (!ok) failures++
 }
 
+/**
+ * Is this error just GitHub Pages not knowing about a client-side route?
+ *
+ * Pages has no SPA rewrite, so `…/teams` and `…/worksheet/<id>` are answered with
+ * HTTP 404 and the repo's `404.html`, which boots the same app — the page works,
+ * and the browser still logs the status as an error. Run against `vite preview`
+ * the same navigations are 200, which is why this only ever appears on the deploy.
+ *
+ * Narrow on purpose. A 404 for a path with a FILE EXTENSION is a missing asset and
+ * still fails the run; only extension-less paths, which are routes, are excused.
+ * Blanket-ignoring 404s would have hidden a missing icon or a dead chunk.
+ */
+const isPagesRoute404 = (message) => {
+  if (!/status of 404/.test(message)) return false
+  const url = /\[(https?:\/\/[^\]]+)\]/.exec(message)?.[1]
+  if (!url) return false
+  try {
+    return !/\.[a-z0-9]+$/i.test(new URL(url).pathname)
+  } catch {
+    return false
+  }
+}
+
 /** Presence dots in the desktop sidebar, each tied to the link it sits inside. */
 const sidebarDots = (page) =>
   page.evaluate(`
@@ -638,7 +661,7 @@ try {
   const stillSyncs = await hasEntry(host, LATER)
   check(`ordinary sync still works under ?sync=poll (${stillSyncs.ms}ms)`, stillSyncs.ok, 'not within 25s')
 
-  const hostErrs = hostErrors()
+  const hostErrs = hostErrors().filter((e) => !isPagesRoute404(e))
   check(
     `no page errors across the whole signed-in run (${hostErrs.length})`,
     hostErrs.length === 0,
@@ -660,7 +683,7 @@ try {
   await sleep(6000)
   check('signed out opens no realtime socket', lonelySockets.matching(REALTIME).length === 0, JSON.stringify(lonelySockets.matching(REALTIME)))
   check('signed out shows no presence chip', (await headerChip(lonely)) === null)
-  const lonelyErrs = lonelyErrors()
+  const lonelyErrs = lonelyErrors().filter((e) => !isPagesRoute404(e))
   check(`signed out logs no errors (${lonelyErrs.length})`, lonelyErrs.length === 0, JSON.stringify(lonelyErrs.slice(0, 4)))
 
   // --- 3b. Supabase not configured at all ------------------------------------
@@ -686,7 +709,7 @@ try {
     check('the unconfigured build never calls Supabase', sbCalls.length === 0, JSON.stringify(sbCalls.slice(0, 3)))
     check('it opens no websocket at all', noSbSockets.all().length === 0, JSON.stringify(noSbSockets.all()))
     check('it shows no presence chip', (await headerChip(unconfigured)) === null)
-    const noSbErrs = noSbErrors()
+    const noSbErrs = noSbErrors().filter((e) => !isPagesRoute404(e))
     check(`it logs no errors (${noSbErrs.length})`, noSbErrs.length === 0, JSON.stringify(noSbErrs.slice(0, 4)))
   }
 } catch (err) {

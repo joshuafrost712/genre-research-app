@@ -188,7 +188,12 @@ export async function launch(label, { headful = process.env.HEADFUL === '1' } = 
         seen.push(args.map((a) => a.value ?? a.description ?? a.type).join(' '))
       })
       on('Log.entryAdded', ({ entry }) => {
-        if (entry?.level === 'error') seen.push(`${entry.source}: ${entry.text}`)
+        // The URL matters as much as the text. "Failed to load resource: 404" is a
+        // missing asset or a client-side route the host does not know about, and a
+        // caller cannot tell those apart without knowing what failed.
+        if (entry?.level === 'error') {
+          seen.push(`${entry.source}: ${entry.text}${entry.url ? ` [${entry.url}]` : ''}`)
+        }
       })
       await send('Log.enable')
       return () => [...seen]
