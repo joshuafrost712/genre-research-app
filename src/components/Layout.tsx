@@ -97,9 +97,31 @@ export function Layout() {
             <span className="mt-1 block h-0.5 w-5 bg-gray-700" />
             <span className="mt-1 block h-0.5 w-5 bg-gray-700" />
           </button>
+          {/* The one thing in this row that may be sacrificed for space, which is
+              why it carries `min-w-0 truncate` and the control group does not.
+              A short wordmark on a phone rather than an ellipsis stub: at 390px
+              the full name would truncate to about "Local G…", which is not a
+              wordmark, and it is the page's own H1 two rows below anyway. */}
           <Link to="/" className="min-w-0 truncate font-semibold">
-            Local Genres Research
+            <span className="sm:hidden">Genres</span>
+            <span className="hidden sm:inline">Local Genres Research</span>
           </Link>
+          {/* This box is shrinkable, and every chip in it was `shrink-0`. That
+              combination is what put the account menu 33px off the right edge of
+              a 390px screen: sign out, change password, switch project and
+              clear-this-device, all behind a sideways scroll nothing hinted at.
+              Flexbox shrank the box to 165px against 214px of content, and a
+              container that promises to shrink and cannot deliver does not clip
+              its children — it spills them.
+              So the row now has an ordered sacrifice list, and every item on it
+              can really give way. The brand truncates (it has `min-w-0`); the
+              sync chip truncates after it (see SyncChip); the language toggle and
+              the account control never move, because they are the two controls
+              you cannot reach any other way on a phone.
+              Indonesian is what makes this load-bearing rather than cosmetic:
+              "Sinkronisasi dimatikan" is three times the width of "Sync off",
+              and 360px × Indonesian × signed-out is the widest this row ever
+              gets. Sized at four widths in scripts/check-header-fits.mjs. */}
           <div className="ml-auto flex min-w-0 items-center gap-2">
             {/* Before the sync chip: "which team" is a more urgent question than
                 "is it saved", and it is the one nothing used to answer. */}

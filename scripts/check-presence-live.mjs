@@ -563,13 +563,17 @@ try {
       phone.rowOverflow <= 1,
       `${phone.rowOverflow}px of hidden content`,
     )
-    // Scoped to what this spec owns. The page DOES scroll sideways by 15px at
-    // 390px, but the overflowing element is the account-menu avatar in the top
-    // header row — a row the presence chip is not even in below 640px, since it
-    // is `hidden sm:flex` there and lives in the context strip instead. Failing
-    // spec 12 for a pre-existing bug in somebody else's row would make this gate
-    // lie in both directions: red when presence is fine, and no more likely to go
-    // green when presence breaks. It is reported loudly instead.
+    // Scoped to what this spec owns, and the scoping earned its keep. The page
+    // used to scroll sideways by 15px at 390px, but the overflowing element was
+    // the account-menu avatar in the TOP header row — a row the presence chip is
+    // not even in below 640px, since it is `hidden sm:flex` there and lives in
+    // the context strip instead. Failing spec 12 for a bug in somebody else's row
+    // would have made this gate lie in both directions: red when presence is
+    // fine, and no more likely to go green when presence breaks. So it was
+    // reported loudly rather than asserted, and then fixed on its own terms:
+    // scripts/check-header-fits.mjs owns that row now, across two widths and both
+    // locales. The WARN below should stay silent; if it ever speaks again, that is
+    // the check to run.
     const mine = phone.overflowing.filter((e) => e.isPresence)
     check(
       `nothing presence added overflows the viewport`,
@@ -578,8 +582,8 @@ try {
     )
     if (phone.pageOverflow > 1) {
       console.log(
-        `    WARN pre-existing, not presence: the page scrolls sideways ${phone.pageOverflow}px at 390px.` +
-          `\n         Culprit is the account menu in the TOP header row: ` +
+        `    WARN not presence: the page scrolls sideways ${phone.pageOverflow}px at 390px.` +
+          `\n         Run scripts/check-header-fits.mjs — it owns the top header row: ` +
           JSON.stringify(phone.overflowing.filter((e) => e.inHeader).slice(0, 2)),
       )
     }

@@ -96,15 +96,28 @@ export function SyncChip() {
         ? (sync.error ?? 'unknown error')
         : `Last synced ${ago(sync.lastSyncedAt, nowMs)}${sync.peers > 0 ? ` · ${sync.peers} other device${sync.peers === 1 ? '' : 's'}` : ''}`
 
+  // Shrinkable, and the only shrinkable chip in the header's control group. That
+  // is deliberate: the group is `min-w-0`, so it must contain something that can
+  // honour the shrink, or the shortfall becomes overflow and pushes the account
+  // menu off the screen (the bug scripts/check-header-fits.mjs now guards).
+  //
+  // This chip is the right thing to sacrifice because it is the only one that
+  // degrades without losing its meaning. Truncation keeps the tone colour, which
+  // is what carries the alarm; the count stays legible because it leads the label
+  // ("3 waiting" -> "3 wai…"); and the full text is in the title either way. The
+  // alternatives are a control you cannot reach: the language toggle must show
+  // both options one tap apart, and the account menu is the only route to sign
+  // out. It only ever truncates under real pressure — 360px in Indonesian, where
+  // "Sinkronisasi dimatikan" alone wants 145px of a 268px row.
   return (
     <button
       type="button"
       onClick={() => syncEngine.syncNow()}
       title={`${detail}. ${t('sync.tapToSync')}`}
-      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs ${tone}`}
+      className={`flex min-w-0 shrink items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs ${tone}`}
     >
-      <span className="font-medium">{label}</span>
-      <span className="hidden sm:inline opacity-75">{ago(sync.lastSyncedAt, nowMs)}</span>
+      <span className="truncate font-medium">{label}</span>
+      <span className="hidden shrink-0 sm:inline opacity-75">{ago(sync.lastSyncedAt, nowMs)}</span>
     </button>
   )
 }

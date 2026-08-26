@@ -152,7 +152,11 @@ export function AccountMenu() {
   const toggle = (m: OpenMenu) => setMenu((cur) => (cur === m ? null : m))
 
   return (
-    <div className="flex items-center gap-2">
+    // The hook scripts/check-header-fits.mjs measures. On the element, not on a
+    // class-name substring: a header layout gate that sniffs for a Tailwind class
+    // breaks silently the next time the classes are rearranged, and a gate that
+    // matches nothing passes unconditionally.
+    <div data-account="menu" className="flex items-center gap-2">
       {/* Signed out: ONE button, straight to the account dialog, and it never
           disappears. It used to render only when no Google connection existed,
           which is how the Psalms workshop got stuck: connect Drive (the familiar

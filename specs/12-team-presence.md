@@ -379,11 +379,16 @@ The channel wiring itself is verified by hand, below.
    and `elementFromPoint` confirms the chip is the topmost thing at its own
    centre — the first-run coach marks lay a scrim over the header, so that check
    dismisses the tour first or it measures the tour.
-   ⚠️ One unrelated find: the page scrolls sideways by **15px** at 390px, and the
-   overflowing element is the **account-menu avatar in the top header row**
-   (`right: 405` against a 390 viewport), not anything presence added — the
-   presence chip is `hidden sm:flex` and is not in that row at all. Pre-existing,
-   worth its own fix.
+   ⚠️ One unrelated find, now **fixed**: the page scrolled sideways by **15px** at
+   390px, and the overflowing element was the **account-menu avatar in the top
+   header row** (`right: 405` against a 390 viewport), not anything presence added
+   — the presence chip is `hidden sm:flex` and is not in that row at all. Reported
+   rather than asserted here, on the grounds that failing spec 12 for another
+   row's bug makes this gate lie in both directions, and then fixed on its own
+   terms: `scripts/check-header-fits.mjs` plus the ordered sacrifice list in
+   `Layout.tsx`. Measuring it properly showed the 15px was the mild end — in
+   Indonesian the **language toggle** was off-screen too, at `left: 334` on a
+   360px screen. See the note below.
 7. ✅ **Free-plan Realtime limits, 2026-08-25:** 200 concurrent peak connections
    and **2 million messages per month**. Connections are irrelevant at workshop
    scale. Messages were not: announcements fan out to every member, so the cost is
@@ -469,3 +474,63 @@ running it — every run had been green.
 - **Two numbers in one header.** If "4 people" and "2 here" sit next to each
   other without wording that separates membership from presence, this feature
   makes the header harder to read rather than easier.
+
+## Appendix: the header overflow this spec found (fixed 2026-08-26)
+
+Not presence, but found by checking presence at 390px, and recorded here because
+this is where the report lives.
+
+The top header row put the **account menu off the right edge of the phone**.
+Everything behind it went with it: sign out, change password, switch project,
+"clear this device". A 15px horizontal scroll was the only way to reach any of
+them, and nothing on screen suggested one existed.
+
+The cause is a shape worth recognising again. The control group was `min-w-0`
+(shrinkable) while every chip inside it was `shrink-0`. Flexbox shrank the group
+to 165px against 214px of content, and the shortfall became overflow: a container
+that promises to shrink and cannot deliver does not clip its children, it spills
+them.
+
+Measuring it properly cost about ten minutes and changed the size of the problem
+twice:
+
+| State | Overflow before |
+|---|---|
+| 390px, English, signed in | 23px — the avatar |
+| 390px, English, signed out | 43px — the "Sign in" button |
+| 390px, Indonesian, signed in | 80px — avatar **and language toggle** |
+| 360px, Indonesian, signed out | 103px |
+
+The 15px first reported was the mildest case in the sweep. In Indonesian the
+language toggle itself was off-screen, because `Sinkronisasi dimatikan` is three
+times the width of `Sync off` — and Indonesian is what the Bali workshop runs in.
+An English-only layout check would have passed a fix and shipped the bug.
+
+The fix is an **ordered sacrifice list** in the row, where every item on it can
+really give way:
+
+1. the brand truncates first (`min-w-0 truncate`), and shows a short wordmark on
+   a phone rather than an ellipsis stub;
+2. the sync chip truncates next — the only chip that degrades without losing its
+   meaning, since the tone colour carries the alarm, the count leads the label,
+   and the full text is in the `title`;
+3. the language toggle and the account control never move. They are the two
+   controls with no other route on a phone.
+
+`scripts/check-header-fits.mjs` owns that row now: 16 states (390 and 360px × en
+and id × signed in and out × `?sync=off` and `?sync=live`), asserting geometry
+rather than `innerText`, and `elementFromPoint` for paint. Verified against the
+built bundle, not only the dev server, since Tailwind purges at build time. It was
+run against the pre-fix code to confirm it goes red — 24 failures — because a
+layout gate that cannot fail is worse than none.
+
+Two things that check got wrong first, both now written into it:
+
+- It reported the account control as **buried** in four states where nothing was
+  wrong. The app tour mounts only after `onboarded` resolves from an async read,
+  so it opened *after* the dismissal pass and covered the header. Fixed by
+  dismissing until two consecutive clean looks.
+- Half the sweep was **duplicate**. `?sync=off` is persisted in
+  `meta.syncMode` (`lib/sync/mode.ts`), so eight cases written with no query
+  string silently inherited `off` from the case before and re-measured the same
+  state, reporting identical widths. Both sync states are now named explicitly.
