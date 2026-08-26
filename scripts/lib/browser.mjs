@@ -10,6 +10,16 @@
  * separate IndexedDB, separate localStorage, separate session. That is precisely
  * the "Safari and Chrome held two different sets of answers" situation these
  * checks exist to prove is fixed.
+ *
+ * ONE TRAP WORTH KNOWING BEFORE YOU REACH FOR IT: CDP's
+ * `Network.emulateNetworkConditions` with `offline: true` DOES NOT close an
+ * established WebSocket. It blocks new requests, but an open socket sits at
+ * `readyState === 1` indefinitely — measured at 35s of emulated offline with no
+ * close event and no `Network.webSocketClosed`. So a check shaped like "go
+ * offline, prove the realtime feature notices" measures nothing and passes for
+ * the wrong reason. It is deliberately not wrapped here. For a socket drop you
+ * need a real network or a page teardown; for fetch/XHR paths, send the raw CDP
+ * command yourself via `cdp()`.
  */
 import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'

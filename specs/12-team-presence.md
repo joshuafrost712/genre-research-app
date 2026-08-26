@@ -352,12 +352,27 @@ The channel wiring itself is verified by hand, below.
    any `supabase.co` host at all**, opens no websocket, and logs nothing. That is
    behavioural; an earlier version read the page for a sign-in control and passed
    on the word "account" appearing in onboarding copy.
-8. ✅ **Presence survives venue wifi.** The guest is taken offline over CDP for
-   six seconds. The host's dot clears in ~13s (Phoenix's own socket timeout
-   noticing the dead connection, which is the server's job, not ours) and returns
-   ~5.9s after wifi comes back, on the right node, with the header count with it.
-   The assertion is the RETURN, not the disappearance: a dot that vanishes is also
-   what a channel that died and never came back looks like.
+8. ❌ **A wifi drop is NOT covered, and cannot be from this harness.** It is the
+   condition this app is used in, so the gap is worth stating plainly rather than
+   leaving to be assumed. CDP's `Network.emulateNetworkConditions` with
+   `offline: true` blocks new requests and **does not close an established
+   WebSocket**: measured directly, an open socket sat at `readyState === 1` for 35s
+   of emulated offline with no close event.
+
+   A check for it did exist for about an hour and was worse than nothing. First it
+   asserted "the dot disappears, then returns", which leans on Realtime noticing a
+   dead socket — across four runs that took 13.1s, 11.6s, and twice did not happen,
+   so the gate was flaky. Rewritten to assert the recovery instead, it passed in
+   **one millisecond**, which is what gave it away: the socket had never died, so
+   the dot had never moved. Same shape as the `/emerald/` filter in review 2. A
+   check that cannot fail reports success, so it was removed and the reason written
+   down in `browser.mjs` where the next person will reach for that API.
+
+   What the drop path does have: `channel.ts` rejoins on a terminal status with a
+   bounded backoff, realtime-js reconnects a dropped socket by itself, and every
+   navigation in the check is a full page load, so the join path runs dozens of
+   times per run. What is missing is proof that an UNCLEAN drop recovers. That
+   needs a real network — a phone on airplane mode in a room — not an emulated one.
 9. ✅ **The header at 390px with somebody present.** Measured, not eyeballed,
    and screenshotted. The phone context strip holds team chip (146px), passage ×
    genre (107px) and `1 here now` (89px) inside 390 with **0px of row overflow**,

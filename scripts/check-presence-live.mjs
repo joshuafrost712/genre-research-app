@@ -465,47 +465,27 @@ try {
     `${landed.length}/${walk.length} landed`,
   )
 
-  // --- the venue wifi ------------------------------------------------------
+  // --- what is NOT checked here, and why ------------------------------------
   //
-  // The condition this app is actually used in. A drop closes the socket, so the
-  // roster loses that person and their dot goes — which is correct, and is also
-  // exactly what a channel that died and never came back looks like. So the
-  // assertion is the RETURN, not the disappearance.
-  console.log('\n==> The guest loses wifi for 6s, then gets it back')
-  const before = await sidebarDots(host)
-  check('the host can see the guest to begin with', before?.length === 1, JSON.stringify(before))
-  await guest.cdp('Network.enable')
-  await guest.cdp('Network.emulateNetworkConditions', {
-    offline: true,
-    latency: 0,
-    downloadThroughput: 0,
-    uploadThroughput: 0,
-  })
-  const dropped = await host.until(
-    `!document.querySelector('aside [data-presence="dot"]')`,
-    30000,
-    250,
-  )
-  check(`the host stops seeing them while they are gone (${dropped.ms}ms)`, dropped.ok, 'dot never cleared')
-  await sleep(6000)
-  await guest.cdp('Network.emulateNetworkConditions', {
-    offline: false,
-    latency: 0,
-    downloadThroughput: -1,
-    uploadThroughput: -1,
-  })
-  const returned = await untilDot(host, 60000)
-  check(
-    `and sees them again once wifi returns (${returned.ms}ms)`,
-    returned.ok && returned.value?.href === walk[walk.length - 1],
-    `got ${JSON.stringify(returned.value)}, wanted ${walk[walk.length - 1]}`,
-  )
-  const guestChipBack = await host.until(
-    `(() => { const e = document.querySelector('header [data-presence="chip"]'); return e ? e.innerText.trim() : null })() === '1 here now'`,
-    30000,
-    250,
-  )
-  check(`and the header count recovers (${guestChipBack.ms}ms)`, guestChipBack.ok)
+  // A wifi drop. It is the condition this app is used in and it belongs in this
+  // script, but it cannot be driven from CDP: `Network.emulateNetworkConditions`
+  // with `offline: true` blocks new requests and DOES NOT sever an established
+  // WebSocket. Measured directly — an open socket sat at `readyState === 1` for
+  // 35s of emulated offline with no close event and no `Network.webSocketClosed`.
+  //
+  // A version of this check did ship for an hour, and it was worse than nothing.
+  // It asserted "the dot disappears, then comes back", which leans on Realtime
+  // noticing a dead socket; across four runs it cleared at 13.1s, 11.6s, and twice
+  // not at all, so the gate was flaky. Rewriting it to assert the recovery instead
+  // then made it pass in ONE MILLISECOND — the giveaway that the socket had never
+  // died, so the dot had simply never moved. That is the same shape as the
+  // `/emerald/` filter the review caught: a check that cannot fail reports success.
+  //
+  // What the drop path still has: `channel.ts` rejoins on a terminal status with a
+  // bounded backoff, realtime-js reconnects a dropped socket itself, and every
+  // navigation in this script is a full page load, so the join path is exercised
+  // dozens of times per run. What is missing is proof that an UNCLEAN drop
+  // recovers, and it needs a real network, not an emulated one.
 
   // --- 4. the phone header, measured ----------------------------------------
   console.log('\n==> CHECK 4 — the header at 390px with somebody present')
